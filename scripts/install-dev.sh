@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Живая установка: симлинки шейдера и ресурспака в .minecraft (Linux/macOS).
+# Живая установка: шейдер — симлинк (Iris его понимает),
+# ресурспак — реальная копия (ваниль блокирует симлинки предупреждением).
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 if [ -z "${MC_DIR:-}" ]; then
@@ -10,8 +11,9 @@ if [ -z "${MC_DIR:-}" ]; then
 fi
 mkdir -p "$MC_DIR/shaderpacks" "$MC_DIR/resourcepacks"
 ln -sfn "$REPO/shader/TeyvatShader" "$MC_DIR/shaderpacks/TeyvatShader"
-ln -sfn "$REPO/resourcepack"        "$MC_DIR/resourcepacks/Teyvat"
+rm -rf "$MC_DIR/resourcepacks/Teyvat"
+cp -r "$REPO/resourcepack" "$MC_DIR/resourcepacks/Teyvat"
 echo "OK:"
-echo "  $MC_DIR/shaderpacks/TeyvatShader"
-echo "  $MC_DIR/resourcepacks/Teyvat"
+echo "  $MC_DIR/shaderpacks/TeyvatShader  (симлинк)"
+echo "  $MC_DIR/resourcepacks/Teyvat      (копия, без симлинков)"
 echo "В игре: F3+R — шейдеры, F3+T — ресурспаки."

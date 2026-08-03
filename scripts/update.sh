@@ -28,6 +28,7 @@ git pull
 MC_DIR="${MC_DIR:-$HOME/.minecraft}"
 mkdir -p "$MC_DIR/shaderpacks" "$MC_DIR/resourcepacks"
 ln -sfn "$REPO/shader/TeyvatShader" "$MC_DIR/shaderpacks/TeyvatShader"
-ln -sfn "$REPO/resourcepack"        "$MC_DIR/resourcepacks/Teyvat"
+rm -rf "$MC_DIR/resourcepacks/Teyvat"
+cp -r "$REPO/resourcepack" "$MC_DIR/resourcepacks/Teyvat"
 
 echo "OK. В игре: F3+R — шейдер, F3+T — ресурспак."
