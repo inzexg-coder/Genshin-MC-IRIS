@@ -1,0 +1,6 @@
+*.zip
+shader/upstream/*.zip
+.gradle/
+build/
+run/
+dist/
