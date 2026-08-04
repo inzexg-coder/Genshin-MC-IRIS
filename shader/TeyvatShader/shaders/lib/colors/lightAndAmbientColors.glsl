@@ -7,7 +7,7 @@
         #else
             vec3 noonClearLightColor = vec3(0.42, 0.72, 1.22); //light shaft color (Mondstadt)
         #endif
-        vec3 noonClearAmbientColor = pow(skyColor, vec3(0.75)) * 0.92; //brighter Mondstadt ambient
+        vec3 noonClearAmbientColor = pow(skyColor, vec3(0.75)) * 0.98; //brighter Mondstadt ambient
 
         #ifndef COMPOSITE1
             vec3 sunsetClearLightColor = pow(vec3(0.64, 0.45, 0.3), vec3(1.5 + invNoonFactor)) * 5.0; //ground and cloud color

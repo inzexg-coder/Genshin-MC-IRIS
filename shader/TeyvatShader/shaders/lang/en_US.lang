@@ -1160,3 +1160,13 @@ option.XLIGHT_I=Blocklight Intensity
 
 option.XLIGHT_CURVE=Blocklight Contrast
 option.XLIGHT_CURVE.comment=Adjusts how quickly the intensity of blocklight fades away as it travels distance away from the light source.
+
+# Teyvat (Genshin) toon settings
+option.TOON_BANDING=§eToon Lighting§r
+option.TOON_BANDING.comment=Turns direct sunlight into cel-style brightness steps (0 / 0.5 / 1), like Genshin characters and terrain.
+option.TOON_BAND_STEP1=Toon Shadow Threshold
+option.TOON_BAND_STEP1.comment=Brightness level where the deep cel shadow step starts.
+option.TOON_BAND_STEP2=Toon Midtone Threshold
+option.TOON_BAND_STEP2.comment=Brightness level where the bright cel step starts.
+option.TOON_BAND_SOFTNESS=Toon Band Softness
+option.TOON_BAND_SOFTNESS.comment=How smooth the transition between cel steps is. Lower = harder anime shadows.
