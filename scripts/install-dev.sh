@@ -11,7 +11,7 @@ if [ -z "${MC_DIR:-}" ]; then
   esac
 fi
 echo "   MC_DIR=$MC_DIR  HOME=$HOME"
-mkdir -p "$MC_DIR/shaderpacks" "$MC_DIR/resourcepacks"
+mkdir -p "$MC_DIR/mods" "$MC_DIR/shaderpacks" "$MC_DIR/resourcepacks"
 rm -rf "$MC_DIR/shaderpacks/TeyvatShader"
 cp -r "$REPO/shader/TeyvatShader" "$MC_DIR/shaderpacks/TeyvatShader"
 rm -rf "$MC_DIR/resourcepacks/Teyvat"
@@ -42,6 +42,8 @@ fi
 install_mods_to() {
     local dir="$1"
     [ -d "$dir" ] || return 0
+    # Никогда не трогаем dist/mods самого репо — это источник jar.
+    [ "$(readlink -f "$dir")" = "$(readlink -f "$REPO/dist/mods")" ] && return 0
     if [ -f "$REPO/dist/mods/teyvat.jar" ]; then
         rm -f "$dir"/teyvat-*.jar "$dir/teyvat.jar"
         cp "$REPO/dist/mods/teyvat.jar" "$dir/teyvat.jar"
@@ -61,9 +63,10 @@ MODS_DIRS="$MC_DIR/mods $HOME/.tlauncher/mods"
 while IFS= read -r f; do
     [ -n "$f" ] && MODS_DIRS="$MODS_DIRS $(dirname "$f")"
 done < <(find /home /opt -maxdepth 15 -name "*.jar" \( -iname "iris*.jar" -o -iname "sodium*.jar" -o -iname "euphoria*.jar" \) 2>/dev/null)
-# Плюс ВСЕ папки mods под /home и /opt (TLauncher и другие лаунчеры держат их где угодно).
+# Плюс ВСЕ папки mods под /home и /opt (TLauncher и другие лаунчеры держат их где угодно),
+# кроме папок внутри самого репо (dist/mods — источник jar, его трогать нельзя).
 while IFS= read -r d; do
-    [ -n "$d" ] && MODS_DIRS="$MODS_DIRS $d"
+    case "$d" in "$REPO"/*) ;; *) MODS_DIRS="$MODS_DIRS $d" ;; esac
 done < <(find /home /opt -maxdepth 15 -type d -name mods 2>/dev/null)
 
 echo "== Папки модов:"
