@@ -10,6 +10,9 @@ if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     exit 1
 fi
 
+# Пользователь мог вручную перенести jar из репо — восстанавливаем, чтобы не ломал pull.
+git checkout -- dist/mods/teyvat.jar 2>/dev/null || true
+
 if [ -n "$(git status --porcelain | grep -v '^??')" ]; then
     echo "ВНИМАНИЕ: есть локальные изменения, мешающие pull:"
     git status --short | grep -v '^??'

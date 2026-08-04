@@ -38,14 +38,14 @@ install_mods_to() {
 }
 
 MODS_DIRS="$MC_DIR/mods $HOME/.tlauncher/mods"
-# Папки с iris/sodium/euphoria (любая глубина) — это гарантированно клиент.
+# Папки с iris/sodium/euphoria (по всему /home и /opt) — это гарантированно клиент.
 while IFS= read -r f; do
     [ -n "$f" ] && MODS_DIRS="$MODS_DIRS $(dirname "$f")"
-done < <(find "$HOME" -maxdepth 12 -name "*.jar" \( -iname "iris*.jar" -o -iname "sodium*.jar" -o -iname "euphoria*.jar" \) 2>/dev/null)
-# Плюс ВСЕ папки mods под $HOME (TLauncher и другие лаунчеры держат их где угодно).
+done < <(find /home /opt -maxdepth 15 -name "*.jar" \( -iname "iris*.jar" -o -iname "sodium*.jar" -o -iname "euphoria*.jar" \) 2>/dev/null)
+# Плюс ВСЕ папки mods под /home и /opt (TLauncher и другие лаунчеры держат их где угодно).
 while IFS= read -r d; do
     [ -n "$d" ] && MODS_DIRS="$MODS_DIRS $d"
-done < <(find "$HOME" -maxdepth 12 -type d -name mods 2>/dev/null)
+done < <(find /home /opt -maxdepth 15 -type d -name mods 2>/dev/null)
 
 echo "== Папки модов:"
 for d in $(echo "$MODS_DIRS" | tr ' ' '\n' | sort -u); do
