@@ -4,11 +4,18 @@
   "version": "${version}",
   "name": "Teyvat",
   "description": "Genshin Impact global mod for Minecraft: Teyvat blocks, world, characters.",
-  "authors": ["inzexg-coder"],
+  "authors": [
+    "inzexg-coder"
+  ],
   "license": "ARR",
   "environment": "*",
   "entrypoints": {
-    "main": ["net.teyvat.TeyvatMod"]
+    "main": [
+      "net.teyvat.TeyvatMod"
+    ],
+    "client": [
+      "net.teyvat.TeyvatClient"
+    ]
   },
   "depends": {
     "fabricloader": ">=0.16.0",
