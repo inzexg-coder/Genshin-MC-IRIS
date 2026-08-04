@@ -5,7 +5,7 @@
       "y": 0
     },
     "facing=east,half=lower,hinge=left,open=true": {
-      "model": "teyvat:block/marble_door_bottom_leftopen",
+      "model": "teyvat:block/marble_door_bottom_left_open",
       "y": 90
     },
     "facing=east,half=lower,hinge=right,open=false": {
@@ -13,7 +13,7 @@
       "y": 0
     },
     "facing=east,half=lower,hinge=right,open=true": {
-      "model": "teyvat:block/marble_door_bottom_rightopen",
+      "model": "teyvat:block/marble_door_bottom_right_open",
       "y": 0
     },
     "facing=east,half=upper,hinge=left,open=false": {
@@ -21,7 +21,7 @@
       "y": 0
     },
     "facing=east,half=upper,hinge=left,open=true": {
-      "model": "teyvat:block/marble_door_top_leftopen",
+      "model": "teyvat:block/marble_door_top_left_open",
       "y": 90
     },
     "facing=east,half=upper,hinge=right,open=false": {
@@ -29,7 +29,7 @@
       "y": 0
     },
     "facing=east,half=upper,hinge=right,open=true": {
-      "model": "teyvat:block/marble_door_top_rightopen",
+      "model": "teyvat:block/marble_door_top_right_open",
       "y": 0
     },
     "facing=south,half=lower,hinge=left,open=false": {
@@ -37,7 +37,7 @@
       "y": 90
     },
     "facing=south,half=lower,hinge=left,open=true": {
-      "model": "teyvat:block/marble_door_bottom_leftopen",
+      "model": "teyvat:block/marble_door_bottom_left_open",
       "y": 180
     },
     "facing=south,half=lower,hinge=right,open=false": {
@@ -45,7 +45,7 @@
       "y": 90
     },
     "facing=south,half=lower,hinge=right,open=true": {
-      "model": "teyvat:block/marble_door_bottom_rightopen",
+      "model": "teyvat:block/marble_door_bottom_right_open",
       "y": 90
     },
     "facing=south,half=upper,hinge=left,open=false": {
@@ -53,7 +53,7 @@
       "y": 90
     },
     "facing=south,half=upper,hinge=left,open=true": {
-      "model": "teyvat:block/marble_door_top_leftopen",
+      "model": "teyvat:block/marble_door_top_left_open",
       "y": 180
     },
     "facing=south,half=upper,hinge=right,open=false": {
@@ -61,7 +61,7 @@
       "y": 90
     },
     "facing=south,half=upper,hinge=right,open=true": {
-      "model": "teyvat:block/marble_door_top_rightopen",
+      "model": "teyvat:block/marble_door_top_right_open",
       "y": 90
     },
     "facing=west,half=lower,hinge=left,open=false": {
@@ -69,7 +69,7 @@
       "y": 180
     },
     "facing=west,half=lower,hinge=left,open=true": {
-      "model": "teyvat:block/marble_door_bottom_leftopen",
+      "model": "teyvat:block/marble_door_bottom_left_open",
       "y": 270
     },
     "facing=west,half=lower,hinge=right,open=false": {
@@ -77,7 +77,7 @@
       "y": 180
     },
     "facing=west,half=lower,hinge=right,open=true": {
-      "model": "teyvat:block/marble_door_bottom_rightopen",
+      "model": "teyvat:block/marble_door_bottom_right_open",
       "y": 180
     },
     "facing=west,half=upper,hinge=left,open=false": {
@@ -85,7 +85,7 @@
       "y": 180
     },
     "facing=west,half=upper,hinge=left,open=true": {
-      "model": "teyvat:block/marble_door_top_leftopen",
+      "model": "teyvat:block/marble_door_top_left_open",
       "y": 270
     },
     "facing=west,half=upper,hinge=right,open=false": {
@@ -93,7 +93,7 @@
       "y": 180
     },
     "facing=west,half=upper,hinge=right,open=true": {
-      "model": "teyvat:block/marble_door_top_rightopen",
+      "model": "teyvat:block/marble_door_top_right_open",
       "y": 180
     },
     "facing=north,half=lower,hinge=left,open=false": {
@@ -101,7 +101,7 @@
       "y": 270
     },
     "facing=north,half=lower,hinge=left,open=true": {
-      "model": "teyvat:block/marble_door_bottom_leftopen",
+      "model": "teyvat:block/marble_door_bottom_left_open",
       "y": 0
     },
     "facing=north,half=lower,hinge=right,open=false": {
@@ -109,7 +109,7 @@
       "y": 270
     },
     "facing=north,half=lower,hinge=right,open=true": {
-      "model": "teyvat:block/marble_door_bottom_rightopen",
+      "model": "teyvat:block/marble_door_bottom_right_open",
       "y": 270
     },
     "facing=north,half=upper,hinge=left,open=false": {
@@ -117,7 +117,7 @@
       "y": 270
     },
     "facing=north,half=upper,hinge=left,open=true": {
-      "model": "teyvat:block/marble_door_top_leftopen",
+      "model": "teyvat:block/marble_door_top_left_open",
       "y": 0
     },
     "facing=north,half=upper,hinge=right,open=false": {
@@ -125,7 +125,7 @@
       "y": 270
     },
     "facing=north,half=upper,hinge=right,open=true": {
-      "model": "teyvat:block/marble_door_top_rightopen",
+      "model": "teyvat:block/marble_door_top_right_open",
       "y": 270
     }
   }

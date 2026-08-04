@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Генерация мраморных текстур Teyvat (оригинальный арт, стиль «Целестия»)."""
+"""Генерация мраморных текстур Teyvat v2: белоснежный мрамор + золотые окантовки (Celestia).
+Единая палитра для всех блоков, чтобы монолит и вперемешку смотрелись цельно."""
 import math, random
 from PIL import Image, ImageDraw
 
@@ -7,236 +8,190 @@ S = 16
 OUT = "src/main/resources/assets/teyvat/textures/block"
 random.seed(20260804)
 
-WHITE = (242, 239, 233)
-VEIN = (221, 214, 203)
-VEIN_GOLD = (231, 222, 200)
-SHADE = (204, 197, 186)
-MORTAR = (213, 206, 194)
-GOLD = (212, 175, 55)
-GOLD_HI = (236, 198, 92)
-LAMP_CORE = (222, 242, 255)
-LAMP_EDGE = (180, 210, 235)
+# Единая палитра «Целестия»
+SNOW   = (250, 250, 248)   # белоснежный мрамор
+SNOW_D = (240, 240, 236)   # тень на мраморе
+VEIN   = (231, 231, 226)
+VEIN_W = (240, 233, 215)   # тёплая прожилка
+MORTAR = (233, 233, 229)
+GOLD   = (200, 156, 56)    # золото
+GOLD_HI= (242, 210, 118)   # блик золота
+GOLD_D = (142, 106, 34)    # тень золота
+LAMP_C = (255, 246, 220)   # тёплый свет
 
-def noise(px, amt=6):
+def noise(px, amt=5):
     r, g, b = px
     d = random.randint(-amt, amt)
     return (max(0, min(255, r + d)), max(0, min(255, g + d)), max(0, min(255, b + d)))
 
-def base_img():
-    img = Image.new("RGB", (S, S), WHITE)
+def base():
+    img = Image.new("RGB", (S, S), SNOW)
     return img, ImageDraw.Draw(img)
 
-def marble_texture(name, veins=3):
-    img, d = base_img()
+def grain(img, amt=3):
     for _ in range(S * S):
         x, y = random.randrange(S), random.randrange(S)
-        img.putpixel((x, y), noise(img.getpixel((x, y)), 4))
-    for i in range(veins):
+        img.putpixel((x, y), noise(img.getpixel((x, y)), amt))
+
+def veins(img, n=3):
+    d = ImageDraw.Draw(img)
+    for _ in range(n):
         x, y = random.uniform(0, S), random.uniform(0, S)
         ang = random.uniform(0, math.tau)
-        col = random.choice([VEIN, VEIN_GOLD, VEIN])
+        col = random.choice([VEIN, VEIN_W, VEIN])
         for _ in range(random.randint(6, 10)):
             x += math.cos(ang) * 1.6
             y += math.sin(ang) * 1.6
-            r = random.uniform(0.7, 1.6)
+            r = random.uniform(0.6, 1.3)
             d.ellipse([x - r, y - r, x + r, y + r], fill=col)
             if random.random() < 0.3:
                 ang += random.uniform(-0.9, 0.9)
-    img.save(f"{OUT}/{name}.png")
-    return img
 
-def polished_texture(name):
-    img, d = base_img()
-    for _ in range(S * S):
-        x, y = random.randrange(S), random.randrange(S)
-        img.putpixel((x, y), noise(img.getpixel((x, y)), 3))
-    img.save(f"{OUT}/{name}.png")
+def gold_band(d, y0, y1, hi=True):
+    d.rectangle([0, y0, 15, y1], fill=GOLD)
+    if hi:
+        d.rectangle([0, y0, 15, y0], fill=GOLD_HI)
+    d.rectangle([0, y1, 15, y1], fill=GOLD_D)
 
-def bricks_texture(name):
-    img, d = base_img()
-    for y in range(S):
-        for x in range(S):
-            row = y // 4
-            off = (row % 2) * 4
-            brick = (x + off) % 8 < 8
-            if y % 4 == 0 or (x + off) % 8 == 0:
-                img.putpixel((x, y), MORTAR)
-            else:
-                img.putpixel((x, y), noise(WHITE, 5))
-    # subtle per-brick shade
-    for row in range(4):
-        off = (row % 2) * 4
-        for bx in range(2):
-            x0, y0 = bx * 8 - off, row * 4
-            for y in range(1, 4):
-                for x in range(1, 8):
-                    px = img.getpixel((x0 + x, y0 + y))
-                    if random.random() < 0.35:
-                        img.putpixel((x0 + x, y0 + y), noise(px, 3))
-    img.save(f"{OUT}/{name}.png")
-
-def tiles_texture(name):
-    img, d = base_img()
-    for y in range(S):
-        for x in range(S):
-            if x % 4 == 0 or y % 4 == 0:
-                img.putpixel((x, y), MORTAR)
-            else:
-                img.putpixel((x, y), noise(WHITE, 6))
-    for ty in range(4):
-        for tx in range(4):
-            if random.random() < 0.5:
-                for y in range(1, 4):
-                    for x in range(1, 4):
-                        px = img.getpixel((tx * 4 + x, ty * 4 + y))
-                        img.putpixel((tx * 4 + x, ty * 4 + y), noise(px, 3))
-    img.save(f"{OUT}/{name}.png")
-
-def chiseled_texture(name):
-    img, d = base_img()
-    d.rectangle([0, 0, 15, 15], outline=(160, 152, 140))
-    d.rectangle([1, 1, 14, 14], outline=WHITE)
-    d.rectangle([3, 3, 12, 12], outline=SHADE)
-    d.rectangle([4, 4, 11, 11], outline=(228, 224, 216))
-    d.ellipse([6, 6, 9, 9], fill=(212, 205, 192), outline=GOLD)
-    img.save(f"{OUT}/{name}.png")
-
-def gold_trim_texture(name):
-    img, d = base_img()
-    for y in range(S):
-        for x in range(S):
-            img.putpixel((x, y), noise(WHITE, 4))
-    d.rectangle([0, 0, 15, 2], fill=GOLD)
-    d.rectangle([0, 13, 15, 15], fill=GOLD)
-    d.rectangle([0, 2, 15, 2], fill=GOLD_HI)
-    d.rectangle([0, 13, 15, 13], fill=(150, 118, 30))
-    img.save(f"{OUT}/{name}.png")
-
-def flutes(img, horizontal=False):
+def flutes(img, horizontal=False, band_gold=True):
     d = ImageDraw.Draw(img)
     n = 8
     step = S / n
     for i in range(n):
-        x0 = int(i * step)
-        x1 = int((i + 1) * step)
-        if horizontal:
-            for y in range(x0, x1):
-                t = (y - x0) / (x1 - x0)
-                c = (int(WHITE[0] * (1 - 0.25 * t)), int(WHITE[1] * (1 - 0.25 * t)), int(WHITE[2] * (1 - 0.28 * t)))
-                for x in range(S):
-                    img.putpixel((x, y), noise(c, 3))
+        a = int(i * step); b = int((i + 1) * step)
+        rng = range(a, b)
+        for t in rng:
+            tt = (t - a) / (b - a)
+            c = (int(SNOW[0] * (1 - 0.18 * tt)), int(SNOW[1] * (1 - 0.18 * tt)), int(SNOW[2] * (1 - 0.18 * tt)))
+            for k in range(S):
+                img.putpixel((k, t) if horizontal else (t, k), noise(c, 2))
+    # тонкие тени между каннелюрами
+    for i in range(n + 1):
+        p = min(int(i * step), S - 1)
+        for k in range(S):
+            img.putpixel((k, p) if horizontal else (p, k), noise(SNOW_D, 2))
+    if band_gold:
+        gold_band(d, 0, 2)
+        gold_band(d, 13, 15)
+
+# --- базовые блоки ---
+img, d = base(); veins(img, 3); grain(img, 2); img.save(f"{OUT}/marble.png")
+
+img, d = base(); veins(img, 1); grain(img, 1); img.save(f"{OUT}/marble_polished.png")
+
+img, d = base()
+for y in range(S):
+    for x in range(S):
+        if y % 4 == 0 or (x + (2 if (y // 4) % 2 else 0)) % 8 == 0:
+            img.putpixel((x, y), MORTAR)
         else:
-            for x in range(x0, x1):
-                t = (x - x0) / (x1 - x0)
-                c = (int(WHITE[0] * (1 - 0.25 * t)), int(WHITE[1] * (1 - 0.25 * t)), int(WHITE[2] * (1 - 0.28 * t)))
-                for y in range(S):
-                    img.putpixel((x, y), noise(c, 3))
-    if horizontal:
-        for y in range(S):
-            if y % 2 == 0:
-                for x in range(S):
-                    img.putpixel((x, y), noise(SHADE, 3))
-    else:
-        for x in range(S):
-            if x % 2 == 0:
-                for y in range(S):
-                    img.putpixel((x, y), noise(SHADE, 3))
+            img.putpixel((x, y), noise(SNOW, 3))
+grain(img, 2); img.save(f"{OUT}/marble_bricks.png")
 
-def pillar_texture(name, horizontal=False):
-    img, d = base_img()
-    flutes(img, horizontal)
-    img.save(f"{OUT}/{name}.png")
+img, d = base()
+for y in range(S):
+    for x in range(S):
+        if x % 4 == 0 or y % 4 == 0:
+            img.putpixel((x, y), MORTAR)
+        else:
+            img.putpixel((x, y), noise(SNOW, 4))
+grain(img, 1); img.save(f"{OUT}/marble_tiles.png")
 
-def column_texture(name, bands=None):
-    img, d = base_img()
-    flutes(img, False)
-    bands = bands or [(0, 2, WHITE), (2, 4, SHADE), (12, 14, SHADE), (14, 16, WHITE)]
-    for y0, y1, col in bands:
+img, d = base()
+d.rectangle([0, 0, 15, 15], outline=GOLD)
+d.rectangle([1, 1, 14, 14], outline=GOLD_HI)
+d.rectangle([2, 2, 13, 13], outline=SNOW_D)
+d.rectangle([4, 4, 11, 11], outline=(226, 226, 220))
+d.rectangle([5, 5, 10, 10], outline=GOLD)
+img.save(f"{OUT}/marble_chiseled.png")
+
+img, d = base(); veins(img, 2); grain(img, 2)
+gold_band(d, 1, 3); gold_band(d, 12, 14)
+img.save(f"{OUT}/marble_gold.png")
+
+# --- колонны / балки ---
+img, d = base(); flutes(img, False); img.save(f"{OUT}/marble_pillar.png")
+img, d = base(); flutes(img, True);  img.save(f"{OUT}/marble_beam.png")
+
+def column(name, bands=None, gold=True):
+    img, d = base(); flutes(img, False, band_gold=gold)
+    for y0, y1, col in (bands or []):
         d.rectangle([0, y0, 15, y1], fill=col)
-        d.line([0, y0, 15, y0], fill=(180, 172, 160))
-        d.line([0, y1, 15, y1], fill=(180, 172, 160))
-    d.line([0, 2, 15, 2], fill=GOLD)
-    d.line([0, 13, 15, 13], fill=GOLD)
+        d.line([0, y0, 15, y0], fill=GOLD_D)
+        d.line([0, y1, 15, y1], fill=GOLD_D)
     img.save(f"{OUT}/{name}.png")
 
-def pedestal_texture(name):
-    img, d = base_img()
-    flutes(img, False)
-    d.rectangle([0, 0, 15, 2], fill=WHITE)
-    d.line([0, 2, 15, 2], fill=GOLD)
-    d.rectangle([0, 3, 15, 6], fill=SHADE)
-    d.line([0, 6, 15, 6], fill=(180, 172, 160))
-    d.rectangle([0, 12, 15, 13], fill=SHADE)
-    d.rectangle([0, 13, 15, 15], fill=WHITE)
-    d.line([0, 13, 15, 13], fill=GOLD)
-    img.save(f"{OUT}/{name}.png")
+column("marble_column", bands=[(2, 4, SNOW_D), (12, 14, SNOW_D)])
+# малая колонна (балясина): уже, с золотыми поясками по краям
+img, d = base(); flutes(img, False, band_gold=False)
+for y in range(S):
+    for x in range(S):
+        if x < 2 or x > 13:
+            img.putpixel((x, y), noise(SNOW_D, 2))
+gold_band(d, 0, 1); gold_band(d, 14, 15)
+img.save(f"{OUT}/marble_column_small.png")
+column("marble_column_base", bands=[(3, 7, SNOW_D)])
+column("marble_column_mid", bands=[(0, 1, SNOW_D), (15, 16, SNOW_D)])
+column("marble_column_capital", bands=[(9, 13, SNOW_D)])
+img, d = base(); flutes(img, False, band_gold=False)
+gold_band(d, 3, 5); gold_band(d, 10, 12)
+img.save(f"{OUT}/marble_pedestal.png")
 
-def gate_texture(name):
-    img, d = base_img()
-    for y in range(S):
-        for x in range(S):
-            img.putpixel((x, y), noise(WHITE, 4))
-    d.rectangle([0, 0, 15, 15], outline=GOLD)
-    d.rectangle([1, 1, 14, 14], outline=(160, 152, 140))
-    d.rectangle([2, 2, 13, 13], outline=WHITE)
-    # diamond emblem
-    cx, cy, r = 7.5, 7.5, 5
-    pts = [(cx, cy - r), (cx + r, cy), (cx, cy + r), (cx - r, cy)]
-    d.polygon(pts, outline=GOLD)
-    d.polygon([(cx, cy - 2.5), (cx + 2.5, cy), (cx, cy + 2.5), (cx - 2.5, cy)], outline=SHADE)
-    d.ellipse([cx - 1, cy - 1, cx + 1, cy + 1], fill=GOLD)
-    img.save(f"{OUT}/{name}.png")
+img, d = base(); grain(img, 3)
+d.rectangle([0, 0, 15, 15], outline=GOLD)
+d.rectangle([1, 1, 14, 14], outline=GOLD_HI)
+d.rectangle([2, 2, 13, 13], outline=SNOW_D)
+cx = cy = 7.5
+d.polygon([(cx, 2), (14, cy), (cx, 13), (2, cy)], outline=GOLD)
+d.polygon([(cx, 4), (12, cy), (cx, 12), (4, cy)], outline=SNOW_D)
+d.ellipse([cx - 1.5, cy - 1.5, cx + 1.5, cy + 1.5], fill=GOLD)
+img.save(f"{OUT}/marble_gate.png")
 
-def lamp_texture(name):
-    img, d = base_img()
-    d.rectangle([0, 0, 15, 15], outline=(200, 216, 235))
-    d.rectangle([1, 1, 14, 14], outline=WHITE)
-    d.rectangle([3, 3, 12, 12], outline=LAMP_EDGE)
-    d.ellipse([5, 5, 10, 10], fill=LAMP_CORE)
-    d.ellipse([6, 6, 9, 9], fill=(240, 250, 255))
-    d.ellipse([7, 7, 8, 8], fill=(255, 255, 255))
-    img.save(f"{OUT}/{name}.png")
+img, d = base(); grain(img, 2)
+d.rectangle([1, 1, 14, 14], outline=GOLD)
+d.rectangle([2, 2, 13, 13], outline=(226, 226, 220))
+d.ellipse([5, 5, 10, 10], fill=LAMP_C)
+d.ellipse([6, 6, 9, 9], fill=(255, 252, 240))
+d.ellipse([7, 7, 8, 8], fill=(255, 255, 255))
+img.save(f"{OUT}/marble_lamp.png")
 
-def door_texture(name_bottom, name_top):
-    W, H = 64, 64
-    img = Image.new("RGB", (W, H), WHITE)
-    d = ImageDraw.Draw(img)
-    for y in range(H):
-        for x in range(W):
-            img.putpixel((x, y), noise(WHITE, 4))
-    # panels
-    d.rectangle([4, 4, 59, 59], outline=(170, 162, 150))
-    d.rectangle([10, 10, 53, 26], outline=SHADE)
-    d.rectangle([10, 34, 53, 53], outline=SHADE)
-    d.rectangle([12, 12, 51, 24], outline=(228, 224, 216))
-    d.rectangle([12, 36, 51, 51], outline=(228, 224, 216))
-    # gold bands
-    d.rectangle([0, 30, 63, 33], fill=GOLD)
-    d.line([0, 30, 63, 30], fill=GOLD_HI)
-    d.line([0, 33, 63, 33], fill=(150, 118, 30))
-    # handle (bottom only)
-    d.ellipse([50, 44, 56, 50], fill=GOLD, outline=(150, 118, 30))
-    img.save(f"{OUT}/{name_top}.png")
-    img2 = img.copy()
-    d2 = ImageDraw.Draw(img2)
-    d2.rectangle([0, 0, 63, 3], outline=(170, 162, 150))
-    d2.rectangle([0, 61, 63, 63], fill=SHADE)
-    img2.save(f"{OUT}/{name_bottom}.png")
+# --- дверь ---
+W, H = 64, 64
+img = Image.new("RGB", (W, H), SNOW)
+d = ImageDraw.Draw(img)
+for y in range(H):
+    for x in range(W):
+        img.putpixel((x, y), noise(SNOW, 2))
+d.rectangle([3, 3, 60, 60], outline=GOLD)
+d.rectangle([5, 5, 58, 58], outline=(226, 226, 220))
+d.rectangle([10, 10, 53, 27], outline=SNOW_D)
+d.rectangle([10, 35, 53, 53], outline=SNOW_D)
+d.rectangle([12, 12, 51, 25], outline=(236, 236, 232))
+d.rectangle([12, 37, 51, 51], outline=(236, 236, 232))
+d.rectangle([0, 30, 63, 33], fill=GOLD)
+d.line([0, 30, 63, 30], fill=GOLD_HI)
+d.line([0, 33, 63, 33], fill=GOLD_D)
+d.ellipse([49, 45, 55, 51], fill=GOLD, outline=GOLD_D)
+img.save(f"{OUT}/marble_door_top.png")
+d2 = ImageDraw.Draw(img)
+d2.rectangle([0, 61, 63, 63], fill=GOLD_D)
+img.save(f"{OUT}/marble_door_bottom.png")
 
-marble_texture("marble", veins=3)
-polished_texture("marble_polished")
-bricks_texture("marble_bricks")
-tiles_texture("marble_tiles")
-chiseled_texture("marble_chiseled")
-gold_trim_texture("marble_gold")
-pillar_texture("marble_pillar", horizontal=False)
-pillar_texture("marble_beam", horizontal=True)
-column_texture("marble_column")
-column_texture("marble_column_base", bands=[(0, 5, WHITE), (5, 7, SHADE)])
-column_texture("marble_column_mid", bands=[(0, 1, SHADE), (15, 16, SHADE)])
-column_texture("marble_column_capital", bands=[(10, 14, SHADE), (14, 16, WHITE)])
-pedestal_texture("marble_pedestal")
-gate_texture("marble_gate")
-lamp_texture("marble_lamp")
-door_texture("marble_door_bottom", "marble_door_top")
-print("textures done")
+# --- иконка двери в инвентаре (item) ---
+IW = 16
+it = Image.new("RGB", (IW, IW), SNOW)
+di = ImageDraw.Draw(it)
+for y in range(IW):
+    for x in range(IW):
+        it.putpixel((x, y), noise(SNOW, 2))
+di.rectangle([1, 1, 14, 14], outline=GOLD)
+di.rectangle([2, 2, 13, 13], outline=(226, 226, 220))
+di.rectangle([3, 3, 12, 12], outline=SNOW_D)
+di.rectangle([4, 4, 11, 11], outline=(236, 236, 232))
+di.line([3, 7, 12, 7], fill=(226, 226, 220))
+di.line([3, 8, 12, 8], fill=(226, 226, 220))
+di.ellipse([9, 4, 11, 6], fill=GOLD, outline=GOLD_D)
+import os
+os.makedirs("src/main/resources/assets/teyvat/textures/item", exist_ok=True)
+it.save("src/main/resources/assets/teyvat/textures/item/marble_door.png")
+print("textures v2 done")
