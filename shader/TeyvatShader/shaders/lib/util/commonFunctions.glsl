@@ -319,8 +319,9 @@ vec3 hsv2rgb(vec3 c)
 // Teyvat: cel-style lighting steps (0 / 0.5 / 1)
 vec3 ToonBanding(vec3 x) {
     vec3 xC = clamp(x, vec3(0.0), vec3(1.0));
-    vec3 band = smoothstep(TOON_BAND_STEP1 - TOON_BAND_SOFTNESS, TOON_BAND_STEP1 + TOON_BAND_SOFTNESS, xC) * 0.5;
-          band += smoothstep(TOON_BAND_STEP2 - TOON_BAND_SOFTNESS, TOON_BAND_STEP2 + TOON_BAND_SOFTNESS, xC) * 0.5;
-    return band;
+    float lum = dot(xC, vec3(0.299, 0.587, 0.114));
+    float band = smoothstep(TOON_BAND_STEP1 - TOON_BAND_SOFTNESS, TOON_BAND_STEP1 + TOON_BAND_SOFTNESS, lum) * 0.5;
+          band += smoothstep(TOON_BAND_STEP2 - TOON_BAND_SOFTNESS, TOON_BAND_STEP2 + TOON_BAND_SOFTNESS, lum) * 0.5;
+    return clamp(xC * (band / max(lum, 1e-4)), 0.0, 1.0);
 }
 #endif
