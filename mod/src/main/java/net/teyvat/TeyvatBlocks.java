@@ -20,6 +20,8 @@ import net.minecraft.item.ItemGroup;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKey;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
@@ -74,8 +76,9 @@ public final class TeyvatBlocks {
     public static final Block MARBLE_DOOR = door("marble_door");
     public static final Block MARBLE_LAMP = lamp("marble_lamp");
 
-    private static Block.Settings baseSettings() {
+    private static Block.Settings settings(String name) {
         return Block.Settings.create()
+                .registryKey(RegistryKey.of(RegistryKeys.BLOCK, Identifier.of(TeyvatMod.MOD_ID, name)))
                 .mapColor(MapColor.OFF_WHITE)
                 .instrument(NoteBlockInstrument.BASEDRUM)
                 .strength(1.5f, 6.0f)
@@ -83,49 +86,51 @@ public final class TeyvatBlocks {
     }
 
     private static Block block(String name) {
-        return register(name, new Block(baseSettings()));
+        return register(name, new Block(settings(name)));
     }
 
     private static Block pillar(String name) {
-        return register(name, new PillarBlock(baseSettings()));
+        return register(name, new PillarBlock(settings(name)));
     }
 
     private static Block stairs(String name, Block base) {
-        return register(name, new StairsBlock(base.getDefaultState(), baseSettings()));
+        return register(name, new StairsBlock(base.getDefaultState(), settings(name)));
     }
 
     private static Block slab(String name) {
-        return register(name, new SlabBlock(baseSettings()));
+        return register(name, new SlabBlock(settings(name)));
     }
 
     private static Block wall(String name) {
-        return register(name, new WallBlock(baseSettings()));
+        return register(name, new WallBlock(settings(name)));
     }
 
     private static Block fence(String name) {
-        return register(name, new FenceBlock(baseSettings()));
+        return register(name, new FenceBlock(settings(name)));
     }
 
     private static Block fenceGate(String name) {
-        return register(name, new FenceGateBlock(WoodType.OAK, baseSettings()));
+        return register(name, new FenceGateBlock(WoodType.OAK, settings(name)));
     }
 
     private static Block door(String name) {
-        return register(name, new DoorBlock(BlockSetType.STONE, baseSettings()));
+        return register(name, new DoorBlock(BlockSetType.STONE, settings(name)));
     }
 
     private static Block sideStairs(String name) {
-        return register(name, new MarbleSideStairsBlock(baseSettings()));
+        return register(name, new MarbleSideStairsBlock(settings(name)));
     }
 
     private static Block lamp(String name) {
-        return register(name, new Block(baseSettings().luminance(state -> 14)));
+        return register(name, new Block(settings(name).luminance(state -> 14)));
     }
 
     private static <B extends Block> B register(String name, B block) {
         Identifier id = Identifier.of(TeyvatMod.MOD_ID, name);
         Registry.register(Registries.BLOCK, id, block);
-        Registry.register(Registries.ITEM, id, new BlockItem(block, new Item.Settings()));
+        Registry.register(Registries.ITEM, id,
+                new BlockItem(block, new Item.Settings()
+                        .registryKey(RegistryKey.of(RegistryKeys.ITEM, id))));
         ALL_BLOCKS.add(block);
         return block;
     }
