@@ -20,11 +20,20 @@ cp -r "$REPO/resourcepack" "$MC_DIR/resourcepacks/Teyvat"
 FABRIC_API="fabric-api-0.138.4+1.21.10.jar"
 FABRIC_API_URL="https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.138.4+1.21.10/$FABRIC_API"
 
-# Если jar потерялся (например, был вручную перенесён в папку модов) — восстанавливаем из git.
+# Если jar потерялся (например, был вручную перенесён в папку модов) — восстанавливаем:
+# 1) из git, 2) если git не помогает — качаем свежий прямо с GitHub.
 if [ ! -f "$REPO/dist/mods/teyvat.jar" ]; then
+    echo "== teyvat.jar не найден в $REPO/dist/mods — восстанавливаю..."
     git -C "$REPO" checkout HEAD -- dist/mods/teyvat.jar 2>/dev/null \
         || git -C "$REPO" checkout origin/main -- dist/mods/teyvat.jar 2>/dev/null \
-        || echo "! teyvat.jar отсутствует в репозитории. Выполни: cd $REPO && git fetch origin main && git checkout origin/main -- dist/mods/teyvat.jar"
+        || true
+fi
+if [ ! -f "$REPO/dist/mods/teyvat.jar" ]; then
+    echo "== git не помог — скачиваю teyvat.jar с GitHub..."
+    mkdir -p "$REPO/dist/mods"
+    curl -sL -o "$REPO/dist/mods/teyvat.jar" \
+        "https://raw.githubusercontent.com/inzexg-coder/Genshin-MC-IRIS/main/dist/mods/teyvat.jar" \
+        || echo "! не удалось скачать. Проверь сеть: curl https://github.com"
 fi
 
 install_mods_to() {
