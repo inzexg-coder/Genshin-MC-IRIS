@@ -4,7 +4,6 @@ import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
 import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
-import net.minecraft.block.DoorBlock;
 import net.minecraft.block.FenceBlock;
 import net.minecraft.block.FenceGateBlock;
 import net.minecraft.block.MapColor;
@@ -13,7 +12,6 @@ import net.minecraft.block.SlabBlock;
 import net.minecraft.block.StairsBlock;
 import net.minecraft.block.WallBlock;
 import net.minecraft.block.WoodType;
-import net.minecraft.block.BlockSetType;
 import net.minecraft.block.enums.NoteBlockInstrument;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
@@ -29,6 +27,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 import net.teyvat.block.MarbleSideStairsBlock;
+import net.teyvat.block.MarbleTallDoorBlock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,7 +74,7 @@ public final class TeyvatBlocks {
     public static final Block MARBLE_SIDE_STAIRS = sideStairs("marble_side_stairs");
     public static final Block MARBLE_ARCH = block("marble_arch");
     public static final Block MARBLE_GATE = block("marble_gate");
-    public static final Block MARBLE_DOOR = door("marble_door");
+    public static final Block MARBLE_DOOR = tallDoor("marble_door");
     public static final Block MARBLE_LAMP = lamp("marble_lamp");
 
     private static Block.Settings settings(String name) {
@@ -115,8 +114,8 @@ public final class TeyvatBlocks {
         return register(name, new FenceGateBlock(WoodType.OAK, settings(name)));
     }
 
-    private static Block door(String name) {
-        return register(name, new DoorBlock(BlockSetType.STONE, settings(name)));
+    private static Block tallDoor(String name) {
+        return register(name, new MarbleTallDoorBlock(settings(name)));
     }
 
     private static Block sideStairs(String name) {

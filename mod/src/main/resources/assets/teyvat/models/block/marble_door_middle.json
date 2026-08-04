@@ -1,8 +1,9 @@
 {
+  "ambientocclusion": false,
   "parent": "minecraft:block/block",
   "textures": {
     "particle": "teyvat:block/marble",
-    "side": "teyvat:block/marble_side_stairs"
+    "side": "teyvat:block/marble_door_middle"
   },
   "elements": [
     {
@@ -12,8 +13,8 @@
         0
       ],
       "to": [
+        5.0,
         16,
-        2,
         16
       ],
       "faces": {
@@ -24,8 +25,7 @@
             16,
             16
           ],
-          "texture": "#side",
-          "cullface": "down"
+          "texture": "marble_door_middle"
         },
         "up": {
           "uv": [
@@ -34,7 +34,7 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "marble_door_middle"
         },
         "north": {
           "uv": [
@@ -43,8 +43,7 @@
             16,
             16
           ],
-          "texture": "#side",
-          "cullface": "north"
+          "texture": "marble_door_middle"
         },
         "south": {
           "uv": [
@@ -53,8 +52,7 @@
             16,
             16
           ],
-          "texture": "#side",
-          "cullface": "south"
+          "texture": "marble_door_middle"
         },
         "west": {
           "uv": [
@@ -63,8 +61,7 @@
             16,
             16
           ],
-          "texture": "#side",
-          "cullface": "west"
+          "texture": "marble_door_middle"
         },
         "east": {
           "uv": [
@@ -73,8 +70,7 @@
             16,
             16
           ],
-          "texture": "#side",
-          "cullface": "east"
+          "texture": "marble_door_middle"
         }
       }
     }

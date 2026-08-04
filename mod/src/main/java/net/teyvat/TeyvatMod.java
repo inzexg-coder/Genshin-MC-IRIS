@@ -14,6 +14,7 @@ public class TeyvatMod implements ModInitializer {
     @Override
     public void onInitialize() {
         TeyvatBlocks.register();
+        TeyvatBlockEntities.register();
         TeyvatBlocks.registerItemGroup();
         LOGGER.info("Teyvat mod initialized: {} blocks registered", TeyvatBlocks.ALL_BLOCKS.size());
 

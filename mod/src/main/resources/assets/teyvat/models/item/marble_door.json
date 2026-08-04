@@ -1,6 +1,3 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "teyvat:item/marble_door"
-  }
+  "parent": "teyvat:block/marble_door_item"
 }
