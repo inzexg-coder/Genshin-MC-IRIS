@@ -59,11 +59,21 @@ for bid, side in (("marble_pillar", "marble_pillar"), ("marble_beam", "marble_be
 
 # ---------- custom 3D column/pedestal models ----------
 def el(ids, from_, to_, tex=None, tex_face=None):
+    """Элемент модели с автоматическим cullface: грань на границе блока
+    (0 или 16) отсекается соседом, остальные всегда видны. Это убирает
+    z-fighting и «просвечивание» у тонких колонн."""
     faces = {}
     names = ("down", "up", "north", "south", "west", "east")
     for n in names:
         t = (tex_face or {}).get(n, tex)
-        faces[n] = {"uv": [0, 0, 16, 16], "texture": t}
+        f = {"uv": [0, 0, 16, 16], "texture": t}
+        if n == "down" and from_[1] == 0: f["cullface"] = "down"
+        if n == "up" and to_[1] == 16: f["cullface"] = "up"
+        if n == "north" and from_[2] == 0: f["cullface"] = "north"
+        if n == "south" and to_[2] == 16: f["cullface"] = "south"
+        if n == "west" and from_[0] == 0: f["cullface"] = "west"
+        if n == "east" and to_[0] == 16: f["cullface"] = "east"
+        faces[n] = f
     return {"from": from_, "to": to_, "faces": faces}
 
 def col_model(bid, elements):

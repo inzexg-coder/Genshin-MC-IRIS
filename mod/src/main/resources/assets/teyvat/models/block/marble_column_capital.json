@@ -26,7 +26,8 @@
             16,
             16
           ],
-          "texture": "#marble"
+          "texture": "#marble",
+          "cullface": "down"
         },
         "up": {
           "uv": [
@@ -103,7 +104,8 @@
             16,
             16
           ],
-          "texture": "#polished"
+          "texture": "#polished",
+          "cullface": "up"
         },
         "north": {
           "uv": [

@@ -253,10 +253,10 @@ void main() {
             float metal = clamp(spec.g, 0.0, 1.0);
             float smoothM = clamp(pow2(spec.r), 0.0, 1.0);
             float goldMix = metal * smoothM;
-            smoothnessG = max(smoothnessG, goldMix);
-            smoothnessD = max(smoothnessD, goldMix);
-            highlightMult += 2.0 * goldMix;
-            reflectionStrength = 0.95 * metal;
+            smoothnessG = max(smoothnessG, smoothM);
+            smoothnessD = max(smoothnessD, smoothM);
+            highlightMult += 3.0 * goldMix;
+            reflectionStrength = 0.98 * metal;
         }
     #endif
 

@@ -26,7 +26,8 @@
             16,
             16
           ],
-          "texture": "#polished"
+          "texture": "#polished",
+          "cullface": "down"
         },
         "up": {
           "uv": [
@@ -171,7 +172,8 @@
             16,
             16
           ],
-          "texture": "#polished"
+          "texture": "#polished",
+          "cullface": "up"
         },
         "north": {
           "uv": [

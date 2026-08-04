@@ -48,12 +48,12 @@ public final class TeyvatBlocks {
 
     // ---- columns / pillars ----
     public static final Block MARBLE_PILLAR = pillar("marble_pillar");
-    public static final Block MARBLE_COLUMN = block("marble_column");
-    public static final Block MARBLE_COLUMN_SMALL = block("marble_column_small");
-    public static final Block MARBLE_COLUMN_BASE = block("marble_column_base");
-    public static final Block MARBLE_COLUMN_MID = block("marble_column_mid");
-    public static final Block MARBLE_COLUMN_CAPITAL = block("marble_column_capital");
-    public static final Block MARBLE_PEDESTAL = block("marble_pedestal");
+    public static final Block MARBLE_COLUMN = nonOpaque("marble_column");
+    public static final Block MARBLE_COLUMN_SMALL = nonOpaque("marble_column_small");
+    public static final Block MARBLE_COLUMN_BASE = nonOpaque("marble_column_base");
+    public static final Block MARBLE_COLUMN_MID = nonOpaque("marble_column_mid");
+    public static final Block MARBLE_COLUMN_CAPITAL = nonOpaque("marble_column_capital");
+    public static final Block MARBLE_PEDESTAL = nonOpaque("marble_pedestal");
 
     // ---- stairs / slabs ----
     public static final Block MARBLE_STAIRS = stairs("marble_stairs", MARBLE);
@@ -87,9 +87,15 @@ public final class TeyvatBlocks {
                 .sounds(BlockSoundGroup.STONE);
     }
 
-    private static Block block(String name) {
+        private static Block block(String name) {
         return register(name, new Block(settings(name)));
     }
+
+    /** Непрозрачный соседям: грани позади тонких колонн рендерятся (как у заборов), без дыр в пустоту. */
+    private static Block nonOpaque(String name) {
+        return register(name, new Block(settings(name).nonOpaque()));
+    }
+
 
     private static Block pillar(String name) {
         return register(name, new PillarBlock(settings(name)));

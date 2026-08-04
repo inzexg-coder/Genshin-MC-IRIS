@@ -600,6 +600,15 @@ void DoLighting(inout vec4 color, inout vec3 shadowMult, vec3 playerPos, vec3 vi
 
         specularHighlight *= highlightMult;
 
+        // Teyvat: metal/polished marble catches glints from lanterns, torches and other
+        // blocklight sources (lightmap light has no direction). GGX along the normal gives
+        // a metallic sheen that grows near a light source.
+        if (smoothnessG > 0.15) {
+            float blockLightIntensity = dot(blockLighting, vec3(1.0)) / 3.0;
+            float blockSpecular = GGX(normalM, nViewPos, normalM, 1.0, smoothnessG);
+            specularHighlight += blockSpecular * blockLightIntensity * 0.8;
+        }
+
         lightHighlight = isEyeInWater != 1 ? shadowMult : pow(shadowMult, vec3(0.25)) * 0.35;
         lightHighlight *= (subsurfaceHighlight + specularHighlight) * highlightColor;
 
