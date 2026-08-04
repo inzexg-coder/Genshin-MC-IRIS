@@ -117,19 +117,15 @@ col_model("marble_pedestal", [
 
 # ---------- arch (цельный блок-врата: резной фасад, никаких сквозных проёмов) ----------
 w(f"{BS}/marble_arch.json", {"variants": {"": {"model": "teyvat:block/marble_arch"}}})
-w(f"{MB}/marble_arch.json", {"parent": "minecraft:block/cube",
-   "textures": {"up": "teyvat:block/marble_gold_top", "down": "teyvat:block/marble_gold_top",
-                "north": "teyvat:block/marble_arch_front", "south": "teyvat:block/marble_arch_front",
-                "east": "teyvat:block/marble_gold", "west": "teyvat:block/marble_gold"}})
+w(f"{MB}/marble_arch.json", {"parent": "minecraft:block/cube_all",
+   "textures": {"all": "teyvat:block/marble_arch_front"}})
 w(f"{MI}/marble_arch.json", {"parent": "teyvat:block/marble_arch"})
 item_def("marble_arch", "teyvat:block/marble_arch")
 
 # ---------- gate (cube with carved front/back) ----------
 w(f"{BS}/marble_gate.json", {"variants": {"": {"model": "teyvat:block/marble_gate"}}})
-w(f"{MB}/marble_gate.json", {"parent": "minecraft:block/cube",
-   "textures": {"up": "teyvat:block/marble_gold_top", "down": "teyvat:block/marble_gold_top",
-                "north": "teyvat:block/marble_gate", "south": "teyvat:block/marble_gate",
-                "east": "teyvat:block/marble_gold", "west": "teyvat:block/marble_gold"}})
+w(f"{MB}/marble_gate.json", {"parent": "minecraft:block/cube_all",
+   "textures": {"all": "teyvat:block/marble_gate"}})
 w(f"{MI}/marble_gate.json", {"parent": "teyvat:block/marble_gate"})
 item_def("marble_gate", "teyvat:block/marble_gate")
 
@@ -318,7 +314,9 @@ for facing, y0, yl, yr in (("east", 0, 90, 270), ("north", 270, 0, 180),
                 y = y0 if open_ == "false" else (yl if hinge == "left" else yr)
                 if y:
                     v["y"] = y
-                variants[f"facing={facing},half={half},hinge={hinge},open={open_}"] = v
+                for pending in ("false", "true"):
+                    kv = dict(v)
+                    variants[f"facing={facing},half={half},hinge={hinge},open={open_},pending={pending}"] = kv
 w(f"{BS}/{bid}.json", {"variants": variants})
 
 # иконка в инвентаре — как у ванильных дверей (item/generated)
