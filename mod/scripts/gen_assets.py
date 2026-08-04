@@ -89,22 +89,25 @@ def wide(y0, y1, t=P):
 def ring(y0, y1):
     return el("ring", [4, y0, 4], [12, y1, 12], P)
 
-col_model("marble_column", [
-    wide(0, 2), S("#side"), wide(14, 16)])
+# Колонны бесшовные: ствол на всю высоту, без широких баз/капителей и золота на краях,
+# чтобы две колонны, поставленные друг на друга, сливались в одну длинную.
+col_model("marble_column", [S("#side")])
 col_model("marble_column_base", [
     wide(0, 3), el("shaft", [3, 3, 3], [13, 16, 13], "#side", {"up": M, "down": M})])
-col_model("marble_column_mid", [
-    S("#side"), ring(0, 1), ring(15, 16)])
+col_model("marble_column_mid", [S("#side")])
 col_model("marble_column_capital", [
     el("shaft", [3, 0, 3], [13, 13, 13], "#side", {"up": M, "down": M}),
     wide(13, 16)])
 col_model("marble_column_small", [
-    wide(0, 2), el("shaft", [5, 2, 5], [11, 14, 11], "#side", {"up": M, "down": M}), wide(14, 16)])
+    el("shaft", [5, 0, 5], [11, 16, 11], "#side", {"up": M, "down": M})])
 col_model("marble_pedestal", [
     wide(0, 3), el("mid", [3, 3, 3], [13, 10, 13], "#side", {"up": M, "down": M}),
     el("top", [2, 10, 2], [14, 16, 14], P)])
 
-# ---------- arch ----------
+# ---------- arch (ниша: колонны + перемычка + задняя стенка, чтобы не просвечивало) ----------
+def all_faces(tex):
+    return {f: {"uv": [0, 0, 16, 16], "texture": tex} for f in ("down", "up", "north", "south", "west", "east")}
+
 w(f"{BS}/marble_arch.json", {"variants": {"": {"model": "teyvat:block/marble_arch"}}})
 w(f"{MB}/marble_arch.json", {
     "parent": "minecraft:block/block",
@@ -114,10 +117,22 @@ w(f"{MB}/marble_arch.json", {
         "gold": "teyvat:block/marble_gold",
     },
     "elements": [
-        {"from": [0, 0, 6], "to": [4, 16, 10], "faces": {f: {"uv": [0, 0, 16, 16], "texture": "#marble"} for f in ("down","up","north","south","west","east")}},
-        {"from": [12, 0, 6], "to": [16, 16, 10], "faces": {f: {"uv": [0, 0, 16, 16], "texture": "#marble"} for f in ("down","up","north","south","west","east")}},
-        {"from": [0, 12, 6], "to": [16, 16, 10], "faces": {f: {"uv": [0, 0, 16, 16], "texture": "#marble"} for f in ("down","up","north","south","west","east")}},
-        {"from": [0, 12, 5.5], "to": [16, 13, 6], "faces": {f: {"uv": [0, 0, 16, 16], "texture": "#gold"} for f in ("north","south","west","east","up","down")}},
+        {"from": [0, 0, 4], "to": [4, 16, 8], "faces": all_faces("#marble")},
+        {"from": [12, 0, 4], "to": [16, 16, 8], "faces": all_faces("#marble")},
+        {"from": [0, 12, 4], "to": [16, 16, 8], "faces": all_faces("#marble")},
+        {"from": [0, 0, 8], "to": [16, 12, 9], "faces": {
+            "down": {"uv": [0, 0, 16, 16], "texture": "#marble"},
+            "up": {"uv": [0, 0, 16, 16], "texture": "#marble"},
+            "north": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "north"},
+            "south": {"uv": [0, 0, 16, 16], "texture": "#marble"},
+            "west": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "west"},
+            "east": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "east"}}},
+        {"from": [0, 12, 3.6], "to": [16, 13, 4], "faces": {
+            "down": {"uv": [0, 0, 16, 16], "texture": "#gold"},
+            "up": {"uv": [0, 0, 16, 16], "texture": "#gold"},
+            "north": {"uv": [0, 0, 16, 16], "texture": "#gold"},
+            "west": {"uv": [0, 0, 16, 16], "texture": "#gold"},
+            "east": {"uv": [0, 0, 16, 16], "texture": "#gold"}}},
     ],
 })
 w(f"{MI}/marble_arch.json", {"parent": "teyvat:block/marble_arch"})
@@ -218,25 +233,47 @@ for suffix, parent in (("", "template_fence_gate"), ("_open", "template_fence_ga
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
 item_def(bid, f"teyvat:block/{bid}")
 variants = {}
-rots = {"east": (0, 90, 90, 180), "south": (90, 180, 180, 270), "west": (180, 270, 270, 0), "north": (270, 0, 0, 90)}
-for facing, (r0, r1, r2, r3) in rots.items():
-    variants[f"facing={facing},in_wall=false,open=false"] = {"model": f"teyvat:block/{bid}", "y": r0, "uvlock": True}
-    variants[f"facing={facing},in_wall=false,open=true"] = {"model": f"teyvat:block/{bid}_open", "y": r1, "uvlock": True}
-    variants[f"facing={facing},in_wall=true,open=false"] = {"model": f"teyvat:block/{bid}_wall", "y": r2, "uvlock": True}
-    variants[f"facing={facing},in_wall=true,open=true"] = {"model": f"teyvat:block/{bid}_wall_open", "y": r3, "uvlock": True}
+# Повороты как у ванильных калиток (oak_fence_gate): south=0, west=90, north=180, east=270
+for facing, y in (("south", 0), ("west", 90), ("north", 180), ("east", 270)):
+    for state, model in (("in_wall=false,open=false", bid),
+                         ("in_wall=false,open=true", f"{bid}_open"),
+                         ("in_wall=true,open=false", f"{bid}_wall"),
+                         ("in_wall=true,open=true", f"{bid}_wall_open")):
+        v = {"model": f"teyvat:block/{model}", "uvlock": True}
+        if y:
+            v["y"] = y
+        variants[f"facing={facing},{state}"] = v
 w(f"{BS}/{bid}.json", {"variants": variants})
 
-# ---------- side stairs (horizontal, 4 facings) ----------
+# ---------- side stairs (horizontal, 4 facings): твёрдая 3D-модель, без дыр ----------
 bid = "marble_side_stairs"
-w(f"{MB}/{bid}.json", {"parent": "minecraft:block/stairs",
-   "textures": {"bottom": "teyvat:block/marble", "top": "teyvat:block/marble", "side": "teyvat:block/marble"}})
+
+def ce(from_, to_, cull=None):
+    faces = {}
+    for n in ("down", "up", "north", "south", "west", "east"):
+        f = {"uv": [0, 0, 16, 16], "texture": "#side"}
+        if cull and n in cull:
+            f["cullface"] = n
+        faces[n] = f
+    return {"from": from_, "to": to_, "faces": faces}
+
+w(f"{MB}/{bid}.json", {
+    "parent": "minecraft:block/block",
+    "textures": {"particle": "teyvat:block/marble", "side": "teyvat:block/marble"},
+    "elements": [
+        ce([0, 0, 0], [16, 4, 16], ["down", "north", "south", "west", "east"]),
+        ce([0, 4, 4], [16, 8, 16], ["down", "south", "west", "east"]),
+        ce([0, 8, 8], [16, 12, 16], ["down", "south", "west", "east"]),
+        ce([0, 12, 12], [16, 16, 16], ["down", "south", "west", "east", "up"]),
+    ],
+})
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
 item_def(bid, f"teyvat:block/{bid}")
 w(f"{BS}/{bid}.json", {"variants": {
-    "facing=east": {"model": f"teyvat:block/{bid}", "x": 90, "y": 90},
-    "facing=south": {"model": f"teyvat:block/{bid}", "x": 90, "y": 180},
-    "facing=west": {"model": f"teyvat:block/{bid}", "x": 90, "y": 270},
-    "facing=north": {"model": f"teyvat:block/{bid}", "x": 90}}})
+    "facing=south": {"model": f"teyvat:block/{bid}"},
+    "facing=west": {"model": f"teyvat:block/{bid}", "y": 90},
+    "facing=north": {"model": f"teyvat:block/{bid}", "y": 180},
+    "facing=east": {"model": f"teyvat:block/{bid}", "y": 270}}})
 
 # ---------- door ----------
 bid = "marble_door"
@@ -251,28 +288,16 @@ for facing, y0 in (("east", 0), ("south", 90), ("west", 180), ("north", 270)):
         m = "bottom" if half == "lower" else "top"
         for hinge in ("left", "right"):
             for open_ in ("false", "true"):
-                o = "open" if open_ == "true" else ""
-                model = f"teyvat:block/{bid}_{m}_{hinge}{o}"
+                model = f"teyvat:block/{bid}_{m}_{hinge}" + ("_open" if open_ == "true" else "")
                 if open_ == "true":
-                    y = (y0 + 90) % 360 if hinge == "left" else y0
-                    y = y0 if hinge == "right" and open_ == "true" else y
-                    # vanilla: open left adds 90; open right keeps facing rotation
-                    y = (y0 + 90) % 360 if hinge == "left" else y0
+                    # vanilla (oak_door): open+left = +90, open+right = +270
+                    y = (y0 + 90) % 360 if hinge == "left" else (y0 + 270) % 360
                 else:
                     y = y0
                 variants[f"facing={facing},half={half},hinge={hinge},open={open_}"] = {"model": model, "y": y}
 w(f"{BS}/{bid}.json", {"variants": variants})
 
-# item icon for door
-from PIL import Image, ImageDraw
-img = Image.new("RGB", (16, 16), (242, 239, 233))
-d = ImageDraw.Draw(img)
-d.rectangle([2, 1, 13, 14], outline=(170, 162, 150))
-d.rectangle([3, 2, 12, 13], outline=(228, 224, 216))
-d.rectangle([3, 6, 12, 8], fill=(212, 175, 55))
-d.ellipse([10, 10, 12, 12], fill=(212, 175, 55), outline=(150, 118, 30))
-os.makedirs(f"{ROOT}/textures/item", exist_ok=True)
-img.save(f"{ROOT}/textures/item/marble_door.png")
+# item icon for door: текстура генерится в gen_textures.py (textures/item/marble_door.png)
 w(f"{MI}/{bid}.json", {"parent": "minecraft:item/generated", "textures": {"layer0": "teyvat:item/marble_door"}})
 item_def(bid, f"teyvat:item/{bid}")
 

@@ -1,197 +1,206 @@
 #!/usr/bin/env python3
-"""Генерация мраморных текстур Teyvat v2: белоснежный мрамор + золотые окантовки (Celestia).
-Единая палитра для всех блоков, чтобы монолит и вперемешку смотрелись цельно."""
-import math, random
+"""Генерация мраморных текстур Teyvat v3: белоснежный мрамор + золотые окантовки (Celestia).
+Единая палитра для всех блоков, чтобы монолит и вперемешку смотрелись цельно.
+Для золота генерируются specular-карты (*_s.png): альфа задаёт labPBR-эмиссию,
+которая включается в шейдере через IPBR_EMISSIVE_MODE=3 (золото светится и подсвечивает блок)."""
+import math, os, random
 from PIL import Image, ImageDraw
 
 S = 16
 OUT = "src/main/resources/assets/teyvat/textures/block"
 random.seed(20260804)
 
-# Единая палитра «Целестия»
-SNOW   = (250, 250, 248)   # белоснежный мрамор
-SNOW_D = (240, 240, 236)   # тень на мраморе
-VEIN   = (231, 231, 226)
-VEIN_W = (240, 233, 215)   # тёплая прожилка
+# Единая палитра «Целестия» — мрамор белоснежный, без прожилок и серых пятен
+SNOW   = (252, 252, 250)
+SNOW_D = (242, 242, 238)   # мягкая тень
 MORTAR = (233, 233, 229)
-GOLD   = (200, 156, 56)    # золото
-GOLD_HI= (242, 210, 118)   # блик золота
-GOLD_D = (142, 106, 34)    # тень золота
-LAMP_C = (255, 246, 220)   # тёплый свет
+GOLD   = (200, 156, 56)
+GOLD_HI= (242, 210, 118)
+GOLD_D = (142, 106, 34)
+LAMP_C = (255, 246, 220)
+
+# Альфа эмиссии в specular-картах (0..255; 255 = «эмиссии нет» для labPBR)
+A_GOLD = 120    # золото: умеренное золотистое свечение (emission ~1.4)
+A_LAMP = 235    # фонарь: яркое тёплое свечение (emission ~2.8)
 
 def noise(px, amt=5):
     r, g, b = px
     d = random.randint(-amt, amt)
     return (max(0, min(255, r + d)), max(0, min(255, g + d)), max(0, min(255, b + d)))
 
-def base():
-    img = Image.new("RGB", (S, S), SNOW)
-    return img, ImageDraw.Draw(img)
-
-def grain(img, amt=3):
+def grain(img, amt=2):
     for _ in range(S * S):
         x, y = random.randrange(S), random.randrange(S)
         img.putpixel((x, y), noise(img.getpixel((x, y)), amt))
 
-def veins(img, n=3):
-    d = ImageDraw.Draw(img)
-    for _ in range(n):
-        x, y = random.uniform(0, S), random.uniform(0, S)
-        ang = random.uniform(0, math.tau)
-        col = random.choice([VEIN, VEIN_W, VEIN])
-        for _ in range(random.randint(6, 10)):
-            x += math.cos(ang) * 1.6
-            y += math.sin(ang) * 1.6
-            r = random.uniform(0.6, 1.3)
-            d.ellipse([x - r, y - r, x + r, y + r], fill=col)
-            if random.random() < 0.3:
-                ang += random.uniform(-0.9, 0.9)
+def base():
+    img = Image.new("RGB", (S, S), SNOW)
+    mask = Image.new("L", (S, S), 0)
+    return img, ImageDraw.Draw(img), mask, ImageDraw.Draw(mask)
 
-def gold_band(d, y0, y1, hi=True):
-    d.rectangle([0, y0, 15, y1], fill=GOLD)
-    if hi:
-        d.rectangle([0, y0, 15, y0], fill=GOLD_HI)
-    d.rectangle([0, y1, 15, y1], fill=GOLD_D)
+def save(name, img, mask=None):
+    img.save(f"{OUT}/{name}.png")
+    if mask is not None and mask.getextrema()[1] > 0:
+        sm = Image.new("RGB", (S, S), (255, 255, 255))
+        sm.putalpha(mask)
+        sm.save(f"{OUT}/{name}_s.png")
 
-def flutes(img, horizontal=False, band_gold=True):
-    d = ImageDraw.Draw(img)
+def gold_band(d, md, y0, y1, w=S):
+    d.rectangle([0, y0, w - 1, y1], fill=GOLD)
+    d.rectangle([0, y0, w - 1, y0], fill=GOLD_HI)
+    d.rectangle([0, y1, w - 1, y1], fill=GOLD_D)
+    md.rectangle([0, y0, w - 1, y1], fill=A_GOLD)
+
+def flutes(img, horizontal=False):
+    """Каннелюры: вертикальные/горизонтальные бороздки с мягкой тенью (без серых пятен)."""
     n = 8
     step = S / n
     for i in range(n):
         a = int(i * step); b = int((i + 1) * step)
-        rng = range(a, b)
-        for t in rng:
+        for t in range(a, b):
             tt = (t - a) / (b - a)
-            c = (int(SNOW[0] * (1 - 0.18 * tt)), int(SNOW[1] * (1 - 0.18 * tt)), int(SNOW[2] * (1 - 0.18 * tt)))
+            c = (int(SNOW[0] * (1 - 0.15 * tt)), int(SNOW[1] * (1 - 0.15 * tt)), int(SNOW[2] * (1 - 0.15 * tt)))
             for k in range(S):
                 img.putpixel((k, t) if horizontal else (t, k), noise(c, 2))
-    # тонкие тени между каннелюрами
     for i in range(n + 1):
         p = min(int(i * step), S - 1)
         for k in range(S):
             img.putpixel((k, p) if horizontal else (p, k), noise(SNOW_D, 2))
-    if band_gold:
-        gold_band(d, 0, 2)
-        gold_band(d, 13, 15)
 
 # --- базовые блоки ---
-img, d = base(); veins(img, 3); grain(img, 2); img.save(f"{OUT}/marble.png")
+img, d, m, md = base(); grain(img, 2); save("marble", img)
 
-img, d = base(); veins(img, 1); grain(img, 1); img.save(f"{OUT}/marble_polished.png")
+img, d, m, md = base(); grain(img, 1); save("marble_polished", img)
 
-img, d = base()
+img, d, m, md = base()
 for y in range(S):
     for x in range(S):
         if y % 4 == 0 or (x + (2 if (y // 4) % 2 else 0)) % 8 == 0:
             img.putpixel((x, y), MORTAR)
         else:
             img.putpixel((x, y), noise(SNOW, 3))
-grain(img, 2); img.save(f"{OUT}/marble_bricks.png")
+grain(img, 2); save("marble_bricks", img)
 
-img, d = base()
+img, d, m, md = base()
 for y in range(S):
     for x in range(S):
         if x % 4 == 0 or y % 4 == 0:
             img.putpixel((x, y), MORTAR)
         else:
             img.putpixel((x, y), noise(SNOW, 4))
-grain(img, 1); img.save(f"{OUT}/marble_tiles.png")
+grain(img, 1); save("marble_tiles", img)
 
-img, d = base()
-d.rectangle([0, 0, 15, 15], outline=GOLD)
-d.rectangle([1, 1, 14, 14], outline=GOLD_HI)
+# --- chiseled: золотая окантовка с эмиссией ---
+img, d, m, md = base(); grain(img, 1)
+d.rectangle([0, 0, 15, 15], outline=GOLD);       md.rectangle([0, 0, 15, 15], outline=A_GOLD)
+d.rectangle([1, 1, 14, 14], outline=GOLD_HI);    md.rectangle([1, 1, 14, 14], outline=A_GOLD)
 d.rectangle([2, 2, 13, 13], outline=SNOW_D)
 d.rectangle([4, 4, 11, 11], outline=(226, 226, 220))
-d.rectangle([5, 5, 10, 10], outline=GOLD)
-img.save(f"{OUT}/marble_chiseled.png")
+d.rectangle([5, 5, 10, 10], outline=GOLD);       md.rectangle([5, 5, 10, 10], outline=A_GOLD)
+save("marble_chiseled", img, m)
 
-img, d = base(); veins(img, 2); grain(img, 2)
-gold_band(d, 1, 3); gold_band(d, 12, 14)
-img.save(f"{OUT}/marble_gold.png")
+# --- gold trimmed: белый мрамор с золотыми полосами ---
+img, d, m, md = base(); grain(img, 1)
+gold_band(d, md, 1, 3); gold_band(d, md, 12, 14)
+save("marble_gold", img, m)
 
-# --- колонны / балки ---
-img, d = base(); flutes(img, False); img.save(f"{OUT}/marble_pillar.png")
-img, d = base(); flutes(img, True);  img.save(f"{OUT}/marble_beam.png")
+# --- колонны / балки: золотые пояски НЕ на краях, чтобы стопка колонн была бесшовной ---
+img, d, m, md = base(); flutes(img, False); gold_band(d, md, 2, 4); gold_band(d, md, 12, 14); save("marble_pillar", img, m)
+img, d, m, md = base(); flutes(img, True);  gold_band(d, md, 2, 4); gold_band(d, md, 12, 14); save("marble_beam", img, m)
 
-def column(name, bands=None, gold=True):
-    img, d = base(); flutes(img, False, band_gold=gold)
-    for y0, y1, col in (bands or []):
-        d.rectangle([0, y0, 15, y1], fill=col)
-        d.line([0, y0, 15, y0], fill=GOLD_D)
-        d.line([0, y1, 15, y1], fill=GOLD_D)
-    img.save(f"{OUT}/{name}.png")
+img, d, m, md = base(); flutes(img, False); gold_band(d, md, 2, 4); gold_band(d, md, 12, 14); save("marble_column", img, m)
+img, d, m, md = base(); flutes(img, False); gold_band(d, md, 2, 3); gold_band(d, md, 12, 13); save("marble_column_small", img, m)
+img, d, m, md = base(); flutes(img, False); gold_band(d, md, 3, 5);                        save("marble_column_base", img, m)
+img, d, m, md = base(); flutes(img, False); gold_band(d, md, 7, 8);                        save("marble_column_mid", img, m)
+img, d, m, md = base(); flutes(img, False); gold_band(d, md, 10, 12);                      save("marble_column_capital", img, m)
+img, d, m, md = base(); flutes(img, False); gold_band(d, md, 3, 5); gold_band(d, md, 10, 12); save("marble_pedestal", img, m)
 
-column("marble_column", bands=[(2, 4, SNOW_D), (12, 14, SNOW_D)])
-# малая колонна (балясина): уже, с золотыми поясками по краям
-img, d = base(); flutes(img, False, band_gold=False)
+# --- ворота (куб с ромбом): ромб по целочисленным координатам, симметричный ---
+img, d, m, md = base(); grain(img, 1)
+d.rectangle([0, 0, 15, 15], outline=GOLD);    md.rectangle([0, 0, 15, 15], outline=A_GOLD)
+d.rectangle([1, 1, 14, 14], outline=GOLD_HI); md.rectangle([1, 1, 14, 14], outline=A_GOLD)
+d.rectangle([2, 2, 13, 13], outline=SNOW_D)
+# ромб с осью симметрии x=7, y=8: вершины (7,3),(12,8),(7,13),(2,8) — все рёбра ±1
+for a, b in (((7, 3), (12, 8)), ((12, 8), (7, 13)), ((7, 13), (2, 8)), ((2, 8), (7, 3))):
+    d.line([a, b], fill=GOLD); md.line([a, b], fill=A_GOLD)
+for a, b in (((7, 5), (10, 8)), ((10, 8), (7, 11)), ((7, 11), (4, 8)), ((4, 8), (7, 5))):
+    d.line([a, b], fill=SNOW_D)
+d.ellipse([6, 6, 9, 9], fill=GOLD, outline=GOLD_D); md.ellipse([6, 6, 9, 9], fill=A_GOLD)
+save("marble_gate", img, m)
+
+# --- фонарь: текстуру НЕ меняем, только specular-карта (эмиссия ядра и золотой рамы) ---
+lamp = Image.open(f"{OUT}/marble_lamp.png").convert("RGB")
+m = Image.new("L", (S, S), 0)
+cx = cy = 7.5
+r_core = 2.7
 for y in range(S):
     for x in range(S):
-        if x < 2 or x > 13:
-            img.putpixel((x, y), noise(SNOW_D, 2))
-gold_band(d, 0, 1); gold_band(d, 14, 15)
-img.save(f"{OUT}/marble_column_small.png")
-column("marble_column_base", bands=[(3, 7, SNOW_D)])
-column("marble_column_mid", bands=[(0, 1, SNOW_D), (15, 16, SNOW_D)])
-column("marble_column_capital", bands=[(9, 13, SNOW_D)])
-img, d = base(); flutes(img, False, band_gold=False)
-gold_band(d, 3, 5); gold_band(d, 10, 12)
-img.save(f"{OUT}/marble_pedestal.png")
+        if x in (1, 14) or y in (1, 14):
+            m.putpixel((x, y), A_GOLD)  # золотая окантовка фонаря
+            continue
+        dist = math.hypot(x + 0.5 - cx, y + 0.5 - cy)
+        if dist <= 1.2:
+            m.putpixel((x, y), A_LAMP)
+        elif dist <= r_core:
+            m.putpixel((x, y), int(A_LAMP * (1 - (dist - 1.2) / (r_core - 1.2))))
+sm = Image.new("RGB", (S, S), (255, 255, 255)); sm.putalpha(m)
+sm.save(f"{OUT}/marble_lamp_s.png")
 
-img, d = base(); grain(img, 3)
-d.rectangle([0, 0, 15, 15], outline=GOLD)
-d.rectangle([1, 1, 14, 14], outline=GOLD_HI)
-d.rectangle([2, 2, 13, 13], outline=SNOW_D)
-cx = cy = 7.5
-d.polygon([(cx, 2), (14, cy), (cx, 13), (2, cy)], outline=GOLD)
-d.polygon([(cx, 4), (12, cy), (cx, 12), (4, cy)], outline=SNOW_D)
-d.ellipse([cx - 1.5, cy - 1.5, cx + 1.5, cy + 1.5], fill=GOLD)
-img.save(f"{OUT}/marble_gate.png")
+# --- дверь (64x64, золотая рама с эмиссией) ---
+W = H = 64
+def door_base():
+    img = Image.new("RGB", (W, H), SNOW)
+    d = ImageDraw.Draw(img)
+    for y in range(H):
+        for x in range(W):
+            img.putpixel((x, y), noise(SNOW, 2))
+    mask = Image.new("L", (W, H), 0)
+    return img, d, mask, ImageDraw.Draw(mask)
 
-img, d = base(); grain(img, 2)
-d.rectangle([1, 1, 14, 14], outline=GOLD)
-d.rectangle([2, 2, 13, 13], outline=(226, 226, 220))
-d.ellipse([5, 5, 10, 10], fill=LAMP_C)
-d.ellipse([6, 6, 9, 9], fill=(255, 252, 240))
-d.ellipse([7, 7, 8, 8], fill=(255, 255, 255))
-img.save(f"{OUT}/marble_lamp.png")
+def door_gold_rect(d, md, x0, y0, x1, y1, w=2):
+    d.rectangle([x0, y0, x1, y1], outline=GOLD, width=w)
+    md.rectangle([x0, y0, x1, y1], outline=A_GOLD, width=w)
 
-# --- дверь ---
-W, H = 64, 64
-img = Image.new("RGB", (W, H), SNOW)
-d = ImageDraw.Draw(img)
-for y in range(H):
-    for x in range(W):
-        img.putpixel((x, y), noise(SNOW, 2))
-d.rectangle([3, 3, 60, 60], outline=GOLD)
-d.rectangle([5, 5, 58, 58], outline=(226, 226, 220))
-d.rectangle([10, 10, 53, 27], outline=SNOW_D)
-d.rectangle([10, 35, 53, 53], outline=SNOW_D)
-d.rectangle([12, 12, 51, 25], outline=(236, 236, 232))
-d.rectangle([12, 37, 51, 51], outline=(236, 236, 232))
-d.rectangle([0, 30, 63, 33], fill=GOLD)
-d.line([0, 30, 63, 30], fill=GOLD_HI)
-d.line([0, 33, 63, 33], fill=GOLD_D)
-d.ellipse([49, 45, 55, 51], fill=GOLD, outline=GOLD_D)
-img.save(f"{OUT}/marble_door_top.png")
-d2 = ImageDraw.Draw(img)
-d2.rectangle([0, 61, 63, 63], fill=GOLD_D)
-img.save(f"{OUT}/marble_door_bottom.png")
+def door_save(name, img, m):
+    img.save(f"{OUT}/{name}.png")
+    sm = Image.new("RGB", (W, H), (255, 255, 255)); sm.putalpha(m)
+    sm.save(f"{OUT}/{name}_s.png")
 
-# --- иконка двери в инвентаре (item) ---
+# верхняя половина: рама, филёнка, ручка, золотой пояс внизу (середина двери)
+img, d, m, md = door_base()
+door_gold_rect(d, md, 2, 2, 61, 61)
+d.rectangle([4, 4, 59, 59], outline=SNOW_D)
+d.rectangle([8, 8, 55, 55], outline=(226, 226, 220))
+d.rectangle([10, 10, 53, 53], outline=SNOW_D)
+gold_band(d, md, 58, 61, w=W)
+d.ellipse([46, 44, 54, 52], fill=GOLD, outline=GOLD_D)
+md.ellipse([46, 44, 54, 52], fill=A_GOLD, outline=A_GOLD)
+door_save("marble_door_top", img, m)
+
+# нижняя половина: рама, филёнка, золотой пояс вверху (середина двери)
+img, d, m, md = door_base()
+door_gold_rect(d, md, 2, 2, 61, 61)
+d.rectangle([4, 4, 59, 59], outline=SNOW_D)
+d.rectangle([8, 8, 55, 55], outline=(226, 226, 220))
+d.rectangle([10, 10, 53, 53], outline=SNOW_D)
+gold_band(d, md, 0, 3, w=W)
+d.ellipse([30, 46, 34, 50], fill=GOLD_D)
+door_save("marble_door_bottom", img, m)
+
+# --- иконка двери в инвентаре (item): как фасад двери, с золотой рамой ---
 IW = 16
 it = Image.new("RGB", (IW, IW), SNOW)
 di = ImageDraw.Draw(it)
 for y in range(IW):
     for x in range(IW):
         it.putpixel((x, y), noise(SNOW, 2))
-di.rectangle([1, 1, 14, 14], outline=GOLD)
-di.rectangle([2, 2, 13, 13], outline=(226, 226, 220))
-di.rectangle([3, 3, 12, 12], outline=SNOW_D)
-di.rectangle([4, 4, 11, 11], outline=(236, 236, 232))
-di.line([3, 7, 12, 7], fill=(226, 226, 220))
+di.rectangle([0, 0, 15, 15], outline=GOLD)
+di.rectangle([1, 1, 14, 14], outline=GOLD_HI)
+di.rectangle([2, 2, 13, 13], outline=SNOW_D)
+di.rectangle([3, 3, 12, 12], outline=(226, 226, 220))
+di.line([3, 7, 12, 7], fill=SNOW_D)
 di.line([3, 8, 12, 8], fill=(226, 226, 220))
 di.ellipse([9, 4, 11, 6], fill=GOLD, outline=GOLD_D)
-import os
 os.makedirs("src/main/resources/assets/teyvat/textures/item", exist_ok=True)
 it.save("src/main/resources/assets/teyvat/textures/item/marble_door.png")
-print("textures v2 done")
+print("textures v3 done")

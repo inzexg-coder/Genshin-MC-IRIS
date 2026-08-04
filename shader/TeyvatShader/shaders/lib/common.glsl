@@ -200,7 +200,7 @@
     //#define EMISSIVE_LAPIS_BLOCK
     //#define GLOWING_ARMOR_TRIM
 
-    #define IPBR_EMISSIVE_MODE 1 //[1 3 2]
+    #define IPBR_EMISSIVE_MODE 3 //[3 1 2]
     //#define IPBR_COMPAT_MODE_DEFINE
     #ifdef IPBR_COMPAT_MODE_DEFINE
         #define IPBR_COMPAT_MODE
