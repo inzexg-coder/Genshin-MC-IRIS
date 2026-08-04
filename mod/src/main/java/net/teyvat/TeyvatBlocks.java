@@ -1,6 +1,7 @@
 package net.teyvat;
 
 import net.fabricmc.fabric.api.itemgroup.v1.FabricItemGroup;
+import net.fabricmc.fabric.api.itemgroup.v1.ItemGroupEvents;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.DoorBlock;
@@ -17,6 +18,7 @@ import net.minecraft.block.enums.NoteBlockInstrument;
 import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemGroup;
+import net.minecraft.item.ItemGroups;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
@@ -150,5 +152,12 @@ public final class TeyvatBlocks {
                 })
                 .build();
         Registry.register(Registries.ITEM_GROUP, Identifier.of(TeyvatMod.MOD_ID, "blocks"), group);
+
+        // Страховка: блоки также попадают в стандартную вкладку «Строительные блоки»
+        ItemGroupEvents.modifyEntriesEvent(ItemGroups.BUILDING_BLOCKS).register(entries -> {
+            for (Block block : ALL_BLOCKS) {
+                entries.add(block);
+            }
+        });
     }
 }
