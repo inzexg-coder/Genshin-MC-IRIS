@@ -1170,3 +1170,18 @@ option.TOON_BAND_STEP2=Toon Midtone Threshold
 option.TOON_BAND_STEP2.comment=Brightness level where the bright cel step starts.
 option.TOON_BAND_SOFTNESS=Toon Band Softness
 option.TOON_BAND_SOFTNESS.comment=How smooth the transition between cel steps is. Lower = harder anime shadows.
+
+# Teyvat Screens
+screen.QUALITY=Качество графики
+screen.BRIGHTNESS=Яркость
+screen.RENDERING=Рендеринг
+screen.SHADOWS=Качество теней
+screen.POST_PROCESSING=Постобработка
+screen.EFFECTS=Эффекты
+screen.ENVIRONMENT=Детализация окружения
+screen.FRAMERATE=Частота кадров
+screen.BLUR=Размытие
+screen.GLOW=Свечение
+screen.ANTI_ALIASING=Сглаживание
+screen.ENTITY_EFFECTS=Эффекты сущностей
+screen.PLAYER_EFFECTS=Эффекты других игроков

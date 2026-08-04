@@ -1,0 +1,138 @@
+# Teyvat (Genshin) — русские названия
+# Экраны настроек
+screen.QUALITY=Качество графики
+screen.BRIGHTNESS=Яркость
+screen.RENDERING=Рендеринг
+screen.SHADOWS=Качество теней
+screen.POST_PROCESSING=Постобработка
+screen.EFFECTS=Эффекты
+screen.ENVIRONMENT=Детализация окружения
+screen.FRAMERATE=Частота кадров
+screen.BLUR=Размытие
+screen.GLOW=Свечение
+screen.ANTI_ALIASING=Сглаживание
+screen.ENTITY_EFFECTS=Эффекты сущностей
+screen.PLAYER_EFFECTS=Эффекты других игроков
+
+# Teyvat: тон и тун
+option.T_SATURATION=Насыщенность
+option.T_VIBRANCE=Вибранс
+option.TM_CONTRAST=Контраст
+option.TM_EXPOSURE=Экспозиция
+option.TM_DARK_DESATURATION=Обесцвечивание теней
+option.TM_WHITE_PATH=Яркость белого
+option.AMBIENT_MULT=Яркость теневого света
+option.TOON_BANDING=Тун-освещение
+option.TOON_BANDING.comment=Превращает прямой солнечный свет в ступени яркости (0 / 0.5 / 1), как у персонажей и локаций Genshin.
+option.TOON_BAND_STEP1=Граница тун-тени
+option.TOON_BAND_STEP2=Граница тун-света
+option.TOON_BAND_SOFTNESS=Мягкость тун-границ
+option.WORLD_OUTLINE_THICKNESS=Толщина контура мира
+option.WORLD_OUTLINE_I=Интенсивность контура
+option.DARK_OUTLINE_THICKNESS=Толщина тёмного контура
+
+# Яркость по времени суток
+option.LIGHT_MORNING_I=Яркость света утром
+option.LIGHT_NOON_I=Яркость света днём
+option.LIGHT_NIGHT_I=Яркость света ночью
+option.LIGHT_RAIN_I=Яркость света в дождь
+
+# Качество графики
+option.DETAIL_QUALITY=Детализация текстур
+option.ANISOTROPIC_FILTER=Фильтрация текстур
+
+# Рендеринг
+option.SHADER_STYLE=Визуальный стиль
+option.HAND_SWAYING=Покачивание руки
+option.WORLD_SPACE_REFLECTIONS=Отражения в мировом пространстве
+option.WATER_REFLECT_QUALITY=Качество отражений воды
+option.BLOCK_REFLECT_QUALITY=Качество отражений блоков
+option.REFLECTION_RES=Разрешение отражений
+
+# Тени
+option.SHADOW_QUALITY=Качество теней
+option.shadowDistance=Дистанция теней
+option.SHADOW_SMOOTHING=Смягчение теней
+
+# Постобработка
+option.IMAGE_SHARPENING=Резкость изображения
+option.CHROMA_ABERRATION=Хроматическая аберрация
+option.SSAO_QUALI_DEFINE=Качество SSAO
+option.SSAO_I=Интенсивность SSAO
+option.VANILLAAO_I=Интенсивность ванильного AO
+
+# Эффекты
+option.LIGHTSHAFT_QUALI_DEFINE=Качество лучей света
+option.LIGHTSHAFT_BEHAVIOUR=Режим лучей света
+option.LIGHTSHAFT_DAY_I=Яркость лучей днём
+option.LIGHTSHAFT_NIGHT_I=Яркость лучей ночью
+option.LIGHTSHAFT_RAIN_I=Яркость лучей в дождь
+option.COLORED_LIGHTING=Цветной свет (ACT)
+option.COLORED_LIGHT_SATURATION=Насыщенность цветного света
+option.LENSFLARE_MODE=Блик объектива
+option.LENSFLARE_I=Интенсивность блика
+option.RAINBOWS=Радуги
+option.AURORA_STYLE_DEFINE=Стиль северного сияния
+option.AURORA_CONDITION=Условия сияния
+option.NIGHT_NEBULAE=Ночные туманности
+option.NIGHT_NEBULA_I=Яркость туманностей
+option.SELECT_OUTLINE=Контур выделения
+option.SELECT_OUTLINE_I=Яркость контура выделения
+option.WAVING_SPEED=Скорость анимации
+option.WAVING_I=Интенсивность анимации
+
+# Детализация окружения
+option.ATM_FOG_MULT=Плотность тумана
+option.ATM_FOG_DISTANCE=Дистанция тумана
+option.ATM_FOG_ALTITUDE=Высота тумана
+option.CLOUD_QUALITY=Качество облаков
+option.CLOUD_SPEED_MULT=Скорость облаков
+option.CLOUD_R=Цвет облаков (R)
+option.CLOUD_G=Цвет облаков (G)
+option.CLOUD_B=Цвет облаков (B)
+option.CLOUD_UNBOUND_AMOUNT=Количество облаков
+option.WATERCOLOR_R=Цвет воды (R)
+option.WATERCOLOR_G=Цвет воды (G)
+option.WATERCOLOR_B=Цвет воды (B)
+option.WATER_FOG_MULT=Туман под водой
+option.WATER_REFRACTION_INTENSITY=Сила рефракции воды
+option.WATER_BUMPINESS=Сила волн
+option.WATER_SPEED_MULT=Скорость волн
+option.WATER_SIZE_MULT=Размер волн
+option.NETHER_VIEW_LIMIT=Дальность вида в Незере
+option.NETHER_COLOR_MODE=Цветовой режим Незера
+
+# Частота кадров
+option.PIXEL_SCALE=Разрешение рендера
+
+# Размытие
+option.MOTION_BLUR_EFFECT=Размытие в движении
+option.MOTION_BLURRING_STRENGTH=Сила размытия в движении
+option.WORLD_BLUR=Размытие мира
+option.WB_DOF_I=Глубина резкости
+option.WB_DOF_FOCUS=Фокус глубины резкости
+option.WB_DB_DAY_I=Размытие расстояния — день
+option.WB_DB_NIGHT_I=Размытие расстояния — ночь/интерьеры
+option.WB_DB_WATER_I=Размытие расстояния — под водой
+
+# Свечение
+option.BLOOM_ENABLED=Свечение (Bloom)
+option.BLOOM_STRENGTH=Сила свечения
+option.GLOWING_ORE_MASTER=Светящиеся руды
+option.GLOWING_ORE_MULT=Сила свечения руд
+option.GLOWING_AMETHYST=Светящийся аметист
+option.GLOWING_LICHEN=Светящийся лишайник
+option.CUSTOM_EMISSION_INTENSITY=Интенсивность эмиссии текстур
+
+# Сглаживание
+option.FXAA_DEFINE=Сглаживание (FXAA)
+option.FXAA_STRENGTH=Сила FXAA
+option.TAA_MODE=Временная фильтрация (TAA)
+option.TAA_SMOOTHING=Временное сглаживание
+option.TAA_JITTER=Временной джиттер
+
+# Сущности и игроки
+option.ENTITY_SHADOW=Тени сущностей
+option.HELD_LIGHTING_MODE=Динамический свет в руке
+option.PLAYER_SHADOW=Тень игрока
+option.WORLD_SPACE_PLAYER_REF=Отражения игроков в мире
