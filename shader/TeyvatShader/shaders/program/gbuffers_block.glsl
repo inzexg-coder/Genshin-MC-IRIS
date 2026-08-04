@@ -132,16 +132,17 @@ void main() {
     #ifdef IPBR
         #include "/lib/materials/materialHandling/blockEntityIPBR.glsl"
 
-        // Teyvat: зеркальная золотая окантовка 3-блочной двери (BE id 5017)
-        if (blockEntityId == 5017) {
-            vec4 spec = texture2D(specular, texCoord);
-            float metal = clamp(spec.g, 0.0, 1.0);
-            float smoothM = clamp(pow2(spec.r), 0.0, 1.0);
-            float goldMix = metal * smoothM;
-            smoothnessG = max(smoothnessG, smoothM);
-            smoothnessD = max(smoothnessD, smoothM);
+        // Teyvat: зеркальная золотая окантовка. Определяем металл по labPBR specular-карте
+        // (G=metal, R=smoothness), а не по мат-иду, — работает для любых блоков и двери.
+        vec4 teyvatSpec = texture2D(specular, texCoord);
+        float teyvatMetal = clamp(teyvatSpec.g, 0.0, 1.0);
+        float teyvatSmooth = clamp(pow2(teyvatSpec.r), 0.0, 1.0);
+        float goldMix = teyvatMetal * teyvatSmooth;
+        if (goldMix > 0.2) {
+            smoothnessG = max(smoothnessG, teyvatSmooth);
+            smoothnessD = max(smoothnessD, teyvatSmooth);
             highlightMult += 3.0 * goldMix;
-            reflectionStrength = 0.98 * metal;
+            reflectionStrength = 0.98 * goldMix;
         }
 
         #if IPBR_EMISSIVE_MODE != 1

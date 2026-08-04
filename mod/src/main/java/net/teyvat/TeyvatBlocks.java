@@ -28,6 +28,7 @@ import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
+import net.teyvat.block.MarbleDoorBlock;
 import net.teyvat.block.MarbleSideStairsBlock;
 
 import java.util.ArrayList;
@@ -121,9 +122,9 @@ public final class TeyvatBlocks {
         return register(name, new FenceGateBlock(WoodType.OAK, settings(name)));
     }
 
-    /** Стандартная 2-блочная дверь (как в ванили): гарантированно видимая модель, открывается как обычная. */
+    /** 2-блочная мраморная дверь: ванильная логика, но открывается медленно (плавная анимация). */
     private static Block door(String name) {
-        return register(name, new DoorBlock(BlockSetType.STONE, settings(name).nonOpaque()));
+        return register(name, new MarbleDoorBlock(BlockSetType.STONE, settings(name).nonOpaque()));
     }
 
     private static Block sideStairs(String name) {
@@ -131,7 +132,7 @@ public final class TeyvatBlocks {
     }
 
     private static Block lamp(String name) {
-        return register(name, new Block(settings(name).luminance(state -> 14)));
+        return register(name, new Block(settings(name).luminance(state -> 15)));
     }
 
     private static <B extends Block> B register(String name, B block) {

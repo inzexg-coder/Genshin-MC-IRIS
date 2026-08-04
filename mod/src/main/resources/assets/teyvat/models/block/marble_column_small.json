@@ -4,6 +4,7 @@
     "particle": "teyvat:block/marble",
     "marble": "teyvat:block/marble",
     "polished": "teyvat:block/marble_polished",
+    "top": "teyvat:block/marble_top",
     "side": "teyvat:block/marble_column_small"
   },
   "elements": [

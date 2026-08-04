@@ -4,6 +4,7 @@
     "particle": "teyvat:block/marble",
     "marble": "teyvat:block/marble",
     "polished": "teyvat:block/marble_polished",
+    "top": "teyvat:block/marble_top",
     "side": "teyvat:block/marble_column"
   },
   "elements": [
@@ -26,7 +27,7 @@
             16,
             16
           ],
-          "texture": "#marble",
+          "texture": "#top",
           "cullface": "down"
         },
         "up": {
@@ -36,7 +37,7 @@
             16,
             16
           ],
-          "texture": "#marble",
+          "texture": "#top",
           "cullface": "up"
         },
         "north": {

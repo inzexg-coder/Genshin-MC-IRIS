@@ -40,7 +40,7 @@ for bid, tex in CUBES.items():
 bid = "gold_trimmed_marble"
 w(f"{BS}/{bid}.json", {"variants": {"": {"model": f"teyvat:block/{bid}"}}})
 w(f"{MB}/{bid}.json", {"parent": "minecraft:block/cube_bottom_top",
-   "textures": {"top": "teyvat:block/marble", "bottom": "teyvat:block/marble", "side": "teyvat:block/marble_gold"}})
+   "textures": {"top": "teyvat:block/marble_gold_top", "bottom": "teyvat:block/marble_gold_top", "side": "teyvat:block/marble_gold"}})
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
 item_def(bid, f"teyvat:block/{bid}")
 
@@ -52,7 +52,7 @@ for bid, side in (("marble_pillar", "marble_pillar"), ("marble_beam", "marble_be
         "axis=z": {"model": f"teyvat:block/{bid}_horizontal"}}})
     for m in (bid, f"{bid}_horizontal"):
         w(f"{MB}/{m}.json", {"parent": "minecraft:block/cube_bottom_top",
-           "textures": {"top": "teyvat:block/marble", "bottom": "teyvat:block/marble", "side": f"teyvat:block/{side}"}})
+           "textures": {"top": "teyvat:block/marble_gold_top", "bottom": "teyvat:block/marble_gold_top", "side": f"teyvat:block/{side}"}})
     w(f"{MB}/{bid}_horizontal.json", {"parent": f"teyvat:block/{bid}", "x": 90})
     w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
     item_def(bid, f"teyvat:block/{bid}")
@@ -83,6 +83,7 @@ def col_model(bid, elements):
             "particle": "teyvat:block/marble",
             "marble": "teyvat:block/marble",
             "polished": "teyvat:block/marble_polished",
+            "top": "teyvat:block/marble_top",
             "side": f"teyvat:block/{bid}",
         },
         "elements": elements,
@@ -91,9 +92,9 @@ def col_model(bid, elements):
     w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
     item_def(bid, f"teyvat:block/{bid}")
 
-M = "#marble"; P = "#polished"
-def S(t):  # shaft with side texture t
-    return el("shaft", [3, 0, 3], [13, 16, 13], t, {"up": M, "down": M})
+M = "#marble"; P = "#polished"; T = "#top"
+def S(t):  # shaft with side texture t, top/bottom = резная крышка
+    return el("shaft", [3, 0, 3], [13, 16, 13], t, {"up": T, "down": T})
 def wide(y0, y1, t=P):
     return el("wide", [1, y0, 1], [15, y1, 15], t)
 def ring(y0, y1):
@@ -103,32 +104,32 @@ def ring(y0, y1):
 # чтобы две колонны, поставленные друг на друга, сливались в одну длинную.
 col_model("marble_column", [S("#side")])
 col_model("marble_column_base", [
-    wide(0, 3), el("shaft", [3, 3, 3], [13, 16, 13], "#side", {"up": M, "down": M})])
+    wide(0, 3), el("shaft", [3, 3, 3], [13, 16, 13], "#side", {"up": T, "down": M})])
 col_model("marble_column_mid", [S("#side")])
 col_model("marble_column_capital", [
-    el("shaft", [3, 0, 3], [13, 13, 13], "#side", {"up": M, "down": M}),
+    el("shaft", [3, 0, 3], [13, 13, 13], "#side", {"up": T, "down": M}),
     wide(13, 16)])
 col_model("marble_column_small", [
     el("shaft", [5, 0, 5], [11, 16, 11], "#side", {"up": M, "down": M})])
 col_model("marble_pedestal", [
-    wide(0, 3), el("mid", [3, 3, 3], [13, 10, 13], "#side", {"up": M, "down": M}),
+    wide(0, 3), el("mid", [3, 3, 3], [13, 10, 13], "#side", {"up": T, "down": M}),
     el("top", [2, 10, 2], [14, 16, 14], P)])
 
 # ---------- arch (цельный блок-врата: резной фасад, никаких сквозных проёмов) ----------
 w(f"{BS}/marble_arch.json", {"variants": {"": {"model": "teyvat:block/marble_arch"}}})
 w(f"{MB}/marble_arch.json", {"parent": "minecraft:block/cube",
-   "textures": {"up": "teyvat:block/marble", "down": "teyvat:block/marble",
+   "textures": {"up": "teyvat:block/marble_gold_top", "down": "teyvat:block/marble_gold_top",
                 "north": "teyvat:block/marble_arch_front", "south": "teyvat:block/marble_arch_front",
-                "east": "teyvat:block/marble", "west": "teyvat:block/marble"}})
+                "east": "teyvat:block/marble_gold", "west": "teyvat:block/marble_gold"}})
 w(f"{MI}/marble_arch.json", {"parent": "teyvat:block/marble_arch"})
 item_def("marble_arch", "teyvat:block/marble_arch")
 
 # ---------- gate (cube with carved front/back) ----------
 w(f"{BS}/marble_gate.json", {"variants": {"": {"model": "teyvat:block/marble_gate"}}})
 w(f"{MB}/marble_gate.json", {"parent": "minecraft:block/cube",
-   "textures": {"up": "teyvat:block/marble", "down": "teyvat:block/marble",
+   "textures": {"up": "teyvat:block/marble_gold_top", "down": "teyvat:block/marble_gold_top",
                 "north": "teyvat:block/marble_gate", "south": "teyvat:block/marble_gate",
-                "east": "teyvat:block/marble", "west": "teyvat:block/marble"}})
+                "east": "teyvat:block/marble_gold", "west": "teyvat:block/marble_gold"}})
 w(f"{MI}/marble_gate.json", {"parent": "teyvat:block/marble_gate"})
 item_def("marble_gate", "teyvat:block/marble_gate")
 
@@ -240,25 +241,44 @@ for facing, y in (("south", 0), ("west", 90), ("north", 180), ("east", 270)):
         variants[f"facing={facing},{state}"] = v
 w(f"{BS}/{bid}.json", {"variants": variants})
 
-# ---------- side stairs (плоская плитка 4px с диагональным золотым орнаментом, 4 поворота) ----------
+# ---------- side stairs (горизонтальные ступени): блок делится на 4 вертикальных
+# столбика 8x8, один столбик (северо-западный в локальных координатах) удалён =>
+# L-образный блок 3/4. Верхние грани — квадранты мозаики marble_side_stairs,
+# боковые грани — каннелюры (#side, UV 0..8 => меандр стыкуется каждые 8px).
+# 4 поворота через y: south=0, west=90, north=180, east=270 ----------
 bid = "marble_side_stairs"
+
+def side_col(from_, to_, top_uv):
+    x0, y0, z0 = from_
+    x1, y1, z1 = to_
+    to = to_
+    faces = {}
+    faces["down"] = {"uv": [0, 0, 16, 16], "texture": "#marble"}
+    if y0 == 0:
+        faces["down"]["cullface"] = "down"
+    faces["up"] = {"uv": top_uv, "texture": "#top_side"}
+    faces["north"] = {"uv": [0, 0, 8, 16], "texture": "#side"}
+    faces["south"] = {"uv": [0, 0, 8, 16], "texture": "#side"}
+    faces["west"] = {"uv": [0, 0, 8, 16], "texture": "#side"}
+    faces["east"] = {"uv": [0, 0, 8, 16], "texture": "#side"}
+    if z0 == 0:
+        faces["north"]["cullface"] = "north"
+    if z1 == 16:
+        faces["south"]["cullface"] = "south"
+    if x0 == 0:
+        faces["west"]["cullface"] = "west"
+    if x1 == 16:
+        faces["east"]["cullface"] = "east"
+    return {"from": from_, "to": to_, "faces": faces}
 
 w(f"{MB}/{bid}.json", {
     "parent": "minecraft:block/block",
-    "textures": {"particle": "teyvat:block/marble", "side": "teyvat:block/marble_side_stairs",
-                 "marble": "teyvat:block/marble"},
+    "textures": {"particle": "teyvat:block/marble", "side": "teyvat:block/marble_column",
+                 "top_side": "teyvat:block/marble_side_stairs", "marble": "teyvat:block/marble"},
     "elements": [
-        {
-            "from": [0, 0, 0], "to": [16, 4, 16],
-            "faces": {
-                "down": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "down"},
-                "up": {"uv": [0, 0, 16, 16], "texture": "#side"},
-                "north": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "north"},
-                "south": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "south"},
-                "west": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "west"},
-                "east": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "east"},
-            },
-        },
+        side_col([8, 0, 0], [16, 16, 8], [8, 0, 16, 8]),    # СВ столбик
+        side_col([8, 0, 8], [16, 16, 16], [8, 8, 16, 16]),  # ЮВ столбик
+        side_col([0, 0, 8], [8, 16, 16], [0, 8, 8, 16]),    # ЮЗ столбик
     ],
 })
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})

@@ -15,6 +15,7 @@ public class TeyvatMod implements ModInitializer {
     public void onInitialize() {
         TeyvatBlocks.register();
         TeyvatBlocks.registerItemGroup();
+        TeyvatBlockEntities.register();
         LOGGER.info("Teyvat mod initialized: {} blocks registered", TeyvatBlocks.ALL_BLOCKS.size());
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {

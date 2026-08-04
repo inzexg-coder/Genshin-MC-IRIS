@@ -245,18 +245,22 @@ void main() {
     #include "/lib/materials/materialHandling/terrainMaterials.glsl"
 
     #ifdef IPBR
-        // Teyvat: зеркальная золотая окантовка. Мат-ид 10996 = блоки мраморного набора,
-        // labPBR specular (_s.png): G=metal, R=smoothness. Металл получает отражения
-        // как вода (colortex4.a ~ 0.95, composite1 применяет их через fresnelM).
-        if (mat == 10996) {
-            vec4 spec = texture2D(specular, texCoord);
-            float metal = clamp(spec.g, 0.0, 1.0);
-            float smoothM = clamp(pow2(spec.r), 0.0, 1.0);
-            float goldMix = metal * smoothM;
-            smoothnessG = max(smoothnessG, smoothM);
-            smoothnessD = max(smoothnessD, smoothM);
+        // Teyvat: зеркальная золотая окантовка. Металл определяется по labPBR specular-карте
+        // (_s.png: G=metal, R=smoothness) для любых блоков — не зависит от мат-идов.
+        // Металл получает отражения как вода (colortex4.a ~ 0.95, composite1 применяет их
+        // через fresnelM). Фонарь (мат-ид 10997) дополнительно сильно светится.
+        vec4 teyvatSpec = texture2D(specular, texCoord);
+        float teyvatMetal = clamp(teyvatSpec.g, 0.0, 1.0);
+        float teyvatSmooth = clamp(pow2(teyvatSpec.r), 0.0, 1.0);
+        float goldMix = teyvatMetal * teyvatSmooth;
+        if (goldMix > 0.2) {
+            smoothnessG = max(smoothnessG, teyvatSmooth);
+            smoothnessD = max(smoothnessD, teyvatSmooth);
             highlightMult += 3.0 * goldMix;
-            reflectionStrength = 0.98 * metal;
+            reflectionStrength = 0.98 * goldMix;
+        }
+        if (mat == 10997) {
+            emission = max(emission, 7.0);
         }
     #endif
 
