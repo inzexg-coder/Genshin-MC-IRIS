@@ -161,22 +161,29 @@ for sid, tex in STAIRS.items():
     w(f"{MI}/{sid}.json", {"parent": f"teyvat:block/{sid}"})
     item_def(sid, f"teyvat:block/{sid}")
     base = f"teyvat:block/{sid}"
+    # Точная копия ванильного blockstate 1.21.10 (oak_stairs.json):
+    #   низ:  left-формы = base+270, right-формы = base
+    #   верх: left-формы = base,     right-формы = base+90
+    #   всё с uvlock, верх дополнительно x=180
     variants = {}
     ymap = {"east": 0, "south": 90, "west": 180, "north": 270}
     for facing, y0 in ymap.items():
         for half in ("bottom", "top"):
             rot = {"x": 180} if half == "top" else {}
-            # как в ванили 1.21: inner_left/outer_left -> модель _inner/_outer без доп. поворота,
-            # inner_right/outer_right -> _inner/_outer с y+270
-            for shape in ("straight", "inner_left", "outer_left"):
-                model = base if shape == "straight" else f"{base}_{shape[:-5]}"
-                v = {"model": model}
-                if y0: v["y"] = y0
-                v.update(rot)
-                variants[f"facing={facing},half={half},shape={shape}"] = v
-            for shape in ("inner_right", "outer_right"):
-                v = {"model": f"{base}_{shape[:-6]}"}
-                y = (y0 + 270) % 360
+            if half == "bottom":
+                y_left = (y0 + 270) % 360
+                y_right = y0
+            else:
+                y_left = y0
+                y_right = (y0 + 90) % 360
+            for shape, y in (("straight", y0), ("inner_left", y_left),
+                             ("inner_right", y_right), ("outer_left", y_left),
+                             ("outer_right", y_right)):
+                if shape == "straight":
+                    model = base
+                else:
+                    model = f"{base}_{'inner' if 'inner' in shape else 'outer'}"
+                v = {"model": model, "uvlock": True}
                 if y: v["y"] = y
                 v.update(rot)
                 variants[f"facing={facing},half={half},shape={shape}"] = v

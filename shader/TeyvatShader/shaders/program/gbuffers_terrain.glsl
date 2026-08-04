@@ -237,11 +237,28 @@ void main() {
     int subsurfaceMode = 0;
     bool noSmoothLighting = false, noDirectionalShading = false, noVanillaAO = false, centerShadowBias = false, noGeneratedNormals = false, doTileRandomisation = true;
     float smoothnessG = 0.0, highlightMult = 1.0, emission = 0.0, noiseFactor = 1.0, snowFactor = 1.0, snowMinNdotU = 0.0, noPuddles = 0.0;
+    float reflectionStrength = 0.0; // Teyvat: сила отражения в colortex4.a (0..1)
     vec2 lmCoordM = lmCoord;
     vec3 normalM = normal, geoNormal = normal, shadowMult = vec3(1.0);
     vec3 worldGeoNormal = normalize(ViewToPlayer(geoNormal * 10000.0));
 
     #include "/lib/materials/materialHandling/terrainMaterials.glsl"
+
+    #ifdef IPBR
+        // Teyvat: зеркальная золотая окантовка. Мат-ид 10996 = блоки мраморного набора,
+        // labPBR specular (_s.png): G=metal, R=smoothness. Металл получает отражения
+        // как вода (colortex4.a ~ 0.95, composite1 применяет их через fresnelM).
+        if (mat == 10996) {
+            vec4 spec = texture2D(specular, texCoord);
+            float metal = clamp(spec.g, 0.0, 1.0);
+            float smoothM = clamp(pow2(spec.r), 0.0, 1.0);
+            float goldMix = metal * smoothM;
+            smoothnessG = max(smoothnessG, goldMix);
+            smoothnessD = max(smoothnessD, goldMix);
+            highlightMult += 2.0 * goldMix;
+            reflectionStrength = 0.95 * metal;
+        }
+    #endif
 
     #ifdef SNOWY_WORLD
         DoSnowyWorld(color, smoothnessG, highlightMult, smoothnessD, emission,
@@ -371,7 +388,7 @@ void main() {
 
     #if BLOCK_REFLECT_QUALITY >= 2 && RP_MODE != 0
         /* DRAWBUFFERS:064 */
-        gl_FragData[2] = vec4(mat3(gbufferModelViewInverse) * normalM, 1.0);
+        gl_FragData[2] = vec4(mat3(gbufferModelViewInverse) * normalM, clamp(reflectionStrength, 0.0, 0.95));
     #endif
 }
 

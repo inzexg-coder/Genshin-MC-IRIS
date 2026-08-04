@@ -123,6 +123,7 @@ void main() {
     bool noSmoothLighting = false, noDirectionalShading = false, noGeneratedNormals = false;
     float smoothnessD = 0.0, materialMask = 0.0;
     float smoothnessG = 0.0, highlightMult = 1.0, emission = 0.0, noiseFactor = 1.0;
+    float reflectionStrength = 0.0; // Teyvat: сила отражения в colortex4.a (0..1)
     vec2 lmCoordM = lmCoord;
     vec3 normalM = VdotN > 0.0 ? -normal : normal; // Inverted Normal Workaround
     vec3 geoNormal = normalM, shadowMult = vec3(1.0);
@@ -130,6 +131,18 @@ void main() {
 
     #ifdef IPBR
         #include "/lib/materials/materialHandling/blockEntityIPBR.glsl"
+
+        // Teyvat: зеркальная золотая окантовка 3-блочной двери (BE id 5017)
+        if (blockEntityId == 5017) {
+            vec4 spec = texture2D(specular, texCoord);
+            float metal = clamp(spec.g, 0.0, 1.0);
+            float smoothM = clamp(pow2(spec.r), 0.0, 1.0);
+            float goldMix = metal * smoothM;
+            smoothnessG = max(smoothnessG, goldMix);
+            smoothnessD = max(smoothnessD, goldMix);
+            highlightMult += 2.0 * goldMix;
+            reflectionStrength = 0.95 * metal;
+        }
 
         #if IPBR_EMISSIVE_MODE != 1
             emission = GetCustomEmissionForIPBR(color, emission);
@@ -200,7 +213,7 @@ void main() {
 
     #if BLOCK_REFLECT_QUALITY >= 2 && RP_MODE != 0
         /* DRAWBUFFERS:0364 */
-        gl_FragData[3] = vec4(mat3(gbufferModelViewInverse) * normalM, 1.0);
+        gl_FragData[3] = vec4(mat3(gbufferModelViewInverse) * normalM, clamp(reflectionStrength, 0.0, 0.95));
     #endif
 }
 

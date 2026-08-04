@@ -23,20 +23,32 @@ cp -r "$REPO/resourcepack" "$MC_DIR/resourcepacks/Teyvat"
 FABRIC_API="fabric-api-0.138.4+1.21.10.jar"
 FABRIC_API_URL="https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.138.4+1.21.10/$FABRIC_API"
 
-# Если jar потерялся (например, был вручную перенесён в папку модов) — восстанавливаем:
-# 1) из git, 2) если git не помогает — качаем свежий прямо с GitHub.
-if [ ! -f "$REPO/dist/mods/teyvat.jar" ]; then
-    echo "== teyvat.jar не найден в $REPO/dist/mods — восстанавливаю..."
-    git -C "$REPO" checkout HEAD -- dist/mods/teyvat.jar 2>/dev/null \
-        || git -C "$REPO" checkout origin/main -- dist/mods/teyvat.jar 2>/dev/null \
-        || true
+# Если jar потерялся или битый (например, был вручную перенесён в папку модов) — восстанавливаем:
+# 1) из git origin/main, 2) если git не помогает — качаем свежий прямо с GitHub.
+JAR="$REPO/dist/mods/teyvat.jar"
+
+jar_ok() {
+    [ -f "$JAR" ] && [ "$(stat -c%s "$JAR" 2>/dev/null || echo 0)" -gt 50000 ] \
+        && unzip -t "$JAR" >/dev/null 2>&1
+}
+
+if ! jar_ok; then
+    echo "== teyvat.jar отсутствует или битый — восстанавливаю из origin/main..."
+    git -C "$REPO" fetch origin main --prune 2>/dev/null || true
+    git -C "$REPO" checkout origin/main -- dist/mods/teyvat.jar 2>/dev/null || true
 fi
-if [ ! -f "$REPO/dist/mods/teyvat.jar" ]; then
+if ! jar_ok; then
     echo "== git не помог — скачиваю teyvat.jar с GitHub..."
     mkdir -p "$REPO/dist/mods"
-    curl -sL -o "$REPO/dist/mods/teyvat.jar" \
-        "https://raw.githubusercontent.com/inzexg-coder/Genshin-MC-IRIS/main/dist/mods/teyvat.jar" \
-        || echo "! не удалось скачать. Проверь сеть: curl https://github.com"
+    curl -sL -o "$JAR" \
+        "https://raw.githubusercontent.com/inzexg-coder/Genshin-MC-IRIS/main/dist/mods/teyvat.jar" || true
+fi
+if ! jar_ok; then
+    echo "! teyvat.jar так и не восстановлен. Проверь сеть и запусти ./scripts/update.sh ещё раз."
+else
+    echo "   teyvat.jar: $([ -f "$JAR" ] && stat -c%s "$JAR") байт"
+    TV_VERSION=$(unzip -p "$JAR" fabric.mod.json 2>/dev/null | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*//p' | head -1)
+    echo "   версия мода: ${TV_VERSION:-?}"
 fi
 
 install_mods_to() {
