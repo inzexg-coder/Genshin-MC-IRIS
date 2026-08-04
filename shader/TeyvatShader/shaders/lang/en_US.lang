@@ -1193,3 +1193,5 @@ value.MOTION_BLUR_EFFECT.-1=OFF
 value.MOTION_BLUR_EFFECT.1=ON
 value.PLAYER_SHADOW.-1=OFF
 value.PLAYER_SHADOW.1=ON
+
+screen.CUSTOM=Пользовательские настройки
