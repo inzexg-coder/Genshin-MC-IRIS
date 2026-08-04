@@ -21,8 +21,10 @@ if [ -f "$REPO/dist/mods/teyvat.jar" ]; then
     cp "$REPO/dist/mods/teyvat.jar" "$MC_DIR/mods/teyvat.jar"
 fi
 FABRIC_API="fabric-api-0.138.4+1.21.10.jar"
-if ! ls "$MC_DIR/mods"/fabric-api-*.jar >/dev/null 2>&1; then
-    echo "== Скачиваю Fabric API (нужен для мода)..."
+if [ ! -f "$MC_DIR/mods/$FABRIC_API" ]; then
+    echo "== Устанавливаю единый бандл Fabric API (нужен для мода)..."
+    # Удаляем отдельные модули fabric-api-*.jar, чтобы не было дублей и путаницы
+    rm -f "$MC_DIR/mods"/fabric-api-*.jar
     curl -L -o "$MC_DIR/mods/$FABRIC_API" \
         "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.138.4+1.21.10/$FABRIC_API"
 fi

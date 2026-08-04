@@ -48,8 +48,8 @@ if [ ! -f "$MC_DIR/mods/teyvat.jar" ]; then
   echo "   НЕТ мода. Установи: ./scripts/install-dev.sh"
   FAIL=1
 fi
-if ! ls "$MC_DIR/mods"/fabric-api-*.jar >/dev/null 2>&1; then
-  echo "   НЕТ Fabric API (нужен для мода). Установи: ./scripts/install-dev.sh"
+if [ ! -f "$MC_DIR/mods/fabric-api-0.138.4+1.21.10.jar" ]; then
+  echo "   НЕТ полного бандла Fabric API (нужен для мода). Установи: ./scripts/install-dev.sh"
   FAIL=1
 fi
 
