@@ -4,6 +4,7 @@
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
+echo "== Teyvat update: текущий коммит $(git log --oneline -1 2>/dev/null || echo 'не git-репо')"
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "Это не git-репозиторий. Сначала: git clone https://github.com/inzexg-coder/Genshin-MC-IRIS.git"

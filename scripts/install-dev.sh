@@ -2,12 +2,15 @@
 # Установка: реальная копия шейдера и ресурспака в ~/.minecraft (никаких симлинков).
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
+echo "== Teyvat installer: $(git -C "$REPO" log --oneline -1 2>/dev/null || echo 'не git-репо')"
+echo "   dist/mods/teyvat.jar: $([ -f "$REPO/dist/mods/teyvat.jar" ] && echo 'есть' || echo 'НЕТ')"
 if [ -z "${MC_DIR:-}" ]; then
   case "$(uname -s)" in
     Darwin) MC_DIR="$HOME/Library/Application Support/minecraft" ;;
     *)      MC_DIR="$HOME/.minecraft" ;;
   esac
 fi
+echo "   MC_DIR=$MC_DIR  HOME=$HOME"
 mkdir -p "$MC_DIR/shaderpacks" "$MC_DIR/resourcepacks"
 rm -rf "$MC_DIR/shaderpacks/TeyvatShader"
 cp -r "$REPO/shader/TeyvatShader" "$MC_DIR/shaderpacks/TeyvatShader"
