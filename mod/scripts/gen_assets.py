@@ -6,14 +6,20 @@ ROOT = "src/main/resources/assets/teyvat"
 BS = f"{ROOT}/blockstates"
 MB = f"{ROOT}/models/block"
 MI = f"{ROOT}/models/item"
+IID = f"{ROOT}/items"
 os.makedirs(BS, exist_ok=True)
 os.makedirs(MB, exist_ok=True)
 os.makedirs(MI, exist_ok=True)
+os.makedirs(IID, exist_ok=True)
 
 def w(path, data):
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
         f.write("\n")
+
+def item_def(bid, model_id):
+    """Item definition для нового item-model системы (assets/<ns>/items/<id>.json)."""
+    w(f"{IID}/{bid}.json", {"model": {"type": "minecraft:model", "model": model_id}})
 
 # ---------- cube_all ----------
 CUBES = {
@@ -28,6 +34,7 @@ for bid, tex in CUBES.items():
     w(f"{BS}/{bid}.json", {"variants": {"": {"model": f"teyvat:block/{bid}"}}})
     w(f"{MB}/{bid}.json", {"parent": "minecraft:block/cube_all", "textures": {"all": f"teyvat:block/{tex}"}})
     w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
+    item_def(bid, f"teyvat:block/{bid}")
 
 # ---------- gold trimmed (top/bottom marble, side gold band) ----------
 bid = "gold_trimmed_marble"
@@ -35,6 +42,7 @@ w(f"{BS}/{bid}.json", {"variants": {"": {"model": f"teyvat:block/{bid}"}}})
 w(f"{MB}/{bid}.json", {"parent": "minecraft:block/cube_bottom_top",
    "textures": {"top": "teyvat:block/marble", "bottom": "teyvat:block/marble", "side": "teyvat:block/marble_gold"}})
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
+item_def(bid, f"teyvat:block/{bid}")
 
 # ---------- axis blocks (pillar, beam) ----------
 for bid, side in (("marble_pillar", "marble_pillar"), ("marble_beam", "marble_beam")):
@@ -47,6 +55,7 @@ for bid, side in (("marble_pillar", "marble_pillar"), ("marble_beam", "marble_be
            "textures": {"top": "teyvat:block/marble", "bottom": "teyvat:block/marble", "side": f"teyvat:block/{side}"}})
     w(f"{MB}/{bid}_horizontal.json", {"parent": f"teyvat:block/{bid}", "x": 90})
     w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
+    item_def(bid, f"teyvat:block/{bid}")
 
 # ---------- custom 3D column/pedestal models ----------
 def el(ids, from_, to_, tex=None, tex_face=None):
@@ -70,6 +79,7 @@ def col_model(bid, elements):
     })
     w(f"{BS}/{bid}.json", {"variants": {"": {"model": f"teyvat:block/{bid}"}}})
     w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
+    item_def(bid, f"teyvat:block/{bid}")
 
 M = "#marble"; P = "#polished"
 def S(t):  # shaft with side texture t
@@ -111,6 +121,7 @@ w(f"{MB}/marble_arch.json", {
     ],
 })
 w(f"{MI}/marble_arch.json", {"parent": "teyvat:block/marble_arch"})
+item_def("marble_arch", "teyvat:block/marble_arch")
 
 # ---------- gate (cube with carved front/back) ----------
 w(f"{BS}/marble_gate.json", {"variants": {"": {"model": "teyvat:block/marble_gate"}}})
@@ -119,6 +130,7 @@ w(f"{MB}/marble_gate.json", {"parent": "minecraft:block/cube",
                 "north": "teyvat:block/marble_gate", "south": "teyvat:block/marble_gate",
                 "east": "teyvat:block/marble", "west": "teyvat:block/marble"}})
 w(f"{MI}/marble_gate.json", {"parent": "teyvat:block/marble_gate"})
+item_def("marble_gate", "teyvat:block/marble_gate")
 
 # ---------- stairs (4 sets) ----------
 STAIRS = {
@@ -132,6 +144,7 @@ for sid, tex in STAIRS.items():
         w(f"{MB}/{sid}{suffix}.json", {"parent": f"minecraft:block/{parent}",
            "textures": {"bottom": f"teyvat:block/{tex}", "top": f"teyvat:block/{tex}", "side": f"teyvat:block/{tex}"}})
     w(f"{MI}/{sid}.json", {"parent": f"teyvat:block/{sid}"})
+    item_def(sid, f"teyvat:block/{sid}")
     base = f"teyvat:block/{sid}"
     variants = {}
     ymap = {"east": 0, "south": 90, "west": 180, "north": 270}
@@ -169,6 +182,7 @@ for sid, tex in SLABS.items():
         "type=double": {"model": f"teyvat:block/{sid}_double"},
         "type=top": {"model": f"teyvat:block/{sid}_top"}}})
     w(f"{MI}/{sid}.json", {"parent": f"teyvat:block/{sid}"})
+    item_def(sid, f"teyvat:block/{sid}")
 
 # ---------- wall ----------
 bid = "marble_wall"
@@ -176,6 +190,7 @@ for suffix, parent in (("_post", "template_wall_post"), ("_side", "template_wall
     w(f"{MB}/{bid}{suffix}.json", {"parent": f"minecraft:block/{parent}",
        "textures": {"wall": "teyvat:block/marble"}})
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}_post"})
+item_def(bid, f"teyvat:block/{bid}_post")
 parts = [{"when": {"up": "true"}, "apply": {"model": f"teyvat:block/{bid}_post"}}]
 for name, y in (("north", 0), ("east", 90), ("south", 180), ("west", 270)):
     for val, suffix in (("low", "_side"), ("tall", "_side_tall")):
@@ -188,6 +203,7 @@ for suffix, parent in (("_post", "fence_post"), ("_side", "fence_side")):
     w(f"{MB}/{bid}{suffix}.json", {"parent": f"minecraft:block/{parent}",
        "textures": {"texture": "teyvat:block/marble"}})
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}_post"})
+item_def(bid, f"teyvat:block/{bid}_post")
 parts = [{"apply": {"model": f"teyvat:block/{bid}_post"}}]
 for name, y in (("north", 0), ("east", 90), ("south", 180), ("west", 270)):
     parts.append({"when": {name: "true"}, "apply": {"model": f"teyvat:block/{bid}_side", "y": y, "uvlock": True}})
@@ -200,6 +216,7 @@ for suffix, parent in (("", "template_fence_gate"), ("_open", "template_fence_ga
     w(f"{MB}/{bid}{suffix}.json", {"parent": f"minecraft:block/{parent}",
        "textures": {"texture": "teyvat:block/marble"}})
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
+item_def(bid, f"teyvat:block/{bid}")
 variants = {}
 rots = {"east": (0, 90, 90, 180), "south": (90, 180, 180, 270), "west": (180, 270, 270, 0), "north": (270, 0, 0, 90)}
 for facing, (r0, r1, r2, r3) in rots.items():
@@ -214,6 +231,7 @@ bid = "marble_side_stairs"
 w(f"{MB}/{bid}.json", {"parent": "minecraft:block/stairs",
    "textures": {"bottom": "teyvat:block/marble", "top": "teyvat:block/marble", "side": "teyvat:block/marble"}})
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
+item_def(bid, f"teyvat:block/{bid}")
 w(f"{BS}/{bid}.json", {"variants": {
     "facing=east": {"model": f"teyvat:block/{bid}", "x": 90, "y": 90},
     "facing=south": {"model": f"teyvat:block/{bid}", "x": 90, "y": 180},
@@ -256,5 +274,6 @@ d.ellipse([10, 10, 12, 12], fill=(212, 175, 55), outline=(150, 118, 30))
 os.makedirs(f"{ROOT}/textures/item", exist_ok=True)
 img.save(f"{ROOT}/textures/item/marble_door.png")
 w(f"{MI}/{bid}.json", {"parent": "minecraft:item/generated", "textures": {"layer0": "teyvat:item/marble_door"}})
+item_def(bid, f"teyvat:item/{bid}")
 
 print("assets done")

@@ -43,7 +43,7 @@ public final class TeyvatBlocks {
     public static final Block POLISHED_MARBLE = block("polished_marble");
     public static final Block MARBLE_BRICKS = block("marble_bricks");
     public static final Block MARBLE_TILES = block("marble_tiles");
-    public static final Block CHISELED_MARBLE = block("marble_chiseled");
+    public static final Block CHISELED_MARBLE = block("chiseled_marble");
     public static final Block GOLD_TRIMMED_MARBLE = block("gold_trimmed_marble");
 
     // ---- columns / pillars ----
@@ -132,7 +132,8 @@ public final class TeyvatBlocks {
         Registry.register(Registries.BLOCK, id, block);
         Registry.register(Registries.ITEM, id,
                 new BlockItem(block, new Item.Settings()
-                        .registryKey(RegistryKey.of(RegistryKeys.ITEM, id))));
+                        .registryKey(RegistryKey.of(RegistryKeys.ITEM, id))
+                        .useBlockPrefixedTranslationKey()));
         ALL_BLOCKS.add(block);
         return block;
     }
