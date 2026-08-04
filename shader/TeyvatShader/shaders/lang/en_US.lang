@@ -1185,3 +1185,11 @@ screen.GLOW=Свечение
 screen.ANTI_ALIASING=Сглаживание
 screen.ENTITY_EFFECTS=Эффекты сущностей
 screen.PLAYER_EFFECTS=Эффекты других игроков
+
+# Teyvat values
+value.TOON_BANDING.-1=OFF
+value.TOON_BANDING.1=ON
+value.MOTION_BLUR_EFFECT.-1=OFF
+value.MOTION_BLUR_EFFECT.1=ON
+value.PLAYER_SHADOW.-1=OFF
+value.PLAYER_SHADOW.1=ON
