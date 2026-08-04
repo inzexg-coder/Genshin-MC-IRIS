@@ -14,8 +14,8 @@ import net.teyvat.block.MarbleTallDoorBlock;
  * Серверная сторона ничего не тикает: состояние open приходит через blockstate.
  */
 public class MarbleTallDoorBlockEntity extends BlockEntity {
-    /** Скорость: полное открытие за ~12 тиков (0.6 сек). */
-    private static final float ANIM_SPEED = 0.08f;
+    /** Скорость: полное открытие за 20 тиков (1 сек) — тяжёлая мраморная дверь. */
+    private static final float ANIM_SPEED = 0.05f;
 
     private float progress;
     private float prevProgress;

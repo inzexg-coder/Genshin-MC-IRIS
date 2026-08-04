@@ -104,12 +104,37 @@ col_model("marble_pedestal", [
     wide(0, 3), el("mid", [3, 3, 3], [13, 10, 13], "#side", {"up": M, "down": M}),
     el("top", [2, 10, 2], [14, 16, 14], P)])
 
-# ---------- arch (сплошной куб с нарисованным проёмом, ничем не просвечивает) ----------
+# ---------- arch (реальный сквозной проём: полая геометрия, cutout-рендер) ----------
 w(f"{BS}/marble_arch.json", {"variants": {"": {"model": "teyvat:block/marble_arch"}}})
-w(f"{MB}/marble_arch.json", {"parent": "minecraft:block/cube",
-   "textures": {"up": "teyvat:block/marble", "down": "teyvat:block/marble",
-                "north": "teyvat:block/marble_arch", "south": "teyvat:block/marble_arch",
-                "east": "teyvat:block/marble", "west": "teyvat:block/marble"}})
+
+# Каждый элемент — полной глубины (z 0-16), поэтому блок остаётся «толстым»,
+# но через проём видно насквозь. Лицевые грани (north/south) берут срез фасада
+# marble_arch_front по UV, чтобы золотой контур проёма и фриз складывались в узор.
+def arch_el(from_, to_, u0, v0, u1, v1):
+    faces = {}
+    for n in ("down", "up", "east", "west"):
+        faces[n] = {"uv": [0, 0, 16, 16], "texture": "#marble"}
+    for n in ("north", "south"):
+        faces[n] = {"uv": [u0, v0, u1, v1], "texture": "#front"}
+    return {"from": from_, "to": to_, "faces": faces}
+
+# Проём: внизу 8px в ширину, кверху сужается (ступенчатая арка) до y=11, сверху сплошной пояс.
+w(f"{MB}/marble_arch.json", {
+    "parent": "minecraft:block/block",
+    "textures": {
+        "particle": "teyvat:block/marble",
+        "front": "teyvat:block/marble_arch_front",
+        "marble": "teyvat:block/marble",
+    },
+    "elements": [
+        arch_el([0, 0, 0], [4, 16, 16], 0, 0, 4, 16),       # левый столб
+        arch_el([12, 0, 0], [16, 16, 16], 12, 0, 16, 16),   # правый столб
+        arch_el([0, 13, 0], [16, 16, 16], 0, 13, 16, 16),   # верхний пояс (фриз)
+        arch_el([4, 8, 0], [6, 13, 16], 4, 8, 6, 13),       # левое плечо арки
+        arch_el([10, 8, 0], [12, 13, 16], 10, 8, 12, 13),   # правое плечо арки
+        arch_el([6, 11, 0], [10, 13, 16], 6, 11, 10, 13),   # замковый камень
+    ],
+})
 w(f"{MI}/marble_arch.json", {"parent": "teyvat:block/marble_arch"})
 item_def("marble_arch", "teyvat:block/marble_arch")
 
@@ -141,13 +166,16 @@ for sid, tex in STAIRS.items():
     for facing, y0 in ymap.items():
         for half in ("bottom", "top"):
             rot = {"x": 180} if half == "top" else {}
+            # как в ванили 1.21: inner_left/outer_left -> модель _inner/_outer без доп. поворота,
+            # inner_right/outer_right -> _inner/_outer с y+270
             for shape in ("straight", "inner_left", "outer_left"):
-                v = {"model": base if shape == "straight" else f"{base}_{shape}"}
+                model = base if shape == "straight" else f"{base}_{shape[:-5]}"
+                v = {"model": model}
                 if y0: v["y"] = y0
                 v.update(rot)
                 variants[f"facing={facing},half={half},shape={shape}"] = v
             for shape in ("inner_right", "outer_right"):
-                v = {"model": f"{base}_{shape}"}
+                v = {"model": f"{base}_{shape[:-6]}"}
                 y = (y0 + 270) % 360
                 if y: v["y"] = y
                 v.update(rot)
@@ -220,23 +248,25 @@ for facing, y in (("south", 0), ("west", 90), ("north", 180), ("east", 270)):
         variants[f"facing={facing},{state}"] = v
 w(f"{BS}/{bid}.json", {"variants": variants})
 
-# ---------- side stairs (плоская плитка 2px с диагональным орнаментом, 4 поворота) ----------
+# ---------- side stairs (плоская плитка 4px с диагональным золотым орнаментом, 4 поворота) ----------
 bid = "marble_side_stairs"
-
-def ce(from_, to_, cull=None):
-    faces = {}
-    for n in ("down", "up", "north", "south", "west", "east"):
-        f = {"uv": [0, 0, 16, 16], "texture": "#side"}
-        if cull and n in cull:
-            f["cullface"] = n
-        faces[n] = f
-    return {"from": from_, "to": to_, "faces": faces}
 
 w(f"{MB}/{bid}.json", {
     "parent": "minecraft:block/block",
-    "textures": {"particle": "teyvat:block/marble", "side": "teyvat:block/marble_side_stairs"},
+    "textures": {"particle": "teyvat:block/marble", "side": "teyvat:block/marble_side_stairs",
+                 "marble": "teyvat:block/marble"},
     "elements": [
-        ce([0, 0, 0], [16, 2, 16], ["down", "north", "south", "west", "east"]),
+        {
+            "from": [0, 0, 0], "to": [16, 4, 16],
+            "faces": {
+                "down": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "down"},
+                "up": {"uv": [0, 0, 16, 16], "texture": "#side"},
+                "north": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "north"},
+                "south": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "south"},
+                "west": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "west"},
+                "east": {"uv": [0, 0, 16, 16], "texture": "#marble", "cullface": "east"},
+            },
+        },
     ],
 })
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
@@ -253,57 +283,59 @@ T = 5.0
 
 # модель полотна одного сегмента: 5px пластина [0,0,0]-[5,16,16] (как у ванильных дверей),
 # рендерер вращает её вокруг вертикальной оси блока. Текстура сегмента на всех гранях.
-def door_segment_model(name, tex):
-    faces = {}
-    for n in ("down", "up", "north", "south", "west", "east"):
-        faces[n] = {"uv": [0, 0, 16, 16], "texture": tex}
+# Западная грань (x=0) — лицевая (вся ширина текстуры), восточная — зеркально (спинка),
+# север/юг — кромки толщиной 5px (узкая полоска текстуры, как у ванильных дверей).
+def door_segment_model(name, uv_y):
+    faces = {
+        "west": {"uv": [0, uv_y, 16, uv_y + 4], "texture": "#side"},
+        "east": {"uv": [16, uv_y, 0, uv_y + 4], "texture": "#side"},
+        "north": {"uv": [0, uv_y, 5, uv_y + 4], "texture": "#side"},
+        "south": {"uv": [0, uv_y, 5, uv_y + 4], "texture": "#side"},
+        "up": {"uv": [0, uv_y, 16, uv_y + 4], "texture": "#side"},
+        "down": {"uv": [0, uv_y, 16, uv_y + 4], "texture": "#side"},
+    }
     w(f"{MB}/{name}.json", {
         "ambientocclusion": False,
         "parent": "minecraft:block/block",
-        "textures": {"particle": "teyvat:block/marble", "side": f"teyvat:block/{tex}"},
+        "textures": {"particle": "teyvat:block/marble", "side": "teyvat:block/marble_door"},
         "elements": [{"from": [0, 0, 0], "to": [T, 16, 16], "faces": faces}],
     })
 
-door_segment_model(f"{bid}_lower", "marble_door_bottom")
-door_segment_model(f"{bid}_middle", "marble_door_middle")
-door_segment_model(f"{bid}_upper", "marble_door_top")
+# 64x64 текстура: верхний сегмент в y0-16, средний y16-32, нижний y32-48 (v/4)
+door_segment_model(f"{bid}_upper", 0)
+door_segment_model(f"{bid}_middle", 4)
+door_segment_model(f"{bid}_lower", 8)
 
 w(f"{BS}/{bid}.json", {"variants": {
     "third=lower": {"model": f"teyvat:block/{bid}_lower"},
     "third=middle": {"model": f"teyvat:block/{bid}_middle"},
     "third=upper": {"model": f"teyvat:block/{bid}_upper"}}})
 
-# статичная модель для иконки в инвентаре: полная дверь из 3 сегментов
-def door_panel(y0, y1, tex):
+# статичная модель для иконки в инвентаре: полная дверь высотой 48px (3 сегмента)
+def door_icon_faces():
     faces = {}
     for n in ("down", "up", "north", "south", "west", "east"):
-        faces[n] = {"uv": [0, 0, 16, 16], "texture": tex}
-    return {"from": [0, y0, 0], "to": [T, y1, 16], "faces": faces}
+        faces[n] = {"uv": [0, 0, 16, 12], "texture": "#side"}
+    return faces
 
 w(f"{MB}/{bid}_item.json", {
     "parent": "minecraft:block/block",
     "textures": {
         "particle": "teyvat:block/marble",
-        "bottom": "teyvat:block/marble_door_bottom",
-        "middle": "teyvat:block/marble_door_middle",
-        "top": "teyvat:block/marble_door_top",
+        "side": "teyvat:block/marble_door",
     },
     "display": {
-        "gui": {"rotation": [30, 225, 0], "translation": [0, 0, 0], "scale": [0.625, 0.21, 0.625]},
-        "ground": {"rotation": [0, 0, 0], "translation": [0, 3, 0], "scale": [0.25, 0.125, 0.25]},
-        "fixed": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [0.5, 0.17, 0.5]},
-        "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.375, 0.125, 0.375]},
-        "thirdperson_lefthand": {"rotation": [75, -45, 0], "translation": [0, 2.5, 0], "scale": [0.375, 0.125, 0.375]},
-        "firstperson_righthand": {"rotation": [0, 45, 0], "translation": [0, 0, 0], "scale": [0.4, 0.13, 0.4]},
-        "firstperson_lefthand": {"rotation": [0, -45, 0], "translation": [0, 0, 0], "scale": [0.4, 0.13, 0.4]},
+        "gui": {"rotation": [30, 225, 0], "translation": [0, 0, 0], "scale": [0.625, 0.417, 0.625]},
+        "ground": {"rotation": [0, 0, 0], "translation": [0, 3, 0], "scale": [0.25, 0.25, 0.25]},
+        "fixed": {"rotation": [0, 0, 0], "translation": [0, 0, 0], "scale": [0.5, 0.33, 0.5]},
+        "thirdperson_righthand": {"rotation": [75, 45, 0], "translation": [0, 2.5, 0], "scale": [0.375, 0.25, 0.375]},
+        "thirdperson_lefthand": {"rotation": [75, -45, 0], "translation": [0, 2.5, 0], "scale": [0.375, 0.25, 0.375]},
+        "firstperson_righthand": {"rotation": [0, 45, 0], "translation": [0, 0, 0], "scale": [0.4, 0.27, 0.4]},
+        "firstperson_lefthand": {"rotation": [0, -45, 0], "translation": [0, 0, 0], "scale": [0.4, 0.27, 0.4]},
     },
     "elements": [
-        door_panel(0, 16, "#bottom"),
-        door_panel(16, 32, "#middle"),
-        door_panel(32, 48, "#top"),
+        {"from": [0, 0, 0], "to": [T, 48, 16], "faces": door_icon_faces()},
     ],
 })
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}_item"})
 item_def(bid, f"teyvat:item/{bid}")
-
-

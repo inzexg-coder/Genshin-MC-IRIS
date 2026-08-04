@@ -72,7 +72,7 @@ public final class TeyvatBlocks {
     // ---- beams / special ----
     public static final Block MARBLE_BEAM = pillar("marble_beam");
     public static final Block MARBLE_SIDE_STAIRS = sideStairs("marble_side_stairs");
-    public static final Block MARBLE_ARCH = block("marble_arch");
+    public static final Block MARBLE_ARCH = nonOpaque("marble_arch");
     public static final Block MARBLE_GATE = block("marble_gate");
     public static final Block MARBLE_DOOR = tallDoor("marble_door");
     public static final Block MARBLE_LAMP = lamp("marble_lamp");
@@ -88,6 +88,11 @@ public final class TeyvatBlocks {
 
     private static Block block(String name) {
         return register(name, new Block(settings(name)));
+    }
+
+    /** Непрозрачный для отбраковки граней соседей — нужен для арки со сквозным проёмом. */
+    private static Block nonOpaque(String name) {
+        return register(name, new Block(settings(name).nonOpaque()));
     }
 
     private static Block pillar(String name) {
@@ -115,7 +120,8 @@ public final class TeyvatBlocks {
     }
 
     private static Block tallDoor(String name) {
-        return register(name, new MarbleTallDoorBlock(settings(name)));
+        // nonOpaque: грани соседних блоков у дверного проёма не скрываются
+        return register(name, new MarbleTallDoorBlock(settings(name).nonOpaque()));
     }
 
     private static Block sideStairs(String name) {

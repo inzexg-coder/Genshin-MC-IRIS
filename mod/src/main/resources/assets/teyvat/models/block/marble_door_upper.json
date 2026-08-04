@@ -3,7 +3,7 @@
   "parent": "minecraft:block/block",
   "textures": {
     "particle": "teyvat:block/marble",
-    "side": "teyvat:block/marble_door_top"
+    "side": "teyvat:block/marble_door"
   },
   "elements": [
     {
@@ -18,59 +18,59 @@
         16
       ],
       "faces": {
-        "down": {
+        "west": {
           "uv": [
             0,
             0,
             16,
-            16
+            4
           ],
-          "texture": "marble_door_top"
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [
+            16,
+            0,
+            0,
+            4
+          ],
+          "texture": "#side"
+        },
+        "north": {
+          "uv": [
+            0,
+            0,
+            5,
+            4
+          ],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            5,
+            4
+          ],
+          "texture": "#side"
         },
         "up": {
           "uv": [
             0,
             0,
             16,
-            16
+            4
           ],
-          "texture": "marble_door_top"
+          "texture": "#side"
         },
-        "north": {
+        "down": {
           "uv": [
             0,
             0,
             16,
-            16
+            4
           ],
-          "texture": "marble_door_top"
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": "marble_door_top"
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": "marble_door_top"
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": "marble_door_top"
+          "texture": "#side"
         }
       }
     }

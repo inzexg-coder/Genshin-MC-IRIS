@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Генерация мраморных текстур Teyvat v4: белоснежный мрамор + узорные золотые окантовки (Celestia).
+"""Генерация мраморных текстур Teyvat v5: белоснежный мрамор + древнегреческие золотые окантовки (Celestia).
 Единая палитра для всех блоков, чтобы монолит и вперемешку смотрелись цельно.
 
 Золото больше НЕ светится: specular-карты (*_s.png) в labPBR-каналах:
   R = smoothness, G = metalness, B = F0, A = эмиссия (255 = нет эмиссии).
-Золото: (200, 255, 230, 255) — гладкий металл с сильным френелем.
+Золото: (235, 255, 230, 255) — гладкий зеркальный металл (R=0.92) с сильным френелем и отражениями.
 Мрамор: (60, 0, 40, 255) — матовый.
 Фонарь: ядро остаётся светящимся (A < 255), окантовка металлическая.
 """
@@ -26,7 +26,7 @@ GOLD_D = (142, 106, 34)
 LAMP_C = (255, 246, 220)
 
 # labPBR specular-карты (RGBA)
-GOLD_SPEC   = (200, 255, 230, 255)   # металл, без эмиссии
+GOLD_SPEC   = (235, 255, 230, 255)   # металл, без эмиссии, R=0.92 -> зеркальные блики
 MARBLE_SPEC = (60, 0, 40, 255)       # матовый мрамор, без эмиссии
 LAMP_SPEC   = (60, 0, 40, 235)       # светящееся ядро фонаря
 
@@ -75,21 +75,50 @@ def diamond_outline(d, sd, cx, cy, r):
                  ((cx, cy + r), (cx - r, cy)), ((cx - r, cy), (cx, cy - r))):
         gold_line(d, sd, a, b)
 
+MEANDER_ROWS = [
+    "XXXXXXXX",  # верхняя перекладина (соединяет плитки)
+    "X......X",
+    "X.XXXXXX",
+    "X.X.....",
+    "XXX.....",
+]
+
+def meander_tile(d, sd, x0, y0):
+    """Древнегреческий меандр (греческий ключ), плитка 8x5, линия 1px."""
+    for dy, row in enumerate(MEANDER_ROWS):
+        for dx, ch in enumerate(row):
+            if ch == "X":
+                gold_px(d, sd, x0 + dx, y0 + dy)
+
+def meander_band(d, sd, y0, h=5):
+    """Горизонтальный пояс-меандр шириной 16px."""
+    for x0 in (0, 8):
+        meander_tile(d, sd, x0, y0)
+    for x in range(S):
+        for y in range(y0, y0 + h):
+            if y == y0 + h - 1:
+                # нижняя линия пояса
+                gold_px(d, sd, x, y)
+
+def meander_hook(d, sd, cx, cy, mirror_x=False, mirror_y=False, size=2):
+    """Маленький золотой крючок-меандр в углу (size x size) для узорных рамок."""
+    pts = [(0, 0), (1, 0), (0, 1)]
+    for dx, dy in pts:
+        x = cx + (dx * size if not mirror_x else -dx * size)
+        y = cy + (dy * size if not mirror_y else -dy * size)
+        gold_px(d, sd, x, y)
+
 def band_ornate(d, sd, y, studs=True):
-    """Тонкий золотой пояс-бисер: линия 1px + ромбики на ней."""
+    """Тонкий золотой пояс: линия 1px + греческие крючки-меандры на ней."""
     d.line([(0, y), (S - 1, y)], fill=GOLD)
     sd.line([(0, y), (S - 1, y)], GOLD_SPEC)
     if studs:
         for cx in (2, 6, 10, 14):
-            diamond(d, sd, cx, y, 1)
-
-def meander_hook(d, sd, cx, cy, mirror_x=False, mirror_y=False):
-    """Маленький золотой крючок-меандр в углу (2x2) для узорных рамок."""
-    pts = [(0, 0), (1, 0), (0, 1)]
-    for dx, dy in pts:
-        x = cx + (dx if not mirror_x else -dx)
-        y = cy + (dy if not mirror_y else -dy)
-        gold_px(d, sd, x, y)
+            # маленький меандровый крючок 2x2
+            for dx, dy in ((0, 0), (1, 0), (0, -1)):
+                gold_px(d, sd, cx + dx, y + dy)
+            for dx, dy in ((0, 0), (1, 0), (0, 1)):
+                gold_px(d, sd, cx + 2 + dx, y + dy)
 
 def flutes(img, horizontal=False):
     """Каннелюры: вертикальные/горизонтальные бороздки с мягкой тенью (без серых пятен)."""
@@ -130,21 +159,54 @@ for y in range(S):
             img.putpixel((x, y), noise(SNOW, 4))
 grain(img, 1); save("marble_tiles", img, spec)
 
-# --- chiseled: золотая рамка с меандром в углах + ромб-медальон ---
+# --- chiseled: золотая рамка с греческим меандром + ромб-медальон ---
 img, d, spec, sd = base(); grain(img, 1)
-gold_rect(d, sd, [0, 0, 15, 15])
-meander_hook(d, sd, 1, 1); meander_hook(d, sd, 14, 1, mirror_x=True)
-meander_hook(d, sd, 1, 14, mirror_y=True); meander_hook(d, sd, 14, 14, mirror_x=True, mirror_y=True)
-d.rectangle([2, 2, 13, 13], outline=SNOW_D)
-d.rectangle([4, 4, 11, 11], outline=(226, 226, 220))
-diamond_outline(d, sd, 7, 8, 4)
-diamond(d, sd, 7, 8, 1, fill=GOLD_HI)
+gold_rect(d, sd, [1, 1, 14, 14])
+# меандр по углам (крючки 3x3)
+for cx, mx in ((2, False), (13, True)):
+    for cy, my in ((2, False), (13, True)):
+        for dx, dy in ((0, 0), (2, 0), (0, 2), (2, 2)):
+            x = cx + (dx if not mx else -dx)
+            y = cy + (dy if not my else -dy)
+            gold_px(d, sd, x, y)
+d.rectangle([4, 4, 11, 11], outline=SNOW_D)
+d.rectangle([5, 5, 10, 10], outline=(226, 226, 220))
+diamond_outline(d, sd, 7, 7, 3)
+diamond(d, sd, 7, 7, 1, fill=GOLD_HI)
 save("marble_chiseled", img, spec)
 
-# --- gold trimmed: белый мрамор с узорными золотыми полосами ---
+# --- gold trimmed: белый мрамор с древнегреческими меандровыми поясами ---
 img, d, spec, sd = base(); grain(img, 1)
-band_ornate(d, sd, 1); band_ornate(d, sd, 12)
+meander_band(d, sd, 1, 5)
+meander_band(d, sd, 10, 5)
+gold_line(d, sd, (0, 6), (S - 1, 6))
+gold_line(d, sd, (0, 9), (S - 1, 9))
 save("marble_gold", img, spec)
+
+# --- арка: фасад 16x16 (мрамор + золотой контур проёма + меандровый фриз сверху).
+# Элементы модели арки берут из этой текстуры свои срезы по UV, поэтому контур
+# и фриз складываются в единый непрерывный узор на фасаде.
+img, d, spec, sd = base(); grain(img, 1)
+def arch_gold(x, y):
+    gold_px(d, sd, x, y)
+# контур проёма (см. геометрию модели marble_arch)
+for y in range(0, 9):
+    arch_gold(4, y); arch_gold(11, y)          # вертикали столбов
+for x in range(4, 7):
+    arch_gold(x, 8)                            # нижняя кромка плеч
+for x in range(10, 13):
+    arch_gold(x, 8)
+for y in range(8, 12):
+    arch_gold(6, y); arch_gold(9, y)           # вертикали замкового камня
+for x in range(6, 10):
+    arch_gold(x, 11)                           # нижняя кромка замкового камня
+# меандровый фриз по верху (строки 13..15)
+for x in range(S):
+    arch_gold(x, 13); arch_gold(x, 15)
+for cx in (2, 6, 10, 14):
+    for dx, dy in ((0, 0), (1, 0), (0, 1)):
+        arch_gold(cx + dx, 14 + dy)
+save("marble_arch_front", img, spec)
 
 # --- колонны / балки: узорные пояски НЕ на краях, чтобы стопка колонн была бесшовной ---
 img, d, spec, sd = base(); flutes(img, False); band_ornate(d, sd, 2); band_ornate(d, sd, 12); save("marble_pillar", img, spec)
@@ -157,11 +219,16 @@ img, d, spec, sd = base(); flutes(img, False); band_ornate(d, sd, 7, studs=False
 img, d, spec, sd = base(); flutes(img, False); band_ornate(d, sd, 10);                     save("marble_column_capital", img, spec)
 img, d, spec, sd = base(); flutes(img, False); band_ornate(d, sd, 3); band_ornate(d, sd, 10); save("marble_pedestal", img, spec)
 
-# --- ворота (куб с орнаментом): двойной ромб + точки, симметричный ---
+# --- ворота (куб с орнаментом): меандровая рама + двойной ромб, симметричный ---
 img, d, spec, sd = base(); grain(img, 1)
-gold_rect(d, sd, [0, 0, 15, 15])
-d.rectangle([1, 1, 14, 14], outline=GOLD_HI); sd.rectangle([1, 1, 14, 14], GOLD_SPEC)
-d.rectangle([2, 2, 13, 13], outline=SNOW_D)
+gold_rect(d, sd, [1, 1, 14, 14])
+for cx, mx in ((2, False), (13, True)):
+    for cy, my in ((2, False), (13, True)):
+        for dx, dy in ((0, 0), (2, 0), (0, 2)):
+            x = cx + (dx if not mx else -dx)
+            y = cy + (dy if not my else -dy)
+            gold_px(d, sd, x, y)
+d.rectangle([3, 3, 12, 12], outline=SNOW_D)
 # внешний ромб с осью x=7, y=8
 for a, b in (((7, 3), (12, 8)), ((12, 8), (7, 13)), ((7, 13), (2, 8)), ((2, 8), (7, 3))):
     gold_line(d, sd, a, b)
@@ -172,42 +239,28 @@ diamond(d, sd, 7, 8, 1, fill=GOLD_HI)
 diamond(d, sd, 2, 8, 0); diamond(d, sd, 12, 8, 0); diamond(d, sd, 7, 3, 0); diamond(d, sd, 7, 13, 0)
 save("marble_gate", img, spec)
 
-# --- арка (лицевая сторона с нарисованным проёмом, полностью непрозрачная) ---
-img, d, spec, sd = base(); grain(img, 2)
-def in_opening(x, y):
-    if y >= 9:
-        return 5 <= x <= 10 and y <= 15
-    if y >= 5:
-        dx = x - 7.5
-        return dx * dx + (y - 8.5) * (y - 8.5) <= 13.0 and dx <= 3.4
-    return False
-for y in range(S):
-    for x in range(S):
-        if in_opening(x, y):
-            img.putpixel((x, y), (84, 84, 84))
-# золотой контур проёма (граница тёмной области)
-for y in range(S):
-    for x in range(S):
-        if in_opening(x, y):
-            continue
-        for nx, ny in ((x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)):
-            if 0 <= nx < S and 0 <= ny < S and in_opening(nx, ny):
-                gold_px(d, sd, x, y)
-                break
-# капители у основания арки
-diamond(d, sd, 4, 14, 1); diamond(d, sd, 11, 14, 1)
-save("marble_arch", img, spec)
-
-# --- side stairs: диагональный орнамент пола (ромбы под 45°) ---
+# --- side stairs: яркий диагональный орнамент пола (золотые ромбы под 45°) ---
+# Верхняя грань плитки: золотая рамка по краю + широкая диагональная решётка,
+# чтобы плитка на полу была хорошо видна даже с большого расстояния.
 img, d, spec, sd = base()
 for y in range(S):
     for x in range(S):
-        if (x + y) % 4 == 0 or (x - y) % 4 == 0:
+        on_border = x == 0 or x == S - 1 or y == 0 or y == S - 1
+        c1 = (x + y) % 4
+        c2 = (x - y) % 4
+        # диагональные полосы толщиной 2px
+        band = c1 <= 1 or c2 <= 1 or (c1 % 2 == 0 and c2 % 2 == 0)
+        if on_border or band:
             img.putpixel((x, y), GOLD)
             spec.putpixel((x, y), GOLD_SPEC)
         else:
             cell = ((x + y) // 4 + (x - y) // 4) % 2
             img.putpixel((x, y), noise(SNOW_D if cell else SNOW, 2))
+# блики на пересечениях диагоналей
+for y in range(2, S - 2):
+    for x in range(2, S - 2):
+        if (x + y) % 4 == 0 and (x - y) % 4 == 0:
+            img.putpixel((x, y), GOLD_HI)
 save("marble_side_stairs", img, spec)
 
 # --- фонарь: рамка с узорами, светящееся ядро ---
@@ -251,7 +304,7 @@ for y in range(S):
         sm.putpixel((x, y), (r, g, b, m.getpixel((x, y))))
 save("marble_lamp", img, sm)
 
-# --- дверь (64x64, узорная: золотая рама, медальоны, окантовка сегментов) ---
+# --- дверь (единая 64x64: верхний сегмент y0-16, средний y16-32, нижний y32-48) ---
 W = H = 64
 def door_base():
     img = Image.new("RGB", (W, H), SNOW)
@@ -271,21 +324,21 @@ def door_diamond(d, sd, cx, cy, r):
         d.line([a, b], fill=GOLD)
         sd.line([a, b], GOLD_SPEC)
 
-def door_medallion(d, sd, cx, cy):
-    door_diamond(d, sd, cx, cy, 5)
-    door_diamond(d, sd, cx, cy, 2)
+def door_medallion(d, sd, cx, cy, r=5):
+    door_diamond(d, sd, cx, cy, r)
+    door_diamond(d, sd, cx, cy, max(2, r - 3))
     d.ellipse([cx - 1, cy - 1, cx + 1, cy + 1], fill=GOLD_HI)
     sd.ellipse([cx - 1, cy - 1, cx + 1, cy + 1], GOLD_SPEC)
 
 def door_frame(d, sd):
-    door_gold_rect(d, sd, 2, 2, 61, 61, 2)
-    d.rectangle([6, 6, 57, 57], outline=SNOW_D)
-    d.rectangle([8, 8, 55, 55], outline=(226, 226, 220))
-    d.rectangle([10, 10, 53, 53], outline=SNOW_D)
-    # меандр по углам рамы
-    for cx, my in ((8, False), (55, True)):
-        for cy, mx in ((8, False), (55, True)):
-            for dx, dy in ((0, 0), (2, 0), (0, 2)):
+    """Рама двери: внешний золотой кант + внутренний меандровый пояс по периметру."""
+    door_gold_rect(d, sd, 1, 1, 62, 62, 2)
+    d.rectangle([5, 5, 58, 58], outline=SNOW_D)
+    d.rectangle([7, 7, 56, 56], outline=(226, 226, 220))
+    # меандр по углам рамы (крючки 6x6)
+    for cx, mx in ((7, False), (56, True)):
+        for cy, my in ((7, False), (56, True)):
+            for dx, dy in ((0, 0), (5, 0), (0, 5), (5, 5), (1, 0), (2, 0), (3, 0), (4, 0)):
                 x = cx + (dx if not mx else -dx)
                 y = cy + (dy if not my else -dy)
                 d.point((x, y), fill=GOLD)
@@ -293,47 +346,37 @@ def door_frame(d, sd):
 
 def door_band(d, sd, y):
     """Горизонтальный золотой пояс-стык между сегментами двери."""
-    d.rectangle([0, y, W - 1, y + 2], fill=GOLD)
-    sd.rectangle([0, y, W - 1, y + 2], GOLD_SPEC)
-    d.rectangle([0, y, W - 1, y], fill=GOLD_HI)
-    sd.rectangle([0, y, W - 1, y], GOLD_SPEC)
-    for cx in range(6, W, 16):
-        for yy in (y + 1,):
-            d.ellipse([cx, yy - 1, cx + 2, yy + 1], fill=GOLD_D)
-            sd.ellipse([cx, yy - 1, cx + 2, yy + 1], GOLD_SPEC)
+    d.rectangle([2, y, W - 3, y + 2], fill=GOLD)
+    sd.rectangle([2, y, W - 3, y + 2], GOLD_SPEC)
+    d.rectangle([2, y, W - 3, y], fill=GOLD_HI)
+    sd.rectangle([2, y, W - 3, y], GOLD_SPEC)
+    for cx in range(10, W - 4, 16):
+        d.ellipse([cx, y, cx + 3, y + 2], fill=GOLD_D)
+        sd.ellipse([cx, y, cx + 3, y + 2], GOLD_SPEC)
 
 def door_save(name, img, spec):
     img.save(f"{OUT}/{name}.png")
     spec.save(f"{OUT}/{name}_s.png")
 
-# верхний сегмент: рама, медальон выше центра, золотой пояс снизу (стык)
 img, d, spec, sd = door_base()
 door_frame(d, sd)
+# верхний сегмент (y0-16): медальон выше центра
+door_medallion(d, sd, 32, 8, r=4)
+door_band(d, sd, 15)
+# средний сегмент (y16-32): медальон по центру
 door_medallion(d, sd, 32, 24)
-door_band(d, sd, 60)
-door_save("marble_door_top", img, spec)
-
-# средний сегмент: рама, медальон по центру, пояса сверху и снизу
-img, d, spec, sd = door_base()
-door_frame(d, sd)
-door_medallion(d, sd, 32, 32)
-door_band(d, sd, 0)
-door_band(d, sd, 60)
-door_save("marble_door_middle", img, spec)
-
-# нижний сегмент: рама, медальон ниже центра, пояс сверху, ручка справа
-img, d, spec, sd = door_base()
-door_frame(d, sd)
-door_medallion(d, sd, 32, 40)
-door_band(d, sd, 0)
+door_band(d, sd, 31)
+# нижний сегмент (y32-48): медальон ниже центра + ручка
+door_medallion(d, sd, 32, 40, r=4)
+door_band(d, sd, 47)
 # ручка: золотое кольцо + пластина (на текстуре справа = у игрока справа при взгляде на дверь)
-d.ellipse([44, 40, 54, 50], outline=GOLD, width=2)
-sd.ellipse([44, 40, 54, 50], outline=GOLD_SPEC, width=2)
-d.ellipse([46, 42, 52, 48], outline=GOLD_HI, width=1)
-sd.ellipse([46, 42, 52, 48], outline=GOLD_SPEC, width=1)
-d.rectangle([47, 45, 51, 47], fill=GOLD_D)
-sd.rectangle([47, 45, 51, 47], GOLD_SPEC)
-door_save("marble_door_bottom", img, spec)
+d.ellipse([43, 38, 53, 48], outline=GOLD, width=2)
+sd.ellipse([43, 38, 53, 48], outline=GOLD_SPEC, width=2)
+d.ellipse([45, 40, 51, 46], outline=GOLD_HI, width=1)
+sd.ellipse([45, 40, 51, 46], outline=GOLD_SPEC, width=1)
+d.rectangle([46, 43, 50, 45], fill=GOLD_D)
+sd.rectangle([46, 43, 50, 45], GOLD_SPEC)
+door_save("marble_door", img, spec)
 
 os.makedirs("src/main/resources/assets/teyvat/textures/item", exist_ok=True)
-print("textures v4 done")
+print("textures v5 done")

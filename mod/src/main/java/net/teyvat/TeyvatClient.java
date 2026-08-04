@@ -14,7 +14,7 @@ public class TeyvatClient implements ClientModInitializer {
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (client.player != null) {
                 client.player.sendMessage(Text.literal(
-                        "§a[Teyvat-Клиент] §fМод активен на клиенте: текстуры и вкладка «Блоки Тейвата» загружены."),
+                        "§e[Teyvat 0.6.0] §7Вкладка «Teyvat» в креативе, команда /give @p teyvat:marble_door"),
                         false);
             }
         });

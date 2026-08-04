@@ -4,17 +4,17 @@
       "model": "teyvat:block/marble_brick_stairs"
     },
     "facing=east,half=bottom,shape=inner_left": {
-      "model": "teyvat:block/marble_brick_stairs_inner_left"
+      "model": "teyvat:block/marble_brick_stairs_inner"
     },
     "facing=east,half=bottom,shape=outer_left": {
-      "model": "teyvat:block/marble_brick_stairs_outer_left"
+      "model": "teyvat:block/marble_brick_stairs_outer"
     },
     "facing=east,half=bottom,shape=inner_right": {
-      "model": "teyvat:block/marble_brick_stairs_inner_right",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 270
     },
     "facing=east,half=bottom,shape=outer_right": {
-      "model": "teyvat:block/marble_brick_stairs_outer_right",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 270
     },
     "facing=east,half=top,shape=straight": {
@@ -22,20 +22,20 @@
       "x": 180
     },
     "facing=east,half=top,shape=inner_left": {
-      "model": "teyvat:block/marble_brick_stairs_inner_left",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "x": 180
     },
     "facing=east,half=top,shape=outer_left": {
-      "model": "teyvat:block/marble_brick_stairs_outer_left",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "x": 180
     },
     "facing=east,half=top,shape=inner_right": {
-      "model": "teyvat:block/marble_brick_stairs_inner_right",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 270,
       "x": 180
     },
     "facing=east,half=top,shape=outer_right": {
-      "model": "teyvat:block/marble_brick_stairs_outer_right",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 270,
       "x": 180
     },
@@ -44,18 +44,18 @@
       "y": 90
     },
     "facing=south,half=bottom,shape=inner_left": {
-      "model": "teyvat:block/marble_brick_stairs_inner_left",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 90
     },
     "facing=south,half=bottom,shape=outer_left": {
-      "model": "teyvat:block/marble_brick_stairs_outer_left",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 90
     },
     "facing=south,half=bottom,shape=inner_right": {
-      "model": "teyvat:block/marble_brick_stairs_inner_right"
+      "model": "teyvat:block/marble_brick_stairs_inner"
     },
     "facing=south,half=bottom,shape=outer_right": {
-      "model": "teyvat:block/marble_brick_stairs_outer_right"
+      "model": "teyvat:block/marble_brick_stairs_outer"
     },
     "facing=south,half=top,shape=straight": {
       "model": "teyvat:block/marble_brick_stairs",
@@ -63,21 +63,21 @@
       "x": 180
     },
     "facing=south,half=top,shape=inner_left": {
-      "model": "teyvat:block/marble_brick_stairs_inner_left",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 90,
       "x": 180
     },
     "facing=south,half=top,shape=outer_left": {
-      "model": "teyvat:block/marble_brick_stairs_outer_left",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 90,
       "x": 180
     },
     "facing=south,half=top,shape=inner_right": {
-      "model": "teyvat:block/marble_brick_stairs_inner_right",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "x": 180
     },
     "facing=south,half=top,shape=outer_right": {
-      "model": "teyvat:block/marble_brick_stairs_outer_right",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "x": 180
     },
     "facing=west,half=bottom,shape=straight": {
@@ -85,19 +85,19 @@
       "y": 180
     },
     "facing=west,half=bottom,shape=inner_left": {
-      "model": "teyvat:block/marble_brick_stairs_inner_left",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 180
     },
     "facing=west,half=bottom,shape=outer_left": {
-      "model": "teyvat:block/marble_brick_stairs_outer_left",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 180
     },
     "facing=west,half=bottom,shape=inner_right": {
-      "model": "teyvat:block/marble_brick_stairs_inner_right",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 90
     },
     "facing=west,half=bottom,shape=outer_right": {
-      "model": "teyvat:block/marble_brick_stairs_outer_right",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 90
     },
     "facing=west,half=top,shape=straight": {
@@ -106,22 +106,22 @@
       "x": 180
     },
     "facing=west,half=top,shape=inner_left": {
-      "model": "teyvat:block/marble_brick_stairs_inner_left",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 180,
       "x": 180
     },
     "facing=west,half=top,shape=outer_left": {
-      "model": "teyvat:block/marble_brick_stairs_outer_left",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 180,
       "x": 180
     },
     "facing=west,half=top,shape=inner_right": {
-      "model": "teyvat:block/marble_brick_stairs_inner_right",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 90,
       "x": 180
     },
     "facing=west,half=top,shape=outer_right": {
-      "model": "teyvat:block/marble_brick_stairs_outer_right",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 90,
       "x": 180
     },
@@ -130,19 +130,19 @@
       "y": 270
     },
     "facing=north,half=bottom,shape=inner_left": {
-      "model": "teyvat:block/marble_brick_stairs_inner_left",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 270
     },
     "facing=north,half=bottom,shape=outer_left": {
-      "model": "teyvat:block/marble_brick_stairs_outer_left",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 270
     },
     "facing=north,half=bottom,shape=inner_right": {
-      "model": "teyvat:block/marble_brick_stairs_inner_right",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 180
     },
     "facing=north,half=bottom,shape=outer_right": {
-      "model": "teyvat:block/marble_brick_stairs_outer_right",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 180
     },
     "facing=north,half=top,shape=straight": {
@@ -151,22 +151,22 @@
       "x": 180
     },
     "facing=north,half=top,shape=inner_left": {
-      "model": "teyvat:block/marble_brick_stairs_inner_left",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 270,
       "x": 180
     },
     "facing=north,half=top,shape=outer_left": {
-      "model": "teyvat:block/marble_brick_stairs_outer_left",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 270,
       "x": 180
     },
     "facing=north,half=top,shape=inner_right": {
-      "model": "teyvat:block/marble_brick_stairs_inner_right",
+      "model": "teyvat:block/marble_brick_stairs_inner",
       "y": 180,
       "x": 180
     },
     "facing=north,half=top,shape=outer_right": {
-      "model": "teyvat:block/marble_brick_stairs_outer_right",
+      "model": "teyvat:block/marble_brick_stairs_outer",
       "y": 180,
       "x": 180
     }

@@ -2,6 +2,7 @@ package net.teyvat.block;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockEntityProvider;
+import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockSetType;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -104,6 +105,16 @@ public class MarbleTallDoorBlock extends Block implements BlockEntityProvider {
                 .with(HINGE, DoorHinge.LEFT)
                 .with(POWERED, false)
                 .with(THIRD, Third.LOWER));
+    }
+
+    /**
+     * Полотно целиком рисует MarbleTallDoorRenderer (плавная анимация).
+     * В чанке блок не рендерится вообще, чтобы не было двойного полотна
+     * (статичная модель + анимированная) и зи-файтинга.
+     */
+    @Override
+    protected BlockRenderType getRenderType(BlockState state) {
+        return BlockRenderType.INVISIBLE;
     }
 
     @Override

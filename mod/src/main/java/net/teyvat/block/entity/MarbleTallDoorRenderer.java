@@ -3,11 +3,14 @@ package net.teyvat.block.entity;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.enums.DoorHinge;
 import net.minecraft.client.render.OverlayTexture;
+import net.minecraft.client.render.RenderLayer;
+import net.minecraft.client.render.block.BlockRenderManager;
 import net.minecraft.client.render.block.entity.BlockEntityRenderer;
 import net.minecraft.client.render.block.entity.BlockEntityRendererFactory;
+import net.minecraft.client.render.block.entity.state.BlockEntityRenderState;
 import net.minecraft.client.render.command.ModelCommandRenderer;
 import net.minecraft.client.render.command.OrderedRenderCommandQueue;
-import net.minecraft.client.render.block.entity.state.BlockEntityRenderState;
+import net.minecraft.client.render.model.BlockStateModel;
 import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.math.Direction;
@@ -18,14 +21,18 @@ import net.minecraft.util.math.Vec3d;
 import net.teyvat.block.MarbleTallDoorBlock;
 
 /**
- * Рисует 3-блочную мраморную дверь: один сегмент на каждый BlockEntity,
- * с плавным поворотом вокруг вертикальной оси блока (как у ванильных дверей).
- * Само полотно — обычная JSON-модель блока (marble_door_lower/middle/upper),
- * поэтому шейдер и PBR-карты работают как с обычными блоками.
+ * Рисует 3-блочную мраморную дверь целиком через BlockEntityRenderer.
+ * Само полотно — обычные JSON-модели сегментов (marble_door_lower/middle/upper),
+ * но блок помечен BlockRenderType.INVISIBLE, поэтому в чанке он не рендерится,
+ * и BE-рендерер рисует каждое полотно с плавным поворотом вокруг оси блока
+ * (как у ванильных дверей). Шейдер и labPBR-карты работают как с обычными блоками.
  */
 public class MarbleTallDoorRenderer implements BlockEntityRenderer<MarbleTallDoorBlockEntity, MarbleTallDoorRenderState> {
 
+    private final BlockRenderManager renderManager;
+
     public MarbleTallDoorRenderer(BlockEntityRendererFactory.Context ctx) {
+        this.renderManager = ctx.renderManager();
     }
 
     @Override
@@ -50,16 +57,19 @@ public class MarbleTallDoorRenderer implements BlockEntityRenderer<MarbleTallDoo
         Direction facing = blockState.get(MarbleTallDoorBlock.FACING);
         boolean leftHinge = blockState.get(MarbleTallDoorBlock.HINGE) == DoorHinge.LEFT;
         float progress = MathHelper.clamp(state.swingProgress, 0.0f, 1.0f);
-        // Поворот повторяет ванильную схему дверей:
-        // закрыто: y = facing+90; открыто: left hinge -> facing+180, right hinge -> facing.
-        float base = facing.getHorizontalQuarterTurns() * 90.0f + 90.0f;
-        float yaw = base + (leftHinge ? 90.0f : -90.0f) * progress;
+        // Поворот повторяет ванильную схему дверей (полотно на стороне facing.getOpposite()):
+        // закрыто: полотно напротив facing; открыто: left hinge -> по часовой, right -> против.
+        // Матрица вращается против часовой (JOML), поэтому знак обратный ванильному y из JSON.
+        float base = (90.0f - facing.getHorizontalQuarterTurns() * 90.0f + 360.0f) % 360.0f;
+        float yaw = base + (leftHinge ? -90.0f : 90.0f) * progress;
 
+        BlockStateModel model = this.renderManager.getModel(blockState);
         matrices.push();
-        matrices.translate(0.5, 0.0, 0.5);
+        matrices.translate(0.5, 0.5, 0.5);
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(yaw));
-        matrices.translate(-0.5, 0.0, -0.5);
-        queue.submitBlock(matrices, blockState, state.lightmapCoordinates, OverlayTexture.DEFAULT_UV, -1);
+        matrices.translate(-0.5, -0.5, -0.5);
+        queue.submitBlockStateModel(matrices, RenderLayer.getSolid(), model,
+                1.0f, 1.0f, 1.0f, state.lightmapCoordinates, OverlayTexture.DEFAULT_UV, -1);
         matrices.pop();
     }
 }

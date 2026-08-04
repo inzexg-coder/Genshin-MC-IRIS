@@ -123,6 +123,12 @@ void GetCustomMaterials(inout vec4 color, inout vec3 normalM, inout vec2 lmCoord
         highlightMult *= 0.5 + 0.5 * specularMap.g;
     #endif
 
+    #if RP_MODE >= 1
+        // Teyvat: металлическая золотая окантовка сильнее бликует и отражает свет.
+        // Металл = specularMap.g ~ 1, гладкость = specularMap.r.
+        highlightMult += 1.5 * specularMap.g * pow2(specularMap.r);
+    #endif
+
     emission = GetCustomEmission(specularMap, texCoordM);
 
     #ifndef GBUFFERS_WATER
