@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/cube_bottom_top",
+  "textures": {
+    "top": "teyvat:block/marble",
+    "bottom": "teyvat:block/marble",
+    "side": "teyvat:block/marble_gold"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "variants": {
+    "type=bottom": {
+      "model": "teyvat:block/marble_tile_slab"
+    },
+    "type=double": {
+      "model": "teyvat:block/marble_tile_slab_double"
+    },
+    "type=top": {
+      "model": "teyvat:block/marble_tile_slab_top"
+    }
+  }
+}

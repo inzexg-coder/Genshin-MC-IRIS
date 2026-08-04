@@ -1,0 +1,8 @@
+{
+  "parent": "minecraft:block/slab_top",
+  "textures": {
+    "bottom": "teyvat:block/marble_bricks",
+    "top": "teyvat:block/marble_bricks",
+    "side": "teyvat:block/marble_bricks"
+  }
+}

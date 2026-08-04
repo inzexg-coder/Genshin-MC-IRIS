@@ -1,0 +1,15 @@
+{
+  "variants": {
+    "axis=x": {
+      "model": "teyvat:block/marble_pillar_horizontal",
+      "x": 90,
+      "y": 90
+    },
+    "axis=y": {
+      "model": "teyvat:block/marble_pillar"
+    },
+    "axis=z": {
+      "model": "teyvat:block/marble_pillar_horizontal"
+    }
+  }
+}

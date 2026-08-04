@@ -43,6 +43,16 @@ if ! diff -rq --exclude='settings.json' "$REPO/shader/TeyvatShader" "$PACK" 2>/d
   FAIL=1
 fi
 
+echo "== 4) Мод Teyvat ($MC_DIR/mods/teyvat.jar)"
+if [ ! -f "$MC_DIR/mods/teyvat.jar" ]; then
+  echo "   НЕТ мода. Установи: ./scripts/install-dev.sh"
+  FAIL=1
+fi
+if ! ls "$MC_DIR/mods"/fabric-api-*.jar >/dev/null 2>&1; then
+  echo "   НЕТ Fabric API (нужен для мода). Установи: ./scripts/install-dev.sh"
+  FAIL=1
+fi
+
 if [ "$FAIL" -eq 0 ]; then
   echo "== ВСЁ ОК: пак установлен и совпадает с репозиторием."
 else
