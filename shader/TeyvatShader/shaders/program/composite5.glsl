@@ -208,7 +208,7 @@ void main() {
 
     DoCompTonemap(color);
 
-    #if defined GREEN_SCREEN_LIME || SELECT_OUTLINE == 4
+    #if defined GREEN_SCREEN_LIME || SELECT_OUTLINE == 4 || SELECT_OUTLINE == 2
         int materialMaskInt = int(texelFetch(colortex6, texelCoord, 0).g * 255.1);
     #endif
 
@@ -223,6 +223,21 @@ void main() {
             float colorMF = 1.0 - dot(color, vec3(0.25, 0.45, 0.1));
             colorMF = smoothstep1(smoothstep1(smoothstep1(smoothstep1(smoothstep1(colorMF)))));
             color = mix(color, 3.0 * (color + 0.2) * vec3(colorMF * SELECT_OUTLINE_I), 0.3);
+        }
+    #endif
+
+    #if SELECT_OUTLINE == 2
+        if (materialMaskInt == 252) { // Rainbow Selection Outline (always visible)
+            float z0 = texture2D(depthtex0, texCoord).r;
+            vec4 screenPos = vec4(texCoord, z0, 1.0);
+            vec4 viewPos = gbufferProjectionInverse * (screenPos * 2.0 - 1.0);
+            viewPos /= viewPos.w;
+            vec3 playerPos = mat3(gbufferModelViewInverse) * viewPos.xyz + gbufferModelViewInverse[3].xyz;
+            float posFactor = playerPos.x + playerPos.y + playerPos.z + cameraPosition.x + cameraPosition.y + cameraPosition.z;
+            vec3 rainbow = clamp(abs(mod(fract(frameTimeCounter * 0.25 + posFactor * 0.2) * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+            rainbow *= vec3(3.0, 2.0, 3.0) * SELECT_OUTLINE_I;
+            rainbow = clamp01(rainbow);
+            color = mix(vec3(0.0), rainbow, 0.85);
         }
     #endif
 

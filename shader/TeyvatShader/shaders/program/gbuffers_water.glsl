@@ -204,10 +204,10 @@ void main() {
 
     #include "/lib/materials/materialHandling/translucentMaterials.glsl"
 
-    #if WATER_MAT_QUALITY >= 3 && SELECT_OUTLINE == 4
+    #if WATER_MAT_QUALITY >= 3 && (SELECT_OUTLINE == 4 || SELECT_OUTLINE == 2)
         int materialMaskInt = int(texelFetch(colortex6, texelCoord, 0).g * 255.1);
         if (materialMaskInt == 252) {
-            materialMask = OSIEBCA * 252.0; // Versatile Selection Outline
+            materialMask = OSIEBCA * 252.0; // Selection Outline
         }
     #endif
 

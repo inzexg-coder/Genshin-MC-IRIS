@@ -79,6 +79,7 @@ void main() {
             float posFactor = playerPos.x + playerPos.y + playerPos.z + cameraPosition.x + cameraPosition.y + cameraPosition.z;
             color.rgb = clamp(abs(mod(fract(frameTimeCounter*0.25 + posFactor*0.2) * 6.0 + vec3(0.0,4.0,2.0), 6.0) - 3.0) - 1.0,
                         0.0, 1.0) * vec3(3.0, 2.0, 3.0) * SELECT_OUTLINE_I;
+            materialMask = OSIEBCA * 252.0; // Rainbow Selection Outline
         #elif SELECT_OUTLINE == 3 // Select Color
             color.rgb = vec3(SELECT_OUTLINE_R, SELECT_OUTLINE_G, SELECT_OUTLINE_B) * SELECT_OUTLINE_I;
         #elif SELECT_OUTLINE == 4 // Versatile
