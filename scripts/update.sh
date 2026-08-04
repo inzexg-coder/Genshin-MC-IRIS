@@ -1,34 +1,33 @@
 #!/usr/bin/env bash
-# Твой ежедневный цикл (Arch): git pull + гарантия симлинков в .minecraft.
+# Ежедневный цикл (Arch): git pull + переустановка пака копией.
+# Если SSH-remote не работает — сам переключает на HTTPS (репозиторий публичный).
 set -euo pipefail
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$REPO"
 
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    echo "Это не git-репозиторий. Сначала клонируй проект."
+    echo "Это не git-репозиторий. Сначала: git clone https://github.com/inzexg-coder/Genshin-MC-IRIS.git"
     exit 1
 fi
 
-# Если settings.json менялся в игре — сохраняем локально и ставим наш (иначе pull конфликтует)
-if [ -n "$(git status --porcelain -- shader/TeyvatShader/shaders/settings.json)" ]; then
-    cp shader/TeyvatShader/shaders/settings.json /tmp/settings.local.json
-    git checkout -- shader/TeyvatShader/shaders/settings.json
-    echo "Твои правки настроек сохранены в /tmp/settings.local.json"
-fi
-
-if [ -n "$(git status --porcelain | grep -v 'shader/TeyvatShader/shaders/settings.json')" ]; then
-    echo "ВНИМАНИЕ: есть и другие локальные изменения:"
-    git status --short | grep -v 'shader/TeyvatShader/shaders/settings.json'
-    echo "PULL пропущен — разберись с изменениями или сбрось их (git checkout -- <файл>)."
+if [ -n "$(git status --porcelain | grep -v '^??')" ]; then
+    echo "ВНИМАНИЕ: есть локальные изменения, мешающие pull:"
+    git status --short | grep -v '^??'
+    echo "Сбрось их: git checkout -- <файл>"
     exit 1
 fi
 
-git pull
+if ! git pull --ff-only; then
+    url="$(git remote get-url origin)"
+    if [[ "$url" == git@* ]]; then
+        echo "== SSH-remote не читается на этом ПК. Переключаю на HTTPS (репо публичное)..."
+        git remote set-url origin https://github.com/inzexg-coder/Genshin-MC-IRIS.git
+        git pull --ff-only
+    else
+        echo "== git pull не удался. Проверь сеть/доступ к репозиторию."
+        exit 1
+    fi
+fi
 
-MC_DIR="${MC_DIR:-$HOME/.minecraft}"
-mkdir -p "$MC_DIR/shaderpacks" "$MC_DIR/resourcepacks"
-ln -sfn "$REPO/shader/TeyvatShader" "$MC_DIR/shaderpacks/TeyvatShader"
-rm -rf "$MC_DIR/resourcepacks/Teyvat"
-cp -r "$REPO/resourcepack" "$MC_DIR/resourcepacks/Teyvat"
-
-echo "OK. В игре: F3+R — шейдер, F3+T — ресурспак."
+./scripts/install-dev.sh
+echo "OK. В игре: F3+R — шейдер, F3+T — ресурспак. Если что-то не так: ./scripts/check-install.sh"
