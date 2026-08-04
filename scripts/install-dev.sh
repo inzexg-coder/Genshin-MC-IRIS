@@ -20,6 +20,13 @@ cp -r "$REPO/resourcepack" "$MC_DIR/resourcepacks/Teyvat"
 FABRIC_API="fabric-api-0.138.4+1.21.10.jar"
 FABRIC_API_URL="https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.138.4+1.21.10/$FABRIC_API"
 
+# Если jar потерялся (например, был вручную перенесён в папку модов) — восстанавливаем из git.
+if [ ! -f "$REPO/dist/mods/teyvat.jar" ]; then
+    git -C "$REPO" checkout HEAD -- dist/mods/teyvat.jar 2>/dev/null \
+        || git -C "$REPO" checkout origin/main -- dist/mods/teyvat.jar 2>/dev/null \
+        || echo "! teyvat.jar отсутствует в репозитории. Выполни: cd $REPO && git fetch origin main && git checkout origin/main -- dist/mods/teyvat.jar"
+fi
+
 install_mods_to() {
     local dir="$1"
     [ -d "$dir" ] || return 0
