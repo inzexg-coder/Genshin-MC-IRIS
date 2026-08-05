@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    " m ",
+    "mfm",
+    " m "
+  ],
+  "key": {
+    "m": {
+      "item": "teyvat:marble"
+    },
+    "f": {
+      "item": "minecraft:torch"
+    }
+  },
+  "result": {
+    "id": "teyvat:marble_lamp",
+    "count": 1
+  }
+}

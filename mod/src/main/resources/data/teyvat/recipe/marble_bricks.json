@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "pp",
+    "pp"
+  ],
+  "key": {
+    "p": {
+      "item": "teyvat:polished_marble"
+    }
+  },
+  "result": {
+    "id": "teyvat:marble_bricks",
+    "count": 4
+  }
+}

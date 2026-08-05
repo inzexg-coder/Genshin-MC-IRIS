@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "mmm",
+    "mmm"
+  ],
+  "key": {
+    "m": {
+      "item": "teyvat:marble"
+    }
+  },
+  "result": {
+    "id": "teyvat:marble_fence",
+    "count": 6
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "mm",
+    "mm",
+    "mm"
+  ],
+  "key": {
+    "m": {
+      "item": "teyvat:marble"
+    }
+  },
+  "result": {
+    "id": "teyvat:marble_door",
+    "count": 2
+  }
+}

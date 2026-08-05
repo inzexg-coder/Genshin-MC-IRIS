@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:stonecutting",
+  "ingredient": {
+    "item": "teyvat:marble_tiles"
+  },
+  "result": {
+    "id": "teyvat:marble_tile_stairs",
+    "count": 1
+  }
+}

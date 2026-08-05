@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "mm",
+    "mm"
+  ],
+  "key": {
+    "m": {
+      "item": "teyvat:marble"
+    }
+  },
+  "result": {
+    "id": "teyvat:marble_side_stairs",
+    "count": 2
+  }
+}

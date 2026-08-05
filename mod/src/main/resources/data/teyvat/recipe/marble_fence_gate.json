@@ -1,0 +1,19 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "sms",
+    "sms"
+  ],
+  "key": {
+    "m": {
+      "item": "teyvat:marble"
+    },
+    "s": {
+      "item": "minecraft:stick"
+    }
+  },
+  "result": {
+    "id": "teyvat:marble_fence_gate",
+    "count": 1
+  }
+}

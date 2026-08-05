@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "c",
+    "m",
+    "b"
+  ],
+  "key": {
+    "c": {
+      "item": "teyvat:marble_column_capital"
+    },
+    "m": {
+      "item": "teyvat:marble_column_mid"
+    },
+    "b": {
+      "item": "teyvat:marble_column_base"
+    }
+  },
+  "result": {
+    "id": "teyvat:marble_column",
+    "count": 1
+  }
+}

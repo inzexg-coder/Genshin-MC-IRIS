@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:stonecutting",
+  "ingredient": {
+    "item": "teyvat:gold_trimmed_marble"
+  },
+  "result": {
+    "id": "teyvat:marble_column_capital",
+    "count": 1
+  }
+}

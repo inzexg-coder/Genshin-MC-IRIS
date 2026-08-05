@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "p  ",
+    "pp ",
+    "ppp"
+  ],
+  "key": {
+    "p": {
+      "item": "teyvat:polished_marble"
+    }
+  },
+  "result": {
+    "id": "teyvat:polished_marble_stairs",
+    "count": 4
+  }
+}

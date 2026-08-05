@@ -1,0 +1,20 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "qqq",
+    "qgq",
+    "qqq"
+  ],
+  "key": {
+    "q": {
+      "item": "minecraft:quartz"
+    },
+    "g": {
+      "item": "minecraft:gold_ingot"
+    }
+  },
+  "result": {
+    "id": "teyvat:marble",
+    "count": 1
+  }
+}

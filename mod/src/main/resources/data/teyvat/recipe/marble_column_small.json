@@ -1,0 +1,15 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "p"
+  ],
+  "key": {
+    "p": {
+      "item": "teyvat:marble_pillar"
+    }
+  },
+  "result": {
+    "id": "teyvat:marble_column_small",
+    "count": 1
+  }
+}

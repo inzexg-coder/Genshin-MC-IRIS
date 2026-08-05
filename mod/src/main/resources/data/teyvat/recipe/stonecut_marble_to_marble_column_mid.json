@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:stonecutting",
+  "ingredient": {
+    "item": "teyvat:marble"
+  },
+  "result": {
+    "id": "teyvat:marble_column_mid",
+    "count": 1
+  }
+}
