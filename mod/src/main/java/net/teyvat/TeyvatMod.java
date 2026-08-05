@@ -2,6 +2,7 @@ package net.teyvat;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -9,6 +10,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.teyvat.command.TeyvatCommand;
 import net.teyvat.network.NotesOpenPayload;
+import net.teyvat.server.TeyvatSpawn;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.network.TravelerChoicePayload;
 import net.teyvat.network.TravelerChoiceSyncPayload;
@@ -37,6 +39,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(TravelerChoicePayload.ID, TravelerChoicePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceSyncPayload.ID, TravelerChoiceSyncPayload.CODEC);
         CommandRegistrationCallback.EVENT.register(TeyvatCommand::register);
+        ServerLifecycleEvents.SERVER_STARTED.register(TeyvatSpawn::prepare);
         LOGGER.info("Teyvat mod initialized: {} blocks registered", TeyvatBlocks.ALL_BLOCKS.size());
 
         ServerPlayNetworking.registerGlobalReceiver(TravelerChoicePayload.ID, (payload, context) -> {
@@ -86,6 +89,9 @@ public class TeyvatMod implements ModInitializer {
                 }
             }
         });
+
+        ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
+                TeyvatSpawn.welcome(handler.getPlayer(), server));
 
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
                 TRAVELER_CHOICES.remove(handler.getPlayer().getUuid()));
