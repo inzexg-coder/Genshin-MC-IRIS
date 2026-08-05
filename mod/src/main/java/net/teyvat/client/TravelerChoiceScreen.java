@@ -33,8 +33,8 @@ import static net.teyvat.client.TravelerNotesContent.C_HINT;
  */
 public class TravelerChoiceScreen extends Screen {
     private static final Identifier BACKGROUND = Identifier.of("teyvat", "textures/gui/spawn_background.png");
-    private static final int BG_W = 1920;
-    private static final int BG_H = 1080;
+    private static final int BG_W = 924;
+    private static final int BG_H = 526; // оригинальное разрешение скриншота, без увеличения
 
     private static final int CARD_GAP = 26;
     private static final int CARD_PAD = 10;      // внутренний отступ карточки
