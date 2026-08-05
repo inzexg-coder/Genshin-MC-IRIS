@@ -64,21 +64,30 @@ public class TravelerNotesScreen extends Screen {
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {}
     }
 
-    /** Крупная иконка блока (48px) + название — шапка карточки блока. */
+    /** Крупное изображение блока «как в игре» (рендер модели 64px в рамке) + название. */
     private record BlockRow(String itemId, String name) implements Row {
-        public int height() { return 52; }
+        public int height() { return 92; }
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
+            int pw = 88, ph = 88;
+            ctx.fill(x, y, x + pw, y + ph, 0xFF141A2A);
+            ctx.fill(x, y, x + pw, y + 1, 0xFF3A4A6A);
+            ctx.fill(x, y + ph - 1, x + pw, y + ph, 0xFF3A4A6A);
+            ctx.fill(x, y, x + 1, y + ph, 0xFF3A4A6A);
+            ctx.fill(x + pw - 1, y, x + pw, y + ph, 0xFF3A4A6A);
             Item item = itemOf(itemId);
             if (item != Items.AIR) {
+                // Рендер настоящей модели блока (свет и поворот как в игре), 4x = 64px
                 Matrix3x2fStack m = ctx.getMatrices();
                 m.pushMatrix();
-                m.translate(x, y + 2);
-                m.scale(3.0f, 3.0f);
+                m.translate(x + 12, y + 12);
+                m.scale(4.0f, 4.0f);
                 ctx.drawItem(new ItemStack(item), 0, 0);
                 m.popMatrix();
+                if (mouseX >= x && mouseX < x + pw && mouseY >= y && mouseY < y + ph) {
+                    tooltip.accept(item.getName());
+                }
             }
-            ctx.drawText(MinecraftClient.getInstance().textRenderer, name, x + 56, y + 20, C_GOLD, true);
-            ctx.fill(x, y + 50, x + 320, y + 51, 0x443A4A6A);
+            ctx.drawText(MinecraftClient.getInstance().textRenderer, name, x + pw + 14, y + ph / 2 - 5, C_GOLD, true);
         }
     }
 
@@ -341,7 +350,7 @@ public class TravelerNotesScreen extends Screen {
         context.drawText(this.textRenderer, title,
                 (this.width - this.textRenderer.getWidth(title)) / 2,
                 (HEADER_H - 9) / 2, C_GOLD, true);
-        String ver = "Teyvat 0.8.10";
+        String ver = "Teyvat 0.8.11";
         context.drawText(this.textRenderer, ver, this.width - this.textRenderer.getWidth(ver) - 10,
                 (HEADER_H - 9) / 2, C_HINT, true);
 

@@ -31,7 +31,17 @@ public final class TravelerNotesContent {
     private static Slot S(String item) { return new Slot(item, 1); }
 
     private static CraftGrid craft(String[] pattern, Map<Character, Slot> keys, String result, int count) {
-        return new CraftGrid("Верстак", pattern, keys, result, count);
+        // У верстака всегда полная сетка 3x3 — рецепт кладётся сверху слева, остальное пусто.
+        String[] padded = new String[3];
+        for (int r = 0; r < 3; r++) {
+            String src = r < pattern.length ? pattern[r] : "";
+            StringBuilder sb = new StringBuilder();
+            for (int c = 0; c < 3; c++) {
+                sb.append(c < src.length() ? src.charAt(c) : ' ');
+            }
+            padded[r] = sb.toString();
+        }
+        return new CraftGrid("Верстак", padded, keys, result, count);
     }
 
     private static CraftGrid stonecut(String input, String result) {
