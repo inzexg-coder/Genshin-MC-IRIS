@@ -3,7 +3,8 @@
   "package": "net.teyvat.mixin",
   "compatibilityLevel": "JAVA_21",
   "client": [
-    "client.PlayerListEntryMixin"
+    "client.PlayerListEntryMixin",
+    "client.AbstractClientPlayerEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1
