@@ -73,8 +73,8 @@ public class TravelerNotesScreen extends Screen {
     }
 
     /** Крупное превью блока: рамка 96px, внутри рендер модели 5x = 80px. */
-    private static final int PREVIEW_W = 96;
-    private static final int PREVIEW_H = 96;
+    private static final int PREVIEW_W = 80;
+    private static final int PREVIEW_H = 80;
 
     /** Все крафты блока слева, справа — крупное превью блока на всю высоту секции. */
     private record CraftSection(List<CraftGrid> grids, String itemId) implements Row {
@@ -171,14 +171,12 @@ public class TravelerNotesScreen extends Screen {
         ctx.fill(px + PREVIEW_W - 1, py, px + PREVIEW_W, py + PREVIEW_H, C_GOLD);
         Item item = itemOf(itemId);
         if (item != Items.AIR) {
-            // Всегда рисуем обычную иконку 16px по центру — рамка никогда не пустая.
-            ctx.drawItem(new ItemStack(item), px + PREVIEW_W / 2 - 8, py + PREVIEW_H / 2 - 8);
-            // Поверх — крупная иконка 5x = 80px (рендер модели, свет и поворот как в игре).
+            // Просто большая иконка предмета 4x = 64px по центру рамки (80px).
             // Важно: сначала scale, потом translate — иначе смещение умножится на масштаб.
             Matrix3x2fStack m = ctx.getMatrices();
             m.pushMatrix();
-            m.scale(5.0f, 5.0f);
-            m.translate(px / 5.0f + 1.6f, py / 5.0f + 1.6f);
+            m.scale(4.0f, 4.0f);
+            m.translate(px / 4.0f + 2.0f, py / 4.0f + 2.0f);
             ctx.drawItem(new ItemStack(item), 0, 0);
             m.popMatrix();
             if (mouseX >= px && mouseX < px + PREVIEW_W && mouseY >= py && mouseY < py + PREVIEW_H) {
@@ -376,7 +374,7 @@ public class TravelerNotesScreen extends Screen {
         context.drawText(this.textRenderer, title,
                 (this.width - this.textRenderer.getWidth(title)) / 2,
                 (HEADER_H - 9) / 2, C_GOLD, true);
-        String ver = "Teyvat 0.8.14";
+        String ver = "Teyvat 0.8.15";
         context.drawText(this.textRenderer, ver, this.width - this.textRenderer.getWidth(ver) - 10,
                 (HEADER_H - 9) / 2, C_HINT, true);
 

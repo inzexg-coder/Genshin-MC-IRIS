@@ -84,7 +84,7 @@ public final class TeyvatBlocks {
                 .registryKey(RegistryKey.of(RegistryKeys.BLOCK, Identifier.of(TeyvatMod.MOD_ID, name)))
                 .mapColor(MapColor.OFF_WHITE)
                 .instrument(NoteBlockInstrument.BASEDRUM)
-                .strength(1.5f, 6.0f)
+                .strength(3.0f, 6.0f)
                 .sounds(BlockSoundGroup.STONE);
     }
 

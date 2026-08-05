@@ -60,7 +60,7 @@ public final class TravelerNotesContent {
     public static List<Line> about() {
         return List.of(
                 h("Легенда о Селестии"),
-                d("В небе Тейвата, над облаками, висит Селестия — белая точка, которую видно из Мондштадта и из гавани Лиюэ. От неё давно никто не спускался, но обломки её лестницы остались в земле: тот самый белый камень, из которого сложены Собор и причалы. Путник собирает его и вплетает в золото — как Архонты вплетают в мир свою волю. Так родился набор «Селестия»."),
+                d("Селестия — парящий остров в небе над Тейватом, обитель богов и ангелов. Считается, что смертные, совершившие великие подвиги, возносятся туда и становятся богами, а обладатели Глаза Бога — «аллогены» — имеют шанс на вознесение. Небесные Принципы молчат со времён Катаклизма, но белый мрамор её шпилей с золотым астролябием до сих пор виден из Мондштадта и Лиюэ. Набор «Селестия» — камень её построек."),
                 empty(),
                 h("О сборке"),
                 b("Teyvat — глобальный мод по Genshin Impact для Minecraft 1.21.10 (Fabric + Sodium + Iris)."),
@@ -100,7 +100,7 @@ public final class TravelerNotesContent {
     public static List<Line> celestiaIntro() {
         return List.of(
                 h("Набор «Селестия»"),
-                d("Это обломки лестницы, упавшей с Селестии — той самой, что висит в небе Тейвата. Белый камень Собора Мондштадта, золото гавани Лиюэ, тёплый свет Глаза Бога: каждый блок хранит частицу Тейвата."),
+                d("Белый мрамор, из которого сложены постройки Селестии — парящего острова богов над Тейватом. У статуи Анемо Архонта в Мондштадте высечено: «Врата в Селестию»."),
                 b("Ниже все 30 блоков от простого крафта к сложному: сказка о камне, рецепт, а справа от сеток — как блок выглядит в игре."),
                 b("Совет: почти всё можно нарезать в камнерезе — иконка «Камнерез» показывает короткий путь.")
         );
@@ -111,18 +111,18 @@ public final class TravelerNotesContent {
         String T = "teyvat:", M = "minecraft:";
 
         list.add(new BlockEntry("marble", "Мрамор", List.of(
-                "Белый камень, из которого сложены ступени Собора Мондштадта: его полировал ветер Барбатоса, а края обточила лира барда.",
-                "Восемь кварцев и слиток золота — как Властелин Камня скрепил их контрактом."),
+                "Белый мрамор, из которого сложены шпили Селестии — острова богов, парящего в небе над Тейватом.",
+                "Восемь кварцев и слиток золота — как Гнозис, который Архонты получают от Селестии."),
                 List.of(craft(new String[]{"qqq", "qgq", "qqq"},
                         keys("q", S(M + "quartz"), "g", S(M + "gold_ingot")), T + "marble", 1))));
 
         list.add(new BlockEntry("polished_marble", "Полированный мрамор", List.of(
-                "Отполирован до зеркала, в котором видно гавань Лиюэ: лодки, фонари и Нефритовый чертог над облаками."),
+                "Отполирован до зеркала — как полы Нефритового чертога Нин Гуан над гаванью Лиюэ."),
                 List.of(craft(new String[]{"mm", "mm"}, keys("m", S(T + "marble")), T + "polished_marble", 4),
                         stonecut(T + "marble", T + "polished_marble"))));
 
         list.add(new BlockEntry("marble_bricks", "Мраморная кирпичная кладка", List.of(
-                "Кладка стен гавани Лиюэ: каждый кирпич держит слово, как контракт держит Властелин Камня."),
+                "Кладка гавани Лиюэ: каждый кирпич держит слово, как контракт Властелина Камня."),
                 List.of(craft(new String[]{"pp", "pp"}, keys("p", S(T + "polished_marble")), T + "marble_bricks", 4),
                         stonecut(T + "marble", T + "marble_bricks"))));
 
@@ -132,7 +132,7 @@ public final class TravelerNotesContent {
                         stonecut(T + "marble", T + "marble_tiles"))));
 
         list.add(new BlockEntry("marble_pillar", "Рифлёная мраморная колонна", List.of(
-                "Рифлёные колонны Собора Мондштадта: жёлобы ловят ветер, и камень поёт, когда мимо проходит бард. Из него делают ствол и малую колонну."),
+                "Рифлёные колонны Собора Мондштадта: жёлобы ловят ветер Барбатоса. Из него делают ствол и малую колонну."),
                 List.of(craft(new String[]{"m", "m"}, keys("m", S(T + "marble")), T + "marble_pillar", 1),
                         stonecut(T + "marble", T + "marble_pillar"))));
 
@@ -167,12 +167,12 @@ public final class TravelerNotesContent {
                         stonecut(T + "marble", T + "marble_fence"))));
 
         list.add(new BlockEntry("marble_column_base", "База мраморной колонны", List.of(
-                "Подножие колонны, как у статуи Семи: держит вес неба, пока Архонт смотрит вниз."),
+                "Подножие колонны, как у статуи Анемо Архонта: на постаменте высечено «Врата в Селестию»."),
                 List.of(craft(new String[]{"mmm"}, keys("m", S(T + "marble")), T + "marble_column_base", 1),
                         stonecut(T + "marble", T + "marble_column_base"))));
 
         list.add(new BlockEntry("marble_column_capital", "Капитель мраморной колонны", List.of(
-                "Капитель — чаша для подношений: в неё кладут монеты и просят удачи перед дорогой. Можно вырезать из золотой окантовки."),
+                "Капитель — как чаша для подношений: в неё кладут монеты и просят удачи перед дорогой. Можно вырезать из золотой окантовки."),
                 List.of(craft(new String[]{"mm", "mm"}, keys("m", S(T + "marble")), T + "marble_column_capital", 1),
                         stonecut(T + "marble", T + "marble_column_capital"),
                         stonecut(T + "gold_trimmed_marble", T + "marble_column_capital"))));
@@ -208,7 +208,7 @@ public final class TravelerNotesContent {
                         stonecut(T + "marble_tiles", T + "marble_tile_slab"))));
 
         list.add(new BlockEntry("marble_side_stairs", "Горизонтальные мраморные ступени", List.of(
-                "Обломок лестницы, упавшей набок у Каменных ворот: по таким обходят стену, не тревожа стражу."),
+                "Обломок, упавший набок, как скалы у Каменных ворот: по таким обходят стену, не тревожа стражу."),
                 List.of(craft(new String[]{"mm", "mm"}, keys("m", S(T + "marble")), T + "marble_side_stairs", 2),
                         stonecut(T + "marble", T + "marble_side_stairs"))));
 
@@ -228,23 +228,23 @@ public final class TravelerNotesContent {
                         stonecut(T + "marble", T + "marble_gate"))));
 
         list.add(new BlockEntry("marble_column_mid", "Ствол мраморной колонны", List.of(
-                "Ствол с узором ветра, как у колонн статуи Семи: приложи ухо — услышишь, как свистит Двалин. Соединяет базу и капитель."),
+                "Ствол с узором ветра — как колонны Собора Мондштадта, где гуляет ветер Барбатоса. Соединяет базу и капитель."),
                 List.of(craft(new String[]{"p", "p"}, keys("p", S(T + "marble_pillar")), T + "marble_column_mid", 1),
                         stonecut(T + "marble", T + "marble_column_mid"))));
 
         list.add(new BlockEntry("marble_column", "Мраморная колонна", List.of(
-                "Колонна Нефритового чертога: база, ствол и капитель держат зал, парящий над гаванью Лиюэ."),
+                "Колонна, на которой держится Нефритовый чертог: база, ствол и капитель парят над гаванью Лиюэ."),
                 List.of(craft(new String[]{"c", "m", "b"},
                         keys("c", S(T + "marble_column_capital"), "m", S(T + "marble_column_mid"), "b", S(T + "marble_column_base")),
                         T + "marble_column", 1),
                         stonecut(T + "marble", T + "marble_column"))));
 
         list.add(new BlockEntry("marble_door", "Мраморная дверь", List.of(
-                "Открывается мгновенно, как телепорт: шаг — и ты уже у статуи Семи. Две штуки за крафт."),
+                "Открывается мгновенно, как телепорт между статуями Семи: шаг — и ты уже у цели. Две штуки за крафт."),
                 List.of(craft(new String[]{"mm", "mm", "mm"}, keys("m", S(T + "marble")), T + "marble_door", 2))));
 
         list.add(new BlockEntry("marble_lamp", "Мраморный светильник", List.of(
-                "Светит, как Глаз Бога в тёмной бездне: внутри светокамень, тёплый свет, уровень 13."),
+                "Светит, как Глаз Бога в тёмной Бездне: внутри светокамень, тёплый свет, уровень 13."),
                 List.of(craft(new String[]{" m ", "mfm", " m "},
                         keys("m", S(T + "marble"), "f", S(M + "glowstone")), T + "marble_lamp", 1))));
 
@@ -255,13 +255,13 @@ public final class TravelerNotesContent {
                         stonecut(T + "gold_trimmed_marble", T + "marble_pedestal"))));
 
         list.add(new BlockEntry("chiseled_marble", "Резной мрамор", List.of(
-                "Резьба, как на свитках Цисин: в завитках спрятаны имена, которые читает только тот, кто умеет слушать камень. Делается из двух плит."),
+                "Резьба, как на древних фресках Цуруми, где изображена Селестия над островом. Делается из двух плит."),
                 List.of(craft(new String[]{"s", "s"}, keys("s", S(T + "marble_slab")), T + "chiseled_marble", 1),
                         stonecut(T + "marble", T + "chiseled_marble"),
                         stonecut(T + "polished_marble", T + "chiseled_marble"))));
 
         list.add(new BlockEntry("gold_trimmed_marble", "Мрамор с золотой окантовкой", List.of(
-                "Золотая кайма по белому камню — печать Властелина Камня на контракте.",
+                "Золотая кайма, как золотой астролябий на шпиле Селестии: её постройки — из белого мрамора с золотом.",
                 "Один слиток окантовывает сразу четыре блока."),
                 List.of(craft(new String[]{"mmm", "mgm", "mmm"},
                         keys("m", S(T + "marble"), "g", S(M + "gold_ingot")), T + "gold_trimmed_marble", 4))));

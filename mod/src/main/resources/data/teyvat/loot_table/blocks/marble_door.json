@@ -6,7 +6,16 @@
       "entries": [
         {
           "type": "minecraft:item",
-          "name": "teyvat:marble_door"
+          "name": "teyvat:marble_door",
+          "conditions": [
+            {
+              "condition": "minecraft:block_state_property",
+              "block": "teyvat:marble_door",
+              "properties": {
+                "half": "lower"
+              }
+            }
+          ]
         }
       ],
       "conditions": [
