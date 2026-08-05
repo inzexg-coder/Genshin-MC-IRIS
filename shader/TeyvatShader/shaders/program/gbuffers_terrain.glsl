@@ -238,6 +238,7 @@ void main() {
     bool noSmoothLighting = false, noDirectionalShading = false, noVanillaAO = false, centerShadowBias = false, noGeneratedNormals = false, doTileRandomisation = true;
     float smoothnessG = 0.0, highlightMult = 1.0, emission = 0.0, noiseFactor = 1.0, snowFactor = 1.0, snowMinNdotU = 0.0, noPuddles = 0.0;
     float reflectionStrength = 0.0; // Teyvat: сила отражения в colortex4.a (0..1)
+    float teyvatGoldMix = 0.0, teyvatSmoothG = 0.0; // Teyvat: золотое теснение (для бликов от фонарей)
     vec2 lmCoordM = lmCoord;
     vec3 normalM = normal, geoNormal = normal, shadowMult = vec3(1.0);
     vec3 worldGeoNormal = normalize(ViewToPlayer(geoNormal * 10000.0));
@@ -253,6 +254,8 @@ void main() {
         float teyvatMetal = clamp(teyvatSpec.g, 0.0, 1.0);
         float teyvatSmooth = clamp(pow2(teyvatSpec.r), 0.0, 1.0);
         float goldMix = teyvatMetal * teyvatSmooth;
+        teyvatGoldMix = goldMix;
+        teyvatSmoothG = teyvatSmooth;
         if (goldMix > 0.2) {
             smoothnessG = max(smoothnessG, teyvatSmooth);
             smoothnessD = max(smoothnessD, teyvatSmooth);
@@ -345,6 +348,14 @@ void main() {
 
     #ifdef IPBR
         color.rgb += maRecolor;
+
+        // Teyvat: золотое теснение ловит свет мраморных фонарей/факелов (блочный свет
+        // из lightmap) заметно сильнее, чем остальной матовый мрамор: GGX-блик вдоль
+        // нормали, тёплый цвет фонаря blocklightCol.
+        if (teyvatGoldMix > 0.2) {
+            float lampGlint = GGX(normalM, nViewPos, normalM, 1.0, teyvatSmoothG);
+            color.rgb += lampGlint * lmCoordM.x * teyvatGoldMix * blocklightCol * 14.0;
+        }
     #endif
 
     #if RAIN_PUDDLES >= 1 && BLOCK_REFLECT_QUALITY == 1 && defined OVERWORLD

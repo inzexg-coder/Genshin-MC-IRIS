@@ -125,6 +125,13 @@ def flutes(img):
 # ---------- базовые блоки: чистый белый, без зерна ----------
 img, d, spec, sd = base(); save("marble", img, spec)
 
+# углубление теснения: чуть затемнённый белый для объёма (без пятен)
+img, d, spec, sd = base()
+for y in range(S):
+    for x in range(S):
+        img.putpixel((x, y), (236, 236, 236, 255))
+save("marble_recess", img, spec)
+
 # полированный: белый, отличается только глянцевым spec (без металла)
 img, d, spec, sd = base(POLISH_SPEC); save("marble_polished", img, spec)
 

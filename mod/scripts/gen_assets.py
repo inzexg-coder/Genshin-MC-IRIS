@@ -114,8 +114,8 @@ col_model("marble_pedestal", [
     wide(0, 3), el("mid", [3, 3, 3], [13, 10, 13], "#side", {"up": T, "down": M}),
     el("top", [2, 10, 2], [14, 16, 14], P)])
 
-# ---------- arch (ВОКСЕЛЬНАЯ арка: цельный блок, внутри по объёмному пикселю вырезан
-# сквозной проём — пилоны + перемычка, смотришь сквозь блок насквозь) ----------
+# ---------- РЕЛЬЕФНЫЕ блоки (теснение): цельный непрозрачный блок, узор вдавлен
+# внутрь на 3px, СКВОЗНЫХ прорезей нет — только выемки (корпус за ними целый) ----------
 def elv(from_, to_, faces):
     """Воксельный элемент. faces: dict имя_грани -> (texture, uv, cullface|None)."""
     out = {}
@@ -136,112 +136,88 @@ def voxel_model(bid, textures, elements):
     w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
     item_def(bid, f"teyvat:block/{bid}")
 
-# ---------- chiseled: воксельная решётка (рама + прутья, 4 сквозных окна) ----------
+M = "#marble"; R = "#recess"; F16 = [0, 0, 16, 16]
+
+def recess_body():
+    """Цельный корпус: спереди/сзади выемка глубиной 3px (дно теснения)."""
+    return elv([0, 0, 3], [16, 16, 13], {
+        "north": (R, F16, None), "south": (R, F16, None),
+        "west": (M, F16, "west"), "east": (M, F16, "east"),
+        "up": (M, F16, "up"), "down": (M, F16, "down")})
+
+def relief_side(els, z0, cull_face):
+    """Обёртка: элементы рельефа в слое z0..z0+3; наружная грань — узор (UV по регионам),
+    все внутренние грани (дно и стенки выемки) — #recess."""
+    z1 = z0 + 3
+    outer = cull_face
+    inner = "south" if cull_face == "north" else "north"
+    def wrap(from_, to_, uv):
+        faces = {
+            outer: (els, uv, cull_face),
+            inner: (R, F16, None),
+            "up": (R, F16, None), "down": (R, F16, None),
+            "west": (R, F16, None), "east": (R, F16, None),
+        }
+        return elv(from_, to_, faces)
+    return wrap
+
+# ---------- chiseled: решётка-теснение (рама + прутья, 4 квадратные выемки) ----------
 bid = "chiseled_marble"
-M = "#marble"; L = "#lattice"; F16 = [0, 0, 16, 16]
-els = [
-    # левая стойка
-    elv([0, 0, 0], [2, 16, 16], {
-        "north": (L, [0, 0, 2, 16], "north"), "south": (L, [0, 0, 2, 16], "south"),
-        "west": (M, F16, "west"), "east": (M, F16, None),
-        "up": (M, F16, "up"), "down": (M, F16, "down")}),
-    # правая стойка
-    elv([14, 0, 0], [16, 16, 16], {
-        "north": (L, [14, 0, 16, 16], "north"), "south": (L, [14, 0, 16, 16], "south"),
-        "west": (M, F16, None), "east": (M, F16, "east"),
-        "up": (M, F16, "up"), "down": (M, F16, "down")}),
-    # верхняя перемычка
-    elv([2, 0, 0], [14, 2, 16], {
-        "north": (L, [2, 0, 14, 2], "north"), "south": (L, [2, 0, 14, 2], "south"),
-        "west": (M, F16, None), "east": (M, F16, None),
-        "up": (L, F16, None), "down": (M, F16, "down")}),
-    # нижняя перемычка
-    elv([2, 14, 0], [14, 16, 16], {
-        "north": (L, [2, 14, 14, 16], "north"), "south": (L, [2, 14, 14, 16], "south"),
-        "west": (M, F16, None), "east": (M, F16, None),
-        "up": (M, F16, None), "down": (L, F16, "down")}),
-    # вертикальный прут
-    elv([7, 2, 0], [9, 14, 16], {
-        "north": (L, [7, 2, 9, 14], "north"), "south": (L, [7, 2, 9, 14], "south"),
-        "west": (M, F16, None), "east": (M, F16, None),
-        "up": (M, F16, None), "down": (M, F16, None)}),
-    # горизонтальный прут
-    elv([2, 7, 0], [14, 9, 16], {
-        "north": (L, [2, 7, 14, 9], "north"), "south": (L, [2, 7, 14, 9], "south"),
-        "west": (M, F16, None), "east": (M, F16, None),
-        "up": (M, F16, None), "down": (M, F16, None)}),
-]
-voxel_model(bid, {"marble": "teyvat:block/marble", "lattice": "teyvat:block/marble_chiseled"}, els)
+L = "#lattice"
+els = [recess_body()]
+def lattice_side(z0, cull_face):
+    w = relief_side(L, z0, cull_face)
+    return [
+        w([0, 0, z0], [2, 16, z0 + 3], [0, 0, 2, 16]),
+        w([14, 0, z0], [16, 16, z0 + 3], [14, 0, 16, 16]),
+        w([2, 0, z0], [14, 2, z0 + 3], [2, 0, 14, 2]),
+        w([2, 14, z0], [14, 16, z0 + 3], [2, 14, 14, 16]),
+        w([7, 2, z0], [9, 14, z0 + 3], [7, 2, 9, 14]),
+        w([2, 7, z0], [14, 9, z0 + 3], [2, 7, 14, 9]),
+    ]
+els = [recess_body()] + lattice_side(0, "north") + lattice_side(13, "south")
+voxel_model(bid, {"marble": "teyvat:block/marble", "recess": "teyvat:block/marble_recess",
+                  "lattice": "teyvat:block/marble_chiseled"}, els)
 
-# ---------- arch: пилоны + перемычка, сквозной арочный проём ----------
+# ---------- arch: арочная ниша-теснение (пилоны + перемычка, выемка внутри) ----------
 bid = "marble_arch"
-F = "#front"; T = "#top"
-els = [
-    # плинты
-    elv([0, 0, 0], [4, 2, 16], {
-        "north": (F, [0, 14, 4, 16], "north"), "south": (F, [0, 14, 4, 16], "south"),
-        "west": (M, F16, "west"), "east": (M, F16, None),
-        "up": (M, F16, None), "down": (M, F16, "down")}),
-    elv([12, 0, 0], [16, 2, 16], {
-        "north": (F, [12, 14, 16, 16], "north"), "south": (F, [12, 14, 16, 16], "south"),
-        "west": (M, F16, None), "east": (M, F16, "east"),
-        "up": (M, F16, None), "down": (M, F16, "down")}),
-    # пилоны
-    elv([0, 2, 0], [4, 12, 16], {
-        "north": (F, [0, 4, 4, 16], "north"), "south": (F, [0, 4, 4, 16], "south"),
-        "west": (M, F16, "west"), "east": (M, F16, None),
-        "up": (M, F16, None), "down": (M, F16, None)}),
-    elv([12, 2, 0], [16, 12, 16], {
-        "north": (F, [12, 4, 16, 16], "north"), "south": (F, [12, 4, 16, 16], "south"),
-        "west": (M, F16, None), "east": (M, F16, "east"),
-        "up": (M, F16, None), "down": (M, F16, None)}),
-    # плечи арки (ступеньки проёма)
-    elv([4, 10, 0], [6, 12, 16], {
-        "north": (F, [4, 10, 6, 12], "north"), "south": (F, [4, 10, 6, 12], "south"),
-        "west": (M, F16, None), "east": (M, F16, None),
-        "up": (M, F16, None), "down": (M, F16, None)}),
-    elv([10, 10, 0], [12, 12, 16], {
-        "north": (F, [10, 10, 12, 12], "north"), "south": (F, [10, 10, 12, 12], "south"),
-        "west": (M, F16, None), "east": (M, F16, None),
-        "up": (M, F16, None), "down": (M, F16, None)}),
-    # перемычка (фриз с меандром)
-    elv([0, 12, 0], [16, 16, 16], {
-        "north": (F, [0, 0, 16, 4], "north"), "south": (F, [0, 0, 16, 4], "south"),
-        "west": (M, F16, None), "east": (M, F16, None),
-        "up": (T, F16, "up"), "down": (M, F16, None)}),
-]
-voxel_model(bid, {"marble": "teyvat:block/marble", "front": "teyvat:block/marble_arch_front",
-                  "top": "teyvat:block/marble_top"}, els)
+F = "#front"
+els = [recess_body()]
+def arch_side(z0, cull_face):
+    w = relief_side(F, z0, cull_face)
+    return [
+        w([0, 0, z0], [4, 2, z0 + 3], [0, 14, 4, 16]),
+        w([12, 0, z0], [16, 2, z0 + 3], [12, 14, 16, 16]),
+        w([0, 2, z0], [4, 12, z0 + 3], [0, 4, 4, 16]),
+        w([12, 2, z0], [16, 12, z0 + 3], [12, 4, 16, 16]),
+        w([4, 10, z0], [6, 12, z0 + 3], [4, 10, 6, 12]),
+        w([10, 10, z0], [12, 12, z0 + 3], [10, 10, 12, 12]),
+        w([0, 12, z0], [16, 16, z0 + 3], [0, 0, 16, 4]),
+    ]
+els = [recess_body()] + arch_side(0, "north") + arch_side(13, "south")
+voxel_model(bid, {"marble": "teyvat:block/marble", "recess": "teyvat:block/marble_recess",
+                  "front": "teyvat:block/marble_arch_front"}, els)
 
-# ---------- gate: две резные створки со сквозными окнами + проём посередине ----------
+# ---------- gate: две створки-теснение с прямоугольными выемками-окнами ----------
 bid = "marble_gate"
 P = "#panel"
-def leaf_els(x0, u0, u1):
-    """Створка шириной 6px от x0 (текстура региона u0..u1)."""
+els = [recess_body()]
+def gate_side(z0, cull_face):
+    w = relief_side(P, z0, cull_face)
     return [
-        elv([x0, 0, 0], [x0 + 1, 16, 16], {
-            "north": (P, [u0, 0, u0 + 1, 16], "north"), "south": (P, [u0, 0, u0 + 1, 16], "south"),
-            "west": (P, F16, "west") if x0 == 0 else (M, F16, None), "east": (M, F16, None),
-            "up": (M, F16, "up"), "down": (M, F16, "down")}),
-        elv([x0 + 5, 0, 0], [x0 + 6, 16, 16], {
-            "north": (P, [u1 - 1, 0, u1, 16], "north"), "south": (P, [u1 - 1, 0, u1, 16], "south"),
-            "west": (M, F16, None), "east": (P, F16, "east") if x0 + 6 == 16 else (M, F16, None),
-            "up": (M, F16, "up"), "down": (M, F16, "down")}),
-        elv([x0 + 1, 0, 0], [x0 + 5, 2, 16], {
-            "north": (P, [u0 + 1, 0, u1 - 1, 2], "north"), "south": (P, [u0 + 1, 0, u1 - 1, 2], "south"),
-            "west": (M, F16, None), "east": (M, F16, None),
-            "up": (M, F16, None), "down": (M, F16, "down")}),
-        elv([x0 + 1, 7, 0], [x0 + 5, 9, 16], {
-            "north": (P, [u0 + 1, 7, u1 - 1, 9], "north"), "south": (P, [u0 + 1, 7, u1 - 1, 9], "south"),
-            "west": (M, F16, None), "east": (M, F16, None),
-            "up": (M, F16, None), "down": (M, F16, None)}),
-        elv([x0 + 1, 14, 0], [x0 + 5, 16, 16], {
-            "north": (P, [u0 + 1, 14, u1 - 1, 16], "north"), "south": (P, [u0 + 1, 14, u1 - 1, 16], "south"),
-            "west": (M, F16, None), "east": (M, F16, None),
-            "up": (M, F16, None), "down": (M, F16, "down")}),
+        w([0, 0, z0], [1, 16, z0 + 3], [0, 0, 1, 16]),
+        w([15, 0, z0], [16, 16, z0 + 3], [15, 0, 16, 16]),
+        w([0, 0, z0], [16, 2, z0 + 3], [0, 0, 16, 2]),
+        w([0, 14, z0], [16, 16, z0 + 3], [0, 14, 16, 16]),
+        w([5, 0, z0], [6, 16, z0 + 3], [5, 0, 6, 16]),
+        w([10, 0, z0], [11, 16, z0 + 3], [10, 0, 11, 16]),
+        w([1, 7, z0], [5, 9, z0 + 3], [1, 7, 5, 9]),
+        w([11, 7, z0], [15, 9, z0 + 3], [11, 7, 15, 9]),
+        w([6, 2, z0], [10, 14, z0 + 3], [6, 2, 10, 14]),
     ]
-els = leaf_els(0, 0, 6) + leaf_els(10, 10, 16)
-voxel_model(bid, {"marble": "teyvat:block/marble", "panel": "teyvat:block/marble_gate"}, els)
+els = [recess_body()] + gate_side(0, "north") + gate_side(13, "south")
+voxel_model(bid, {"marble": "teyvat:block/marble", "recess": "teyvat:block/marble_recess",
+                  "panel": "teyvat:block/marble_gate"}, els)
 
 # ---------- stairs (4 sets) ----------
 STAIRS = {
