@@ -57,6 +57,8 @@ public class TravelerChoiceScreen extends Screen {
     private final float[] hover = new float[2];   // 0..1, плавно к цели
     private final float[] yaw = new float[2];     // текущий угол поворота модели
     private long age = 0;
+    private boolean closing = false;              // выбран персонаж, идёт вспышка
+    private float flash = 0f;                     // 0..1, белая вспышка перед закрытием
 
     public TravelerChoiceScreen() {
         super(Text.literal("Выбор путешественника"));
@@ -69,6 +71,9 @@ public class TravelerChoiceScreen extends Screen {
 
     @Override
     public boolean mouseClicked(Click click, boolean bl) {
+        if (closing) {
+            return true;
+        }
         double mx = click.x();
         double my = click.y();
         if (click.button() == 0) {
@@ -85,13 +90,17 @@ public class TravelerChoiceScreen extends Screen {
     }
 
     private void choose(Card card) {
+        if (closing) {
+            return;
+        }
         ClientPlayNetworking.send(new TravelerChoicePayload(card.choice()));
         if (this.client != null && this.client.player != null) {
             TravelerChoiceClient.set(this.client.player.getUuid(), card.choice());
             this.client.player.sendMessage(Text.literal(
                     "§e[Teyvat] §fПутешественник выбран: §b" + card.name() + "§f."), false);
         }
-        this.close();
+        closing = true;
+        flash = 0f;
     }
 
     @Override
@@ -118,8 +127,8 @@ public class TravelerChoiceScreen extends Screen {
         int bottom = this.height - pad - 12;
         int availW = this.width - pad * 2;
         int availH = Math.max(150, bottom - top);
-        int cardW = Math.min(418, (availW - CARD_GAP) / 2);
-        int cardH = Math.min(500, availH);
+        int cardW = Math.min(470, (availW - CARD_GAP) / 2);
+        int cardH = Math.min(600, availH);
         int totalW = cardW * 2 + CARD_GAP;
         int x0 = (this.width - totalW) / 2;
         int y0 = top + (availH - cardH) / 2;
@@ -175,6 +184,16 @@ public class TravelerChoiceScreen extends Screen {
             int cx = box[0] + i * (box[2] + CARD_GAP);
             drawCard(context, i, cx, box[1], box[2], box[3], mouseX, mouseY, delta);
         }
+
+        // Вспышка после выбора: белая заливка нарастает и экран закрывается.
+        if (closing) {
+            flash = Math.min(1f, flash + frameSec * 4f);
+            int alpha = (int) (flash * 255f);
+            context.fill(0, 0, this.width, this.height, (alpha << 24) | 0xFFFFFF);
+            if (flash >= 1f) {
+                this.close();
+            }
+        }
     }
 
     private void drawCard(DrawContext context, int i, int cx, int cy, int cardW, int cardH,
@@ -195,6 +214,29 @@ public class TravelerChoiceScreen extends Screen {
         int mx2 = mx1 + modelW;
         int my1 = cy + CARD_PAD;
         int my2 = cy + cardH - CARD_PAD;
+
+        // Золотая подсветка наведённого скина: мягкий ореол вокруг зоны модели.
+        if (hover[i] > 0.01f) {
+            float time = (this.age + delta) / 20.0f;
+            float pulse = 0.75f + 0.25f * (float) Math.sin(time * 3.0);
+            int ring = 4;
+            for (int g = 0; g < ring; g++) {
+                int a = (int) (0x34 * hover[i] * pulse * (1f - g / (float) ring));
+                int col = (a << 24) | 0xE8C86A;
+                int in = g;
+                int out = ring - g;
+                context.fill(mx1 - out, my1 - out, mx2 + out, my1 + in, col);
+                context.fill(mx1 - out, my2 - in, mx2 + out, my2 + out, col);
+                context.fill(mx1 - out, my1 - out, mx1 + in, my2 + out, col);
+                context.fill(mx2 - in, my1 - out, mx2 + out, my2 + out, col);
+            }
+            int border = ((int) (0xFF * Math.min(1f, hover[i])) << 24) | 0xE8C86A;
+            context.fill(mx1 - 2, my1 - 2, mx2 + 2, my1, border);
+            context.fill(mx1 - 2, my2, mx2 + 2, my2 + 2, border);
+            context.fill(mx1 - 2, my1 - 2, mx1, my2 + 2, border);
+            context.fill(mx2, my1 - 2, mx2 + 2, my2 + 2, border);
+        }
+
         TravelerPreviewPlayer player = preview(card, i);
         if (player != null) {
             player.age = (int) this.age;
@@ -252,7 +294,7 @@ public class TravelerChoiceScreen extends Screen {
         }
         float entityH = entity.getHeight();
         float visualW = entity.getWidth() * 1.35f; // фигура с руками
-        float scale = Math.min((x2 - x1) / visualW, (y2 - y1) / entityH) * 0.88f;
+        float scale = Math.min((x2 - x1) / visualW, (y2 - y1) / entityH) * 0.95f;
         Vector3f camera = new Vector3f(0.0f, entityH * 0.5f, 0.0f);
         Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI).rotateY((float) Math.PI + yawAmount);
         Quaternionf look = new Quaternionf();
