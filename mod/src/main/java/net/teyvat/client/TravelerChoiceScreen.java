@@ -337,7 +337,7 @@ public class TravelerChoiceScreen extends Screen {
     /** Твёрдая золотая текстура (полупрозрачная) для силуэтной подсветки модели. */
     private static Identifier goldSkin() {
         if (goldSkin == null) {
-            goldSkin = Identifier.of("teyvat", "textures/gui/skin_gold");
+            goldSkin = Identifier.of("teyvat", "gui/skin_gold");
             NativeImage image = new NativeImage(NativeImage.Format.RGBA, 8, 8, true);
             image.fillRect(0, 0, 8, 8, 0x90E8C86A);
             NativeImageBackedTexture texture =
