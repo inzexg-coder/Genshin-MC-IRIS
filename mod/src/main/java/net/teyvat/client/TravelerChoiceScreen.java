@@ -119,7 +119,7 @@ public class TravelerChoiceScreen extends Screen {
         int availW = this.width - pad * 2;
         int availH = Math.max(150, bottom - top);
         int cardW = Math.min(418, (availW - CARD_GAP) / 2);
-        int cardH = Math.min(560, availH);
+        int cardH = Math.min(500, availH);
         int totalW = cardW * 2 + CARD_GAP;
         int x0 = (this.width - totalW) / 2;
         int y0 = top + (availH - cardH) / 2;
@@ -155,9 +155,9 @@ public class TravelerChoiceScreen extends Screen {
             yaw[i] += (targetYaw - yaw[i]) * Math.min(1f, frameSec * 7f);
         }
 
-        // Фон-скриншот: весь кадр целиком, вписан в экран без кадрирования.
-        context.fill(0, 0, this.width, this.height, 0xFF0B0F1A);
-        float scale = Math.min(this.width / (float) BG_W, this.height / (float) BG_H);
+        // Фон-скриншот: заполняет весь экран, центр картинки совпадает с центром экрана,
+        // лишнее по краям обрезается.
+        float scale = Math.max(this.width / (float) BG_W, this.height / (float) BG_H);
         int bw = (int) (BG_W * scale);
         int bh = (int) (BG_H * scale);
         context.drawTexture(RenderPipelines.GUI_TEXTURED, BACKGROUND,
@@ -251,7 +251,8 @@ public class TravelerChoiceScreen extends Screen {
             living.limbSwingAnimationProgress = walkPhase;
         }
         float entityH = entity.getHeight();
-        float scale = (y2 - y1) / entityH * 0.92f;
+        float visualW = entity.getWidth() * 1.35f; // фигура с руками
+        float scale = Math.min((x2 - x1) / visualW, (y2 - y1) / entityH) * 0.88f;
         Vector3f camera = new Vector3f(0.0f, entityH * 0.5f, 0.0f);
         Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI).rotateY((float) Math.PI + yawAmount);
         Quaternionf look = new Quaternionf();
