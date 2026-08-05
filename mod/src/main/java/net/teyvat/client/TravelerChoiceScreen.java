@@ -8,7 +8,6 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.entity.EntityRenderManager;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.render.entity.state.LivingEntityRenderState;
@@ -28,13 +27,22 @@ import static net.teyvat.client.TravelerNotesContent.C_HINT;
 
 /**
  * Экран первого входа: фон-скриншот Селестии без затемнения и выбор путешественника
- * (Люмин / Итэр) с живыми 3D-моделями в полный рост. Контент отступает от границ экрана.
- * Показывается один раз на сервере (тег teyvat:traveler_* сохраняет выбор) и работает
- * и в одиночной игре, и на сервере. Выбор косметический: скин увидят все игроки с модом.
+ * (Люмин / Итэр). В покое модели стоят лицом к игроку; при наведении начинают шагать и
+ * покачиваться, при уходе курсора плавно возвращаются лицом и замирают. Контент отступает
+ * от границ экрана с одинаковыми промежутками.
  */
 public class TravelerChoiceScreen extends Screen {
     private static final Identifier BACKGROUND = Identifier.of("teyvat", "textures/gui/spawn_background.png");
+    private static final int BG_W = 1920;
+    private static final int BG_H = 1080;
+
     private static final int CARD_GAP = 26;
+    private static final int CARD_PAD = 10;      // внутренний отступ карточки
+    private static final int GAP = 12;           // одинаковый отступ между элементами текста
+    private static final int NAME_H = 9;
+    private static final int DESC_LINE_H = 10;
+    private static final int BTN_H = 26;
+    private static final int BTN_MARGIN = 14;
 
     private record Card(String name, String desc, String button, String choice) {}
 
@@ -45,6 +53,8 @@ public class TravelerChoiceScreen extends Screen {
                     "Выбрать Итэра", "aether"));
 
     private final TravelerPreviewPlayer[] previews = new TravelerPreviewPlayer[2];
+    private final float[] hover = new float[2];   // 0..1, плавно к цели
+    private final float[] yaw = new float[2];     // текущий угол поворота модели
     private long age = 0;
 
     public TravelerChoiceScreen() {
@@ -64,8 +74,7 @@ public class TravelerChoiceScreen extends Screen {
             int[] box = cardBox();
             for (int i = 0; i < cards.size(); i++) {
                 int cx = box[0] + i * (box[2] + CARD_GAP);
-                int cy = box[1];
-                if (mx >= cx && mx < cx + box[2] && my >= cy && my < cy + box[3]) {
+                if (mx >= cx && mx < cx + box[2] && my >= box[1] && my < box[1] + box[3]) {
                     choose(cards.get(i));
                     return true;
                 }
@@ -105,15 +114,21 @@ public class TravelerChoiceScreen extends Screen {
     private int[] cardBox() {
         int pad = pad();
         int top = pad + 48;
-        int bottom = this.height - pad - 20;
+        int bottom = this.height - pad - 12;
         int availW = this.width - pad * 2;
-        int availH = Math.max(120, bottom - top);
+        int availH = Math.max(150, bottom - top);
         int cardW = Math.min(252, (availW - CARD_GAP) / 2);
-        int cardH = Math.min(332, availH);
+        int cardH = Math.min(336, availH);
         int totalW = cardW * 2 + CARD_GAP;
         int x0 = (this.width - totalW) / 2;
         int y0 = top + (availH - cardH) / 2;
         return new int[]{x0, y0, cardW, cardH};
+    }
+
+    private boolean isOver(int i, int mouseX, int mouseY) {
+        int[] box = cardBox();
+        int cx = box[0] + i * (box[2] + CARD_GAP);
+        return mouseX >= cx && mouseX < cx + box[2] && mouseY >= box[1] && mouseY < box[1] + box[3];
     }
 
     private TravelerPreviewPlayer preview(Card card, int index) {
@@ -126,107 +141,119 @@ public class TravelerChoiceScreen extends Screen {
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         this.age++;
-
-        // Фон-скриншот во весь экран, без затемнения (сохраняем пропорции).
-        float scale = Math.max(this.width / 1024f, this.height / 576f);
-        int bw = (int) (1024 * scale);
-        int bh = (int) (576 * scale);
-        context.drawTexture(RenderPipelines.GUI_TEXTURED, BACKGROUND,
-                (this.width - bw) / 2, (this.height - bh) / 2, 0f, 0f, bw, bh, 1024, 576);
-
-        int pad = pad();
+        float time = (this.age + delta) / 20.0f;
+        float frameSec = delta * 0.05f;
         int[] box = cardBox();
+
+        // Плавная анимация наведения: шаг и покачивание включаются/гаснут плавно.
+        for (int i = 0; i < cards.size(); i++) {
+            boolean over = isOver(i, mouseX, mouseY);
+            float target = over ? 1f : 0f;
+            hover[i] += (target - hover[i]) * Math.min(1f, frameSec * 7f);
+            float targetYaw = over ? (float) Math.sin(time * 1.1f) * 0.45f : 0f;
+            yaw[i] += (targetYaw - yaw[i]) * Math.min(1f, frameSec * 7f);
+        }
+
+        // Фон-скриншот: без приближения, вписан целиком, подложка по краям.
+        context.fill(0, 0, this.width, this.height, 0xFF0B0F1A);
+        float scale = Math.min(1.0f, Math.min(this.width / (float) BG_W, this.height / (float) BG_H));
+        int bw = (int) (BG_W * scale);
+        int bh = (int) (BG_H * scale);
+        context.drawTexture(RenderPipelines.GUI_TEXTURED, BACKGROUND,
+                (this.width - bw) / 2, (this.height - bh) / 2, 0f, 0f, bw, bh, BG_W, BG_H);
 
         // Заголовок.
         String title = "«Выбор путешественника»";
         context.drawText(this.textRenderer, title,
-                (this.width - this.textRenderer.getWidth(title)) / 2, pad + 8, C_GOLD, true);
+                (this.width - this.textRenderer.getWidth(title)) / 2, pad() + 8, C_GOLD, true);
         String sub = "Селестия ждёт путника. Кто отправится в путь?";
         context.drawText(this.textRenderer, sub,
-                (this.width - this.textRenderer.getWidth(sub)) / 2, pad + 26, C_HINT, true);
+                (this.width - this.textRenderer.getWidth(sub)) / 2, pad() + 26, C_HINT, true);
 
         for (int i = 0; i < cards.size(); i++) {
             int cx = box[0] + i * (box[2] + CARD_GAP);
             drawCard(context, i, cx, box[1], box[2], box[3], mouseX, mouseY, delta);
         }
-
-        String hint = "Пока что выбор косметический: скин увидят все игроки с модом · 1 / 2 — выбрать · Esc — закрыть";
-        context.drawText(this.textRenderer, hint,
-                (this.width - this.textRenderer.getWidth(hint)) / 2, this.height - pad - 12, C_HINT, true);
     }
 
     private void drawCard(DrawContext context, int i, int cx, int cy, int cardW, int cardH,
                           int mouseX, int mouseY, float delta) {
         Card card = cards.get(i);
-        boolean hover = mouseX >= cx && mouseX < cx + cardW && mouseY >= cy && mouseY < cy + cardH;
+        boolean hovered = isOver(i, mouseX, mouseY);
+        List<String> descLines = wrap(card.desc(), cardW - CARD_PAD * 2);
+        int descH = descLines.size() * DESC_LINE_H;
+        int modelH = cardH - (CARD_PAD + GAP + NAME_H + GAP + descH + GAP + BTN_H + BTN_MARGIN);
 
         context.fill(cx, cy, cx + cardW, cy + cardH, 0xC21B2338);
-        context.fill(cx, cy, cx + cardW, cy + 1, hover ? C_GOLD : 0xFF3A4A6A);
-        context.fill(cx, cy + cardH - 1, cx + cardW, cy + cardH, hover ? C_GOLD : 0xFF3A4A6A);
-        context.fill(cx, cy, cx + 1, cy + cardH, hover ? C_GOLD : 0xFF3A4A6A);
-        context.fill(cx + cardW - 1, cy, cx + cardW, cy + cardH, hover ? C_GOLD : 0xFF3A4A6A);
+        context.fill(cx, cy, cx + cardW, cy + 1, hovered ? C_GOLD : 0xFF3A4A6A);
+        context.fill(cx, cy + cardH - 1, cx + cardW, cy + cardH, hovered ? C_GOLD : 0xFF3A4A6A);
+        context.fill(cx, cy, cx + 1, cy + cardH, hovered ? C_GOLD : 0xFF3A4A6A);
+        context.fill(cx + cardW - 1, cy, cx + cardW, cy + cardH, hovered ? C_GOLD : 0xFF3A4A6A);
 
         // Живая 3D-модель персонажа.
-        int mh = cardH - 92;
-        int mx1 = cx + 10;
-        int mx2 = cx + cardW - 10;
-        int my1 = cy + 10;
-        int my2 = cy + 10 + mh;
+        int mx1 = cx + CARD_PAD;
+        int mx2 = cx + cardW - CARD_PAD;
+        int my1 = cy + CARD_PAD;
+        int my2 = my1 + modelH;
         TravelerPreviewPlayer player = preview(card, i);
         if (player != null) {
             player.age = (int) this.age;
-            drawPlayerModel(context, player, mx1, my1, mx2, my2, delta);
+            float time = (this.age + delta) / 20.0f;
+            drawPlayerModel(context, player, mx1, my1, mx2, my2, delta, hover[i], yaw[i], time * 3.0f);
         }
 
-        // Имя и описание.
-        int nameY = my2 + 10;
+        // Имя.
+        int y = my2 + GAP;
         context.drawText(this.textRenderer, card.name(),
-                cx + (cardW - this.textRenderer.getWidth(card.name())) / 2, nameY, C_GOLD, true);
-        int descY = nameY + 17;
-        for (String line : wrap(card.desc(), cardW - 22)) {
+                cx + (cardW - this.textRenderer.getWidth(card.name())) / 2, y, C_GOLD, true);
+
+        // Описание.
+        y += NAME_H + GAP;
+        for (String line : descLines) {
             context.drawText(this.textRenderer, line,
-                    cx + (cardW - this.textRenderer.getWidth(line)) / 2, descY, 0xFFD8D2C4, true);
-            descY += 10;
+                    cx + (cardW - this.textRenderer.getWidth(line)) / 2, y, 0xFFD8D2C4, true);
+            y += DESC_LINE_H;
         }
 
         // Кнопка.
-        int by = cy + cardH - 36;
+        int by = cy + cardH - BTN_MARGIN - BTN_H;
         int bw = cardW - 36;
         int bx = cx + (cardW - bw) / 2;
-        boolean bh = mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + 26;
-        context.fill(bx, by, bx + bw, by + 26, hover ? 0xFF2A3654 : 0xFF222C44);
+        boolean bh = mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + BTN_H;
+        context.fill(bx, by, bx + bw, by + BTN_H, hovered ? 0xFF2A3654 : 0xFF222C44);
         context.fill(bx, by, bx + bw, by + 1, 0xFFE8C86A);
-        context.fill(bx, by + 25, bx + bw, by + 26, 0xFFE8C86A);
+        context.fill(bx, by + BTN_H - 1, bx + bw, by + BTN_H, 0xFFE8C86A);
         context.drawText(this.textRenderer, card.button(),
                 bx + (bw - this.textRenderer.getWidth(card.button())) / 2, by + 8, bh ? C_GOLD : C_HINT, true);
     }
 
-    /** Рендер модели персонажа в GUI: лёгкий разворот, шаг на месте, скин из мода. */
+    /** Рендер модели в GUI: в покое лицом к зрителю, при наведении — шаг и покачивание. */
     private void drawPlayerModel(DrawContext context, AbstractClientPlayerEntity player,
-                                 int x1, int y1, int x2, int y2, float tickDelta) {
+                                 int x1, int y1, int x2, int y2, float tickDelta,
+                                 float hoverAmount, float yawAmount, float walkPhase) {
         MinecraftClient client = MinecraftClient.getInstance();
-        float time = (this.age + tickDelta) / 20.0f;
         drawPlayerModel(context, client.getEntityRenderDispatcher().getRenderer(player),
-                player, x1, y1, x2, y2, tickDelta, time);
+                player, x1, y1, x2, y2, tickDelta, hoverAmount, yawAmount, walkPhase);
     }
 
     private static <T extends Entity, S extends EntityRenderState> void drawPlayerModel(
             DrawContext context, EntityRenderer<? super T, S> renderer, T entity,
-            int x1, int y1, int x2, int y2, float tickDelta, float time) {
+            int x1, int y1, int x2, int y2, float tickDelta,
+            float hoverAmount, float yawAmount, float walkPhase) {
         S state = renderer.getAndUpdateRenderState(entity, tickDelta);
         state.light = 0xF000F0;
         state.hitbox = null;
         state.shadowPieces.clear();
         state.outlineColor = 0;
         if (state instanceof LivingEntityRenderState living) {
-            living.limbSwingAmplitude = 1.0f;
-            living.limbSwingAnimationProgress = time * 3.0f;
+            living.limbSwingAmplitude = hoverAmount;
+            living.limbSwingAnimationProgress = walkPhase;
         }
-        float eyeHeight = entity.getStandingEyeHeight();
-        float scale = (y2 - y1) / eyeHeight;
-        Vector3f camera = new Vector3f(0.0f, entity.getHeight() / 2.0f + 0.35f * eyeHeight, 0.0f);
-        float yaw = time * 0.5f;
-        Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI).rotateY(yaw);
+
+        float entityH = entity.getHeight();
+        float scale = (y2 - y1) / entityH * 0.92f;
+        Vector3f camera = new Vector3f(0.0f, entityH * 0.5f, 0.0f);
+        Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI).rotateY((float) Math.PI + yawAmount);
         Quaternionf look = new Quaternionf();
 
         context.enableScissor(x1, y1, x2, y2);
