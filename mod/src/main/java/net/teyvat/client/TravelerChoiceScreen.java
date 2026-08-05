@@ -26,23 +26,24 @@ import static net.teyvat.client.TravelerNotesContent.C_GOLD;
 import static net.teyvat.client.TravelerNotesContent.C_HINT;
 
 /**
- * Экран первого входа: фон-скриншот Селестии без затемнения и выбор путешественника
- * (Люмин / Итэр). В покое модели стоят лицом к игроку; при наведении начинают шагать и
- * покачиваться, при уходе курсора плавно возвращаются лицом и замирают. Контент отступает
- * от границ экрана с одинаковыми промежутками.
+ * Экран первого входа: фон-скриншот целиком на весь экран (без кадрирования) и выбор
+ * путешественника (Люмин / Итэр). Крупные модели персонажей расположены слева, текст —
+ * справа от них. В покое модели стоят лицом к игроку; при наведении начинают шагать и
+ * покачиваться, при уходе курсора плавно возвращаются лицом и замирают.
  */
 public class TravelerChoiceScreen extends Screen {
     private static final Identifier BACKGROUND = Identifier.of("teyvat", "textures/gui/spawn_background.png");
-    private static final int BG_W = 924;
-    private static final int BG_H = 526; // оригинальное разрешение скриншота, без увеличения
+    private static final int BG_W = 924;   // оригинальное разрешение скриншота
+    private static final int BG_H = 526;
 
     private static final int CARD_GAP = 26;
-    private static final int CARD_PAD = 10;      // внутренний отступ карточки
-    private static final int GAP = 12;           // одинаковый отступ между элементами текста
+    private static final int CARD_PAD = 12;        // внутренний отступ карточки
+    private static final int MODEL_TEXT_GAP = 14;  // зазор между моделью и текстом
+    private static final int TEXT_W = 150;         // ширина текстовой колонки
     private static final int NAME_H = 9;
     private static final int DESC_LINE_H = 10;
     private static final int BTN_H = 26;
-    private static final int BTN_MARGIN = 14;
+    private static final int GAP = 12;             // одинаковый отступ между элементами текста
 
     private record Card(String name, String desc, String button, String choice) {}
 
@@ -117,8 +118,8 @@ public class TravelerChoiceScreen extends Screen {
         int bottom = this.height - pad - 12;
         int availW = this.width - pad * 2;
         int availH = Math.max(150, bottom - top);
-        int cardW = Math.min(252, (availW - CARD_GAP) / 2);
-        int cardH = Math.min(336, availH);
+        int cardW = Math.min(418, (availW - CARD_GAP) / 2);
+        int cardH = Math.min(560, availH);
         int totalW = cardW * 2 + CARD_GAP;
         int x0 = (this.width - totalW) / 2;
         int y0 = top + (availH - cardH) / 2;
@@ -154,9 +155,9 @@ public class TravelerChoiceScreen extends Screen {
             yaw[i] += (targetYaw - yaw[i]) * Math.min(1f, frameSec * 7f);
         }
 
-        // Фон-скриншот: без приближения, вписан целиком, подложка по краям.
+        // Фон-скриншот: весь кадр целиком, вписан в экран без кадрирования.
         context.fill(0, 0, this.width, this.height, 0xFF0B0F1A);
-        float scale = Math.min(1.0f, Math.min(this.width / (float) BG_W, this.height / (float) BG_H));
+        float scale = Math.min(this.width / (float) BG_W, this.height / (float) BG_H);
         int bw = (int) (BG_W * scale);
         int bh = (int) (BG_H * scale);
         context.drawTexture(RenderPipelines.GUI_TEXTURED, BACKGROUND,
@@ -180,21 +181,20 @@ public class TravelerChoiceScreen extends Screen {
                           int mouseX, int mouseY, float delta) {
         Card card = cards.get(i);
         boolean hovered = isOver(i, mouseX, mouseY);
-        List<String> descLines = wrap(card.desc(), cardW - CARD_PAD * 2);
-        int descH = descLines.size() * DESC_LINE_H;
-        int modelH = cardH - (CARD_PAD + GAP + NAME_H + GAP + descH + GAP + BTN_H + BTN_MARGIN);
 
-        context.fill(cx, cy, cx + cardW, cy + cardH, 0xC21B2338);
+        // Полупрозрачная карточка: фон-скриншот остаётся виден.
+        context.fill(cx, cy, cx + cardW, cy + cardH, 0x991B2338);
         context.fill(cx, cy, cx + cardW, cy + 1, hovered ? C_GOLD : 0xFF3A4A6A);
         context.fill(cx, cy + cardH - 1, cx + cardW, cy + cardH, hovered ? C_GOLD : 0xFF3A4A6A);
         context.fill(cx, cy, cx + 1, cy + cardH, hovered ? C_GOLD : 0xFF3A4A6A);
         context.fill(cx + cardW - 1, cy, cx + cardW, cy + cardH, hovered ? C_GOLD : 0xFF3A4A6A);
 
-        // Живая 3D-модель персонажа.
+        // Крупная 3D-модель персонажа слева, текст — справа от неё.
+        int modelW = cardW - CARD_PAD * 2 - MODEL_TEXT_GAP - TEXT_W;
         int mx1 = cx + CARD_PAD;
-        int mx2 = cx + cardW - CARD_PAD;
+        int mx2 = mx1 + modelW;
         int my1 = cy + CARD_PAD;
-        int my2 = my1 + modelH;
+        int my2 = cy + cardH - CARD_PAD;
         TravelerPreviewPlayer player = preview(card, i);
         if (player != null) {
             player.age = (int) this.age;
@@ -202,29 +202,30 @@ public class TravelerChoiceScreen extends Screen {
             drawPlayerModel(context, player, mx1, my1, mx2, my2, delta, hover[i], yaw[i], time * 3.0f);
         }
 
-        // Имя.
-        int y = my2 + GAP;
-        context.drawText(this.textRenderer, card.name(),
-                cx + (cardW - this.textRenderer.getWidth(card.name())) / 2, y, C_GOLD, true);
+        // Текстовая колонка, выровненная по вертикали относительно карточки.
+        int tx = cx + CARD_PAD + modelW + MODEL_TEXT_GAP;
+        List<String> descLines = wrap(card.desc(), TEXT_W);
+        int descH = descLines.size() * DESC_LINE_H;
+        int blockH = NAME_H + GAP + descH + GAP + BTN_H;
+        int y = cy + Math.max(CARD_PAD, (cardH - blockH) / 2);
 
-        // Описание.
+        context.drawText(this.textRenderer, card.name(),
+                tx + (TEXT_W - this.textRenderer.getWidth(card.name())) / 2, y, C_GOLD, true);
         y += NAME_H + GAP;
+
         for (String line : descLines) {
             context.drawText(this.textRenderer, line,
-                    cx + (cardW - this.textRenderer.getWidth(line)) / 2, y, 0xFFD8D2C4, true);
+                    tx + (TEXT_W - this.textRenderer.getWidth(line)) / 2, y, 0xFFD8D2C4, true);
             y += DESC_LINE_H;
         }
 
-        // Кнопка.
-        int by = cy + cardH - BTN_MARGIN - BTN_H;
-        int bw = cardW - 36;
-        int bx = cx + (cardW - bw) / 2;
-        boolean bh = mouseX >= bx && mouseX < bx + bw && mouseY >= by && mouseY < by + BTN_H;
-        context.fill(bx, by, bx + bw, by + BTN_H, hovered ? 0xFF2A3654 : 0xFF222C44);
-        context.fill(bx, by, bx + bw, by + 1, 0xFFE8C86A);
-        context.fill(bx, by + BTN_H - 1, bx + bw, by + BTN_H, 0xFFE8C86A);
+        int by = y + GAP;
+        boolean bh = mouseX >= tx && mouseX < tx + TEXT_W && mouseY >= by && mouseY < by + BTN_H;
+        context.fill(tx, by, tx + TEXT_W, by + BTN_H, hovered ? 0xFF2A3654 : 0xFF222C44);
+        context.fill(tx, by, tx + TEXT_W, by + 1, 0xFFE8C86A);
+        context.fill(tx, by + BTN_H - 1, tx + TEXT_W, by + BTN_H, 0xFFE8C86A);
         context.drawText(this.textRenderer, card.button(),
-                bx + (bw - this.textRenderer.getWidth(card.button())) / 2, by + 8, bh ? C_GOLD : C_HINT, true);
+                tx + (TEXT_W - this.textRenderer.getWidth(card.button())) / 2, by + 8, bh ? C_GOLD : C_HINT, true);
     }
 
     /** Рендер модели в GUI: в покое лицом к зрителю, при наведении — шаг и покачивание. */
@@ -249,7 +250,6 @@ public class TravelerChoiceScreen extends Screen {
             living.limbSwingAmplitude = hoverAmount;
             living.limbSwingAnimationProgress = walkPhase;
         }
-
         float entityH = entity.getHeight();
         float scale = (y2 - y1) / entityH * 0.92f;
         Vector3f camera = new Vector3f(0.0f, entityH * 0.5f, 0.0f);
