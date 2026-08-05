@@ -12,8 +12,6 @@ import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.SkinTextures;
@@ -337,15 +335,12 @@ public class TravelerChoiceScreen extends Screen {
         }
     }
 
-    /** Твёрдая золотая текстура (полупрозрачная) для силуэтной подсветки модели. */
+    /** Золотая текстура силуэта — реальный файл assets/teyvat/textures/gui/skin_gold.png.
+     *  Рендерер игрока берёт skinTextures.body().texturePath(), т.е. teyvat:textures/gui/skin_gold.png,
+     *  поэтому динамическая регистрация тут не работает и нужен настоящий ресурс. */
     private static Identifier goldSkin() {
         if (goldSkin == null) {
             goldSkin = Identifier.of("teyvat", "gui/skin_gold");
-            NativeImage image = new NativeImage(NativeImage.Format.RGBA, 8, 8, true);
-            image.fillRect(0, 0, 8, 8, 0x90E8C86A);
-            NativeImageBackedTexture texture =
-                    new NativeImageBackedTexture(() -> "teyvat skin glow", image);
-            MinecraftClient.getInstance().getTextureManager().registerTexture(goldSkin, texture);
         }
         return goldSkin;
     }
