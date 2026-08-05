@@ -10,6 +10,7 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.teyvat.network.NotesOpenPayload;
+import net.teyvat.network.TravelerChoiceOpenPayload;
 
 /** Корневая команда /teyvat: подкоманды column и notes. /column остаётся самостоятельной. */
 public final class TeyvatCommand {
@@ -22,7 +23,19 @@ public final class TeyvatCommand {
         dispatcher.register(column);
         dispatcher.register(CommandManager.literal("teyvat")
                 .then(column)
-                .then(CommandManager.literal("notes").executes(TeyvatCommand::openNotes)));
+                .then(CommandManager.literal("notes").executes(TeyvatCommand::openNotes))
+                .then(CommandManager.literal("choose").executes(TeyvatCommand::openChoice)));
+    }
+
+    /** Повторно открывает экран выбора путешественника (для тех, кто закрыл его в первый вход). */
+    private static int openChoice(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
+        ServerPlayerEntity player = ctx.getSource().getPlayer();
+        if (player != null) {
+            ServerPlayNetworking.send(player, new TravelerChoiceOpenPayload());
+            ctx.getSource().sendFeedback(() -> Text.literal(
+                    "§e[Teyvat] §fЭкран выбора путешественника открыт."), false);
+        }
+        return 1;
     }
 
     private static int openNotes(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
