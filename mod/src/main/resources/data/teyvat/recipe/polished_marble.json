@@ -1,13 +1,12 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "building",
   "pattern": [
     "mm",
     "mm"
   ],
   "key": {
-    "m": {
-      "item": "teyvat:marble"
-    }
+    "m": "teyvat:marble"
   },
   "result": {
     "id": "teyvat:polished_marble",

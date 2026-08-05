@@ -1,17 +1,14 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "building",
   "pattern": [
     "qqq",
     "qgq",
     "qqq"
   ],
   "key": {
-    "q": {
-      "item": "minecraft:quartz"
-    },
-    "g": {
-      "item": "minecraft:gold_ingot"
-    }
+    "q": "minecraft:quartz",
+    "g": "minecraft:gold_ingot"
   },
   "result": {
     "id": "teyvat:marble",

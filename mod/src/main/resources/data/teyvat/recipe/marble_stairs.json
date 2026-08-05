@@ -1,14 +1,13 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "building",
   "pattern": [
     "m  ",
     "mm ",
     "mmm"
   ],
   "key": {
-    "m": {
-      "item": "teyvat:marble"
-    }
+    "m": "teyvat:marble"
   },
   "result": {
     "id": "teyvat:marble_stairs",

@@ -1,17 +1,14 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "building",
   "pattern": [
     "mmm",
     "mgm",
     "mmm"
   ],
   "key": {
-    "m": {
-      "item": "teyvat:marble"
-    },
-    "g": {
-      "item": "minecraft:gold_ingot"
-    }
+    "m": "teyvat:marble",
+    "g": "minecraft:gold_ingot"
   },
   "result": {
     "id": "teyvat:gold_trimmed_marble",

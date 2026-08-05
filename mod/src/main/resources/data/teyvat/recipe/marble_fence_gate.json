@@ -1,16 +1,13 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "building",
   "pattern": [
-    "sms",
-    "sms"
+    "fmf",
+    "fmf"
   ],
   "key": {
-    "m": {
-      "item": "teyvat:marble"
-    },
-    "s": {
-      "item": "minecraft:stick"
-    }
+    "f": "teyvat:marble_fence",
+    "m": "teyvat:marble"
   },
   "result": {
     "id": "teyvat:marble_fence_gate",

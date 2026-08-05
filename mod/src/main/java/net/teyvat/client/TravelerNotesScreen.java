@@ -171,7 +171,9 @@ public class TravelerNotesScreen extends Screen {
         ctx.fill(px + PREVIEW_W - 1, py, px + PREVIEW_W, py + PREVIEW_H, C_GOLD);
         Item item = itemOf(itemId);
         if (item != Items.AIR) {
-            // Рендер модели блока 5x = 80px (рамка 96px, отступ 8px для центрирования).
+            // Всегда рисуем обычную иконку 16px по центру — рамка никогда не пустая.
+            ctx.drawItem(new ItemStack(item), px + PREVIEW_W / 2 - 8, py + PREVIEW_H / 2 - 8);
+            // Поверх — крупная иконка 5x = 80px (рендер модели, свет и поворот как в игре).
             // Важно: сначала scale, потом translate — иначе смещение умножится на масштаб.
             Matrix3x2fStack m = ctx.getMatrices();
             m.pushMatrix();
@@ -374,7 +376,7 @@ public class TravelerNotesScreen extends Screen {
         context.drawText(this.textRenderer, title,
                 (this.width - this.textRenderer.getWidth(title)) / 2,
                 (HEADER_H - 9) / 2, C_GOLD, true);
-        String ver = "Teyvat 0.8.13";
+        String ver = "Teyvat 0.8.14";
         context.drawText(this.textRenderer, ver, this.width - this.textRenderer.getWidth(ver) - 10,
                 (HEADER_H - 9) / 2, C_HINT, true);
 

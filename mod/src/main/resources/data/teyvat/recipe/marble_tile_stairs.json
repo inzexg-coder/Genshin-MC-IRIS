@@ -1,14 +1,13 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "building",
   "pattern": [
     "t  ",
     "tt ",
     "ttt"
   ],
   "key": {
-    "t": {
-      "item": "teyvat:marble_tiles"
-    }
+    "t": "teyvat:marble_tiles"
   },
   "result": {
     "id": "teyvat:marble_tile_stairs",

@@ -1,14 +1,13 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "building",
   "pattern": [
     "mmm",
     "mmm",
     "mmm"
   ],
   "key": {
-    "m": {
-      "item": "teyvat:marble"
-    }
+    "m": "teyvat:marble"
   },
   "result": {
     "id": "teyvat:marble_pedestal",

@@ -1,17 +1,14 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "building",
   "pattern": [
     " m ",
     "mfm",
     " m "
   ],
   "key": {
-    "m": {
-      "item": "teyvat:marble"
-    },
-    "f": {
-      "item": "minecraft:torch"
-    }
+    "m": "teyvat:marble",
+    "f": "minecraft:glowstone"
   },
   "result": {
     "id": "teyvat:marble_lamp",

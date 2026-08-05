@@ -1,20 +1,15 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "building",
   "pattern": [
     "c",
     "m",
     "b"
   ],
   "key": {
-    "c": {
-      "item": "teyvat:marble_column_capital"
-    },
-    "m": {
-      "item": "teyvat:marble_column_mid"
-    },
-    "b": {
-      "item": "teyvat:marble_column_base"
-    }
+    "c": "teyvat:marble_column_capital",
+    "m": "teyvat:marble_column_mid",
+    "b": "teyvat:marble_column_base"
   },
   "result": {
     "id": "teyvat:marble_column",

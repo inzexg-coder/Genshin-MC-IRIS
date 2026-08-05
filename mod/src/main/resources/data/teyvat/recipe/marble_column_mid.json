@@ -1,13 +1,12 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "building",
   "pattern": [
     "p",
     "p"
   ],
   "key": {
-    "p": {
-      "item": "teyvat:marble_pillar"
-    }
+    "p": "teyvat:marble_pillar"
   },
   "result": {
     "id": "teyvat:marble_column_mid",

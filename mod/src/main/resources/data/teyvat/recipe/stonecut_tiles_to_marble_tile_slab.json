@@ -1,8 +1,6 @@
 {
   "type": "minecraft:stonecutting",
-  "ingredient": {
-    "item": "teyvat:marble_tiles"
-  },
+  "ingredient": "teyvat:marble_tiles",
   "result": {
     "id": "teyvat:marble_tile_slab",
     "count": 1

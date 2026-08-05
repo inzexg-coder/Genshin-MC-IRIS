@@ -7,12 +7,15 @@ OUT = os.path.join(os.path.dirname(__file__), "..", "src", "main", "resources", 
 ID = "teyvat"
 MC = "minecraft"
 
+# 1.21.10: ингредиенты — строки ("minecraft:quartz"), НЕ объекты {"item": ...} —
+# иначе рецепт не парсится и не попадает в книгу крафта.
 def item(ns, name):
-    return {"item": f"{ns}:{name}"}
+    return f"{ns}:{name}"
 
 def shaped(name, pattern, keys, result, count=1):
     return {
         "type": "minecraft:crafting_shaped",
+        "category": "building",
         "pattern": pattern,
         "key": keys,
         "result": {"id": f"{ID}:{result}", "count": count},
@@ -39,11 +42,12 @@ SLAB = item(ID, "marble_slab")
 GOLD = item(MC, "gold_ingot")
 QUARTZ = item(MC, "quartz")
 STICK = item(MC, "stick")
-TORCH = item(MC, "torch")
+GLOWSTONE = item(MC, "glowstone")
 BASE = item(ID, "marble_column_base")
 MID = item(ID, "marble_column_mid")
 CAP = item(ID, "marble_column_capital")
 PILLAR = item(ID, "marble_pillar")
+F = item(ID, "marble_fence")
 
 recipes = {
     # ---- источник: 8 кварца + 1 золото -> 1 мрамор ----
@@ -73,14 +77,14 @@ recipes = {
     # ---- забор / калитка / стена ----
     "marble_wall": shaped("marble_wall", ["mmm", "mmm"], {"m": M}, "marble_wall", 6),
     "marble_fence": shaped("marble_fence", ["mmm", "mmm"], {"m": M}, "marble_fence", 6),
-    "marble_fence_gate": shaped("marble_fence_gate", ["sms", "sms"], {"m": M, "s": STICK}, "marble_fence_gate", 1),
+    "marble_fence_gate": shaped("marble_fence_gate", ["fmf", "fmf"], {"f": F, "m": M}, "marble_fence_gate", 1),
 
     # ---- особые ----
     "marble_side_stairs": shaped("marble_side_stairs", ["mm", "mm"], {"m": M}, "marble_side_stairs", 2),
     "marble_arch": shaped("marble_arch", ["m m", "mmm"], {"m": M}, "marble_arch", 1),
     "marble_gate": shaped("marble_gate", ["mmm", "m m"], {"m": M}, "marble_gate", 1),
     "marble_door": shaped("marble_door", ["mm", "mm", "mm"], {"m": M}, "marble_door", 2),
-    "marble_lamp": shaped("marble_lamp", [" m ", "mfm", " m "], {"m": M, "f": TORCH}, "marble_lamp", 1),
+    "marble_lamp": shaped("marble_lamp", [" m ", "mfm", " m "], {"m": M, "f": GLOWSTONE}, "marble_lamp", 1),
 
     # ---- детали колонн (сборка на верстаке) ----
     "marble_column_base": shaped("marble_column_base", ["mmm"], {"m": M}, "marble_column_base", 1),

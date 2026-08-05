@@ -1,8 +1,6 @@
 {
   "type": "minecraft:stonecutting",
-  "ingredient": {
-    "item": "teyvat:polished_marble"
-  },
+  "ingredient": "teyvat:polished_marble",
   "result": {
     "id": "teyvat:polished_marble_stairs",
     "count": 1

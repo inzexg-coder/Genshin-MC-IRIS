@@ -1,13 +1,12 @@
 {
   "type": "minecraft:crafting_shaped",
+  "category": "building",
   "pattern": [
     "m",
     "m"
   ],
   "key": {
-    "m": {
-      "item": "teyvat:marble_slab"
-    }
+    "m": "teyvat:marble_slab"
   },
   "result": {
     "id": "teyvat:chiseled_marble",
