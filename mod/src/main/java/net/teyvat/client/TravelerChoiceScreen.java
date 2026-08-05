@@ -52,6 +52,7 @@ public class TravelerChoiceScreen extends Screen {
 
     /** Золотая текстура-силуэт для подсветки модели (создаётся один раз). */
     private static Identifier goldSkin;
+    private static Identifier goldHalo;
 
     private record Card(String name, String desc, String button, String choice) {}
 
@@ -75,6 +76,12 @@ public class TravelerChoiceScreen extends Screen {
 
     @Override
     public boolean shouldPause() {
+        return false;
+    }
+
+    /** Экран первого входа нельзя закрыть клавишей Escape — выбор обязателен. */
+    @Override
+    public boolean shouldCloseOnEsc() {
         return false;
     }
 
@@ -313,10 +320,20 @@ public class TravelerChoiceScreen extends Screen {
                         Optional.of(new AssetInfo.TextureAssetInfo(goldSkin())),
                         Optional.empty(), Optional.empty(), Optional.empty()));
             }
-            float glowScale = scale * (1.03f + 0.04f * hoverAmount * glowPulse);
+            S halo = renderer.getAndUpdateRenderState(entity, tickDelta);
+            prepareState(halo, hoverAmount, walkPhase);
+            if (halo instanceof PlayerEntityRenderState hp) {
+                hp.skinTextures = hp.skinTextures.withOverride(new SkinTextures.SkinOverride(
+                        Optional.of(new AssetInfo.TextureAssetInfo(goldHalo())),
+                        Optional.empty(), Optional.empty(), Optional.empty()));
+            }
+            float pulse = 0.5f + 0.5f * glowPulse;
             context.disableScissor();
-            context.enableScissor(x1 - 24, y1 - 24, x2 + 24, y2 + 24);
-            context.addEntity(glow, glowScale, camera, rotation, look, x1, y1, x2, y2);
+            context.enableScissor(x1 - 48, y1 - 48, x2 + 48, y2 + 48);
+            // Мягкое свечение: две увеличенные полупрозрачные копии-гало + яркое золотое ядро.
+            context.addEntity(halo, scale * (1.16f + 0.08f * pulse), camera, rotation, look, x1, y1, x2, y2);
+            context.addEntity(halo, scale * (1.08f + 0.06f * pulse), camera, rotation, look, x1, y1, x2, y2);
+            context.addEntity(glow, scale * (1.02f + 0.05f * hoverAmount * glowPulse), camera, rotation, look, x1, y1, x2, y2);
             context.disableScissor();
             context.enableScissor(x1, y1, x2, y2);
         }
@@ -343,6 +360,14 @@ public class TravelerChoiceScreen extends Screen {
             goldSkin = Identifier.of("teyvat", "gui/skin_gold");
         }
         return goldSkin;
+    }
+
+    /** Полупрозрачная текстура гало — assets/teyvat/textures/gui/skin_gold_halo.png. */
+    private static Identifier goldHalo() {
+        if (goldHalo == null) {
+            goldHalo = Identifier.of("teyvat", "gui/skin_gold_halo");
+        }
+        return goldHalo;
     }
 
     private List<String> wrap(String text, int maxWidth) {
