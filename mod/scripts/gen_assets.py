@@ -204,6 +204,11 @@ def arch_side(z0, cull_face):
         w([0, 12, z0], [16, 16, z0 + 3], [0, 0, 16, 4]),
     ]
 els = [recess_body()] + arch_side(0, "north") + arch_side(13, "south")
+# Арка nonOpaque: нижняя грань блока под ней рендерится, поэтому нижним
+# плоскостям рельефа (y=0) нужен cullface=down, иначе z-fighting на границе.
+for e in els:
+    if e["from"][1] == 0 and e["to"][1] > 0:
+        e["faces"]["down"]["cullface"] = "down"
 voxel_model(bid, {"marble": "teyvat:block/marble", "recess": "teyvat:block/marble_recess",
                   "front": "teyvat:block/marble_arch_front"}, els, facing=True)
 

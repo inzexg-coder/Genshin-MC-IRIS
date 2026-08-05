@@ -126,7 +126,8 @@
             16,
             16
           ],
-          "texture": "#recess"
+          "texture": "#recess",
+          "cullface": "down"
         },
         "west": {
           "uv": [
@@ -195,7 +196,8 @@
             16,
             16
           ],
-          "texture": "#recess"
+          "texture": "#recess",
+          "cullface": "down"
         },
         "west": {
           "uv": [
@@ -609,7 +611,8 @@
             16,
             16
           ],
-          "texture": "#recess"
+          "texture": "#recess",
+          "cullface": "down"
         },
         "west": {
           "uv": [
@@ -678,7 +681,8 @@
             16,
             16
           ],
-          "texture": "#recess"
+          "texture": "#recess",
+          "cullface": "down"
         },
         "west": {
           "uv": [

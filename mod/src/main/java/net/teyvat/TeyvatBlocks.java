@@ -124,7 +124,8 @@ public final class TeyvatBlocks {
 
     /** Мраморная дверь: стандартная ванильная 2-блочная, открывается мгновенно как oak_door. */
     private static Block arch(String name) {
-        return register(name, new MarbleArchBlock(settings(name)));
+        // nonOpaque: блок под аркой не теряет верхнюю грань (не видно дыры сквозь проём)
+        return register(name, new MarbleArchBlock(settings(name).nonOpaque()));
     }
 
     private static Block door(String name) {
