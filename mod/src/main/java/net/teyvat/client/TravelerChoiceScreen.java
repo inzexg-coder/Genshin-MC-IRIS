@@ -212,8 +212,11 @@ public class TravelerChoiceScreen extends Screen {
         float scale = Math.max(this.width / (float) BG_W, this.height / (float) BG_H);
         int bw = (int) (BG_W * scale);
         int bh = (int) (BG_H * scale);
+        // 12-арг. перегрузка: regionWidth/Height — реальный размер текстуры (BG_W/BG_H),
+        // иначе UV выходят за 1.0 и фон с адрес-режимом REPEAT плиткуется 2x2,
+        // а шов попадает в центр экрана.
         context.drawTexture(RenderPipelines.GUI_TEXTURED, BACKGROUND,
-                (this.width - bw) / 2, (this.height - bh) / 2, 0f, 0f, bw, bh, BG_W, BG_H);
+                (this.width - bw) / 2, (this.height - bh) / 2, 0f, 0f, bw, bh, BG_W, BG_H, BG_W, BG_H);
     }
 
     private void drawTitle(DrawContext context) {
