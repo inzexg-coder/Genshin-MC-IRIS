@@ -1,19 +1,23 @@
 package net.teyvat.client;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
-/** Вся информация о моде для экрана «Заметки путешественника». */
+/** Вся информация о моде для экрана «Заметки путешественника»: вкладка о сборке и набор «Селестия». */
 public final class TravelerNotesContent {
     public static final int C_HEADER = 0xFFFFE9A8;
     public static final int C_BODY = 0xFFE8E4D8;
     public static final int C_GOLD = 0xFFE8C86A;
     public static final int C_COMMAND = 0xFFA8D8FF;
     public static final int C_HINT = 0xFF9AA5B8;
-    public static final int C_BULLET = 0xFFD8B45A;
+    public static final int C_DESC = 0xFFD8D2C4;
 
     public record Line(String text, int color, boolean wrap) {}
-    public record Chapter(String title, List<Line> lines) {}
+    public record Slot(String item, int count) {}
+    public record CraftGrid(String title, String[] pattern, Map<Character, Slot> keys, String result, int resultCount) {}
+    public record BlockEntry(String id, String name, List<String> description, List<CraftGrid> crafts) {}
 
     private TravelerNotesContent() {}
 
@@ -21,172 +25,234 @@ public final class TravelerNotesContent {
     private static Line g(String t) { return new Line(t, C_GOLD, false); }
     private static Line b(String t) { return new Line(t, C_BODY, true); }
     private static Line c(String t) { return new Line(t, C_COMMAND, true); }
-    private static Line hint(String t) { return new Line(t, C_HINT, true); }
+    private static Line d(String t) { return new Line(t, C_DESC, true); }
     private static Line empty() { return new Line("", C_BODY, false); }
 
-    public static List<Chapter> build() {
-        List<Chapter> cs = new ArrayList<>();
+    private static Slot S(String item) { return new Slot(item, 1); }
 
-        cs.add(new Chapter("О моде", List.of(
+    private static CraftGrid craft(String[] pattern, Map<Character, Slot> keys, String result, int count) {
+        return new CraftGrid("Верстак", pattern, keys, result, count);
+    }
+
+    private static CraftGrid stonecut(String input, String result) {
+        return new CraftGrid("Камнерез", new String[]{"i"}, Map.of('i', S(input)), result, 1);
+    }
+
+    private static Map<Character, Slot> keys(Object... kv) {
+        Map<Character, Slot> m = new LinkedHashMap<>();
+        for (int i = 0; i < kv.length; i += 2) {
+            m.put(((String) kv[i]).charAt(0), (Slot) kv[i + 1]);
+        }
+        return m;
+    }
+
+    /** Вкладка «О сборке» — текстовая информация. */
+    public static List<Line> about() {
+        return List.of(
+                h("О сборке"),
                 b("Teyvat — глобальный мод по Genshin Impact для Minecraft 1.21.10 (Fabric + Sodium + Iris)."),
-                b("Цель — полная конверсия: боевая система стихий, персонажи, мир Тейвата, визуал и атмосфера."),
-                b("Сейчас идёт фаза 0 — визуал: набор «Celestia» из 30 мраморных блоков, TeyvatShader и ресурспак."),
+                b("Сейчас фаза 0 — визуал: набор «Селестия» (30 мраморных блоков), TeyvatShader и ресурспак."),
                 empty(),
-                h("Как это устроено"),
-                b("• Мод: блоки, команды, UI (этот экран)."),
+                h("Состав"),
+                b("• Мод: блоки, команды, этот UI."),
                 b("• Ресурспак Teyvat: текстуры и модели блоков."),
                 b("• TeyvatShader: форк Complementary Reimagined под стиль Genshin."),
-                b("• Стек: Fabric API, Java 21; данные — JSON (рецепты, loot)."),
                 empty(),
                 h("Установка и обновление"),
-                b("Пак кладётся в ~/.minecraft: шейдер TeyvatShader, ресурспак Teyvat, мод teyvat.jar в mods/."),
+                b("Шейдер TeyvatShader и ресурспак Teyvat — в ~/.minecraft, мод teyvat.jar — в mods/."),
                 b("Обновление: scripts/update.sh, затем F3+T (ресурспак) и F3+R (шейдер)."),
-                b("Перезапуск игры нужен при обновлении самого мода (Java).")
-        )));
-
-        cs.add(new Chapter("Блоки «Celestia» — 30", List.of(
-                h("Основа (6)"),
-                b("• Мрамор — исходный белоснежный блок."),
-                b("• Полированный мрамор, мраморная кирпичная кладка, мраморная плитка."),
-                b("• Резной мрамор — рельефная решётка-теснение (без сквозных дыр)."),
-                b("• Мрамор с золотой окантовкой — элегантная бледная золотая рамка."),
+                b("После обновления Java-кода мода нужен перезапуск игры."),
                 empty(),
-                h("Колонны (7)"),
-                b("• Рифлёная мраморная колонна — базовый пилон."),
-                b("• Мраморная колонна — собирается из базы + ствола + капители."),
-                b("• Малая колонна, база, ствол, капитель, пьедестал — детали колоннады."),
-                empty(),
-                h("Ступени и плиты (8)"),
-                b("• Ступени и плиты из мрамора, полированного мрамора, кладки и плитки."),
-                empty(),
-                h("Ограждения (3)"),
-                b("• Мраморная стена, ограда и калитка — с золотой окантовкой."),
-                empty(),
-                h("Особые (6)"),
-                b("• Балка, горизонтальные ступени (3/4 блока, фиксированный хитбокс)."),
-                b("• Арка (поворачивается при установке, проём — к игроку), ворота."),
-                b("• Дверь — открывается мгновенно, как ванильная."),
-                b("• Светильник — тёплый свет 13, слегка эмиссия.")
-        )));
-
-        cs.add(new Chapter("Крафты", List.of(
-                h("Верстак — основа"),
-                b("• Мрамор: 8 кварца по кругу + 1 золотой слиток в центре → 1."),
-                b("• Полированный: 2×2 мрамора → 4."),
-                b("• Кладка: 2×2 полированного → 4; плитка: 2×2 кладки → 4."),
-                b("• Резной мрамор: 2 мраморные плиты в столбик → 1."),
-                b("• Золотая окантовка: 8 мрамора + 1 слиток → 4."),
-                b("• Рифлёная колонна: 2 мрамора в столбик → 1."),
-                b("• Балка: 3 мрамора в ряд → 6."),
-                empty(),
-                h("Верстак — ступени и ограждения"),
-                b("• Ступени: 6 блоков лесенкой → 4."),
-                b("• Плиты: 3 в ряд → 6."),
-                b("• Стена / ограда: 6 блоков в 2 ряда → 6."),
-                b("• Калитка: 2×2 мрамора в центре + палки по бокам → 1."),
-                empty(),
-                h("Верстак — особые блоки"),
-                b("• Дверь: 6 мрамора в 2 столбца → 2."),
-                b("• Светильник: крест из 4 мрамора + факел в центре → 1."),
-                b("• Арка: 5 мрамора буквой U → 1."),
-                b("• Ворота: 6 мрамора (верхний ряд + бока) → 1."),
-                b("• Горизонтальные ступени: 2×2 мрамора → 2."),
-                empty(),
-                h("Верстак — колонны"),
-                b("• База: 3 мрамора в ряд → 1."),
-                b("• Капитель: 2×2 мрамора → 1."),
-                b("• Ствол: 2 рифлёные колонны в столбик → 1."),
-                b("• Малая колонна: 1 рифлёная → 1."),
-                b("• Пьедестал: 3×3 мрамора → 1."),
-                b("• Мраморная колонна: база + ствол + капитель в столбик → 1."),
-                empty(),
-                h("Камнерез (1:1)"),
-                b("• Из мрамора: полированный, кладка, плитка, резной, ступени, плиты, стена, ограда, рифлёная колонна, балка, горизонтальные ступени, арка, ворота, все детали колонн, пьедестал."),
-                b("• Из полированного: его ступени, плиты, резной мрамор."),
-                b("• Из кладки и плитки: свои ступени и плиты."),
-                b("• Из золотой окантовки: капитель и пьедестал.")
-        )));
-
-        cs.add(new Chapter("Команды", List.of(
-                h("/column — случайные колонны"),
-                b("Строит гармоничные колонны в стиле загрузочного экрана Genshin: пьедестал/база, ствол 4–7 блоков, капитель, редкие золотые пояса. 15% — тонкая колонна. Без двух золотых блоков подряд."),
+                h("Команды"),
                 c("/column ~ ~ ~"),
-                b("Одна колонна на месте игрока."),
+                b("Одна случайная колонна на месте игрока."),
                 c("/column 100 64 100 5"),
-                b("Пять колонн в ряд (шаг 3–5 блоков в случайную сторону), count от 1 до 64."),
-                c("/teyvat column ~ ~ ~"),
-                b("То же через корневую команду."),
-                empty(),
-                h("/teyvat"),
+                b("Пять колонн в ряд (шаг 3–5 блоков, count 1–64)."),
                 c("/teyvat notes"),
-                b("Открыть эти заметки (команда доступна там, где есть права; клавиша работает всегда)."),
-                empty(),
-                h("Выдача блоков"),
-                c("/give @p teyvat:marble"),
+                b("Открыть эти заметки."),
                 c("/give @p teyvat:marble_arch"),
-                c("/give @p teyvat:marble_door"),
-                b("Все 30 блоков — префикс teyvat:, список в творческой вкладке «Блоки Тейвата».")
-        )));
+                b("Все 30 блоков — префикс teyvat:, есть в творческой вкладке «Блоки Тейвата»."),
+                empty(),
+                h("Шейдер"),
+                b("Профиль Unbound (SHADER_STYLE 4), небо и туман — палитра Мондштадта, тун-диффуз TOON_BANDING."),
+                b("PBR: золото зеркально ловит свет (specular), мрамор матовый, фонари дают тёплый блочный свет."),
+                b("Настройки: 13 групп, у каждой один контрол; расширенные — в CUSTOM."),
+                empty(),
+                h("Что дальше"),
+                b("Фаза 1 — стихии и реакции; фаза 2 — персонажи и оружие; фаза 3 — мир Тейвата; фаза 4 — HUD и музыка.")
+        );
+    }
 
-        cs.add(new Chapter("Шейдер и ресурспак", List.of(
-                h("TeyvatShader"),
-                b("Форк Complementary Reimagined r5.8.1, профиль Unbound (SHADER_STYLE 4) — фэнтези-стиль Genshin."),
-                b("• Небо и туман: палитра Мондштадта (skyColors.glsl)."),
-                b("• Тун-диффуз TOON_BANDING, контуры мира включены."),
-                b("• PBR: золото зеркально отражает свет (specular), мрамор матовый."),
-                b("• Блочный свет: мраморные светильники дают тёплое свечение, золото ловит блики."),
-                empty(),
-                h("Настройки"),
-                b("13 групп, у каждой ровно один контрол (профиль качества, яркость, тени, туман, свечение и т.д.). Расширенные опции спрятаны в CUSTOM."),
-                empty(),
-                h("Горячие клавиши"),
-                c("F3+T — перезагрузка ресурспаков"),
-                c("F3+R — перезагрузка шейдеров"),
-                c("N — заметки путешественника")
-        )));
+    /** Вкладка «Селестия» — краткое вступление + все блоки от простого крафта к сложному. */
+    public static List<Line> celestiaIntro() {
+        return List.of(
+                h("Набор «Селестия»"),
+                b("30 белоснежных мраморных блоков в стиле античных залов и загрузочного экрана Genshin."),
+                b("Ниже каждый блок по порядку: от самого простого крафта к самому сложному — иконка, описание и рецепт."),
+                b("Совет: почти всё можно нарезать в камнерезе — иконка «Камнерез» показывает короткий путь.")
+        );
+    }
 
-        cs.add(new Chapter("Что нового", List.of(
-                h("0.8.8"),
-                b("• Заметки путешественника: экран с полной информацией о моде (клавиша N, /teyvat notes)."),
-                h("0.8.7"),
-                b("• Арка стала nonOpaque: блок под ней не теряет верхнюю грань, нет дыры сквозь проём."),
-                h("0.8.6"),
-                b("• Фикс краша арки: FACING регистрируется в appendProperties."),
-                h("0.8.5"),
-                b("• Арка поворачивается при установке — проём смотрит на игрока."),
-                h("0.8.4"),
-                b("• Рецепты всех 30 блоков: верстак + камнерез; мрамор = 8 кварца + золото."),
-                h("0.8.3"),
-                b("• Золотая окантовка забора/калитки/стены; команда /column."),
-                h("0.8.2"),
-                b("• Рельефное теснение вместо сквозных прорезей; золото ловит свет фонарей."),
-                h("0.8.1"),
-                b("• Воксельные блоки без просвечивания, мгновенная дверь, фикс хитбоксов Л-ступеней."),
-                h("0.8.0"),
-                b("• Чистые белые текстуры v9, фонари потусклее, элегантная золотая окантовка.")
-        )));
+    public static List<BlockEntry> blocks() {
+        List<BlockEntry> list = new ArrayList<>();
+        String T = "teyvat:", M = "minecraft:";
 
-        cs.add(new Chapter("Дорожная карта", List.of(
-                h("Фаза 0 — визуал (сейчас)"),
-                b("• Набор «Celestia» (готов), шейдер и ресурспак (готово), UI-стиль Genshin, шрифты, музыка (позже)."),
-                empty(),
-                h("Фаза 1 — стихии"),
-                b("• 7 элементов: Пиро, Гидро, Крио, Электро, Анемо, Гео, Дендро."),
-                b("• Гейдж элемента и реакции: Пар, Таяние, Заряженка, Перегрузка, Сверхпроводник, Бутонизация, Кристаллизация, Рассеивание."),
-                b("• Частицы и визуал реакций."),
-                empty(),
-                h("Фаза 2 — персонажи"),
-                b("• Модели (GeckoLib / EMF+ETF), оружие, артефакты, скиллы и взрывы стихий."),
-                empty(),
-                h("Фаза 3 — мир"),
-                b("• Биомы регионов: Мондштадт, Лиюэ, Инадзума."),
-                b("• Враги: хиличурлы, слаймы, бездонники, боссы."),
-                b("• Данжи, сундуки, телепорты, статуи."),
-                empty(),
-                h("Фаза 4 — UI и аудио"),
-                b("• HUD (HP/энергия/скиллы), партия, экраны, музыка Тейвата.")
-        )));
+        list.add(new BlockEntry("marble", "Мрамор", List.of(
+                "Исходный материал набора. Белоснежный, без пятен и зерна — основа почти всех крафтов.",
+                "Крафтится из кварца с золотом; в будущем — жилы мрамора в мире."),
+                List.of(craft(new String[]{"qqq", "qgq", "qqq"},
+                        keys("q", S(M + "quartz"), "g", S(M + "gold_ingot")), T + "marble", 1))));
 
-        return cs;
+        list.add(new BlockEntry("polished_marble", "Полированный мрамор", List.of(
+                "Гладкая, слегка глянцевая поверхность. Промежуточный материал для кладки и ступеней."),
+                List.of(craft(new String[]{"mm", "mm"}, keys("m", S(T + "marble")), T + "polished_marble", 4),
+                        stonecut(T + "marble", T + "polished_marble"))));
+
+        list.add(new BlockEntry("marble_bricks", "Мраморная кирпичная кладка", List.of(
+                "Ровные ряды со смещением — тёплый «дворцовый» узор для больших стен."),
+                List.of(craft(new String[]{"pp", "pp"}, keys("p", S(T + "polished_marble")), T + "marble_bricks", 4),
+                        stonecut(T + "marble", T + "marble_bricks"))));
+
+        list.add(new BlockEntry("marble_tiles", "Мраморная плитка", List.of(
+                "Частые швы, как в античных залах и храмах. Хорошо смотрится с кладкой."),
+                List.of(craft(new String[]{"bb", "bb"}, keys("b", S(T + "marble_bricks")), T + "marble_tiles", 4),
+                        stonecut(T + "marble", T + "marble_tiles"))));
+
+        list.add(new BlockEntry("marble_pillar", "Рифлёная мраморная колонна", List.of(
+                "Вертикальные каннелюры — базовый пилон. Из него делают ствол и малую колонну."),
+                List.of(craft(new String[]{"m", "m"}, keys("m", S(T + "marble")), T + "marble_pillar", 1),
+                        stonecut(T + "marble", T + "marble_pillar"))));
+
+        list.add(new BlockEntry("marble_column_small", "Малая мраморная колонна", List.of(
+                "Изящная тонкая колонна для балюстрад, перил и мелких деталей."),
+                List.of(craft(new String[]{"p"}, keys("p", S(T + "marble_pillar")), T + "marble_column_small", 1),
+                        stonecut(T + "marble", T + "marble_column_small"))));
+
+        list.add(new BlockEntry("marble_beam", "Мраморная балка", List.of(
+                "Горизонтальный пилон для перекрытий, рам и ворот. Шесть балок за один крафт."),
+                List.of(craft(new String[]{"mmm"}, keys("m", S(T + "marble")), T + "marble_beam", 6),
+                        stonecut(T + "marble", T + "marble_beam"))));
+
+        list.add(new BlockEntry("marble_slab", "Мраморная плита", List.of(
+                "Половина блока — для полов, дорожек и тонких перекрытий. Шесть штук за крафт."),
+                List.of(craft(new String[]{"mmm"}, keys("m", S(T + "marble")), T + "marble_slab", 6),
+                        stonecut(T + "marble", T + "marble_slab"))));
+
+        list.add(new BlockEntry("marble_stairs", "Мраморные ступени", List.of(
+                "Классическая лестница с ровными гранями. Четыре штуки за крафт."),
+                List.of(craft(new String[]{"m  ", "mm ", "mmm"}, keys("m", S(T + "marble")), T + "marble_stairs", 4),
+                        stonecut(T + "marble", T + "marble_stairs"))));
+
+        list.add(new BlockEntry("marble_wall", "Мраморная стена", List.of(
+                "Невысокое ограждение с бледной золотой окантовкой. Стыкуется с оградой."),
+                List.of(craft(new String[]{"mmm", "mmm"}, keys("m", S(T + "marble")), T + "marble_wall", 6),
+                        stonecut(T + "marble", T + "marble_wall"))));
+
+        list.add(new BlockEntry("marble_fence", "Мраморная ограда", List.of(
+                "Столбики с перекладинами и золотой окантовкой. Прозрачная для взгляда."),
+                List.of(craft(new String[]{"mmm", "mmm"}, keys("m", S(T + "marble")), T + "marble_fence", 6),
+                        stonecut(T + "marble", T + "marble_fence"))));
+
+        list.add(new BlockEntry("marble_column_base", "База мраморной колонны", List.of(
+                "Расширенное основание колонны. Первая деталь сборной колонны."),
+                List.of(craft(new String[]{"mmm"}, keys("m", S(T + "marble")), T + "marble_column_base", 1),
+                        stonecut(T + "marble", T + "marble_column_base"))));
+
+        list.add(new BlockEntry("marble_column_capital", "Капитель мраморной колонны", List.of(
+                "Расширенное навершие, венчает колонну. Можно вырезать из золотой окантовки."),
+                List.of(craft(new String[]{"mm", "mm"}, keys("m", S(T + "marble")), T + "marble_column_capital", 1),
+                        stonecut(T + "marble", T + "marble_column_capital"),
+                        stonecut(T + "gold_trimmed_marble", T + "marble_column_capital"))));
+
+        list.add(new BlockEntry("polished_marble_stairs", "Ступени из полированного мрамора", List.of(
+                "Гладкие парадные ступени. Камнерезом — напрямую из полированного мрамора."),
+                List.of(craft(new String[]{"p  ", "pp ", "ppp"}, keys("p", S(T + "polished_marble")), T + "polished_marble_stairs", 4),
+                        stonecut(T + "polished_marble", T + "polished_marble_stairs"))));
+
+        list.add(new BlockEntry("polished_marble_slab", "Плита из полированного мрамора", List.of(
+                "Гладкая плита для полов в парадных залах."),
+                List.of(craft(new String[]{"ppp"}, keys("p", S(T + "polished_marble")), T + "polished_marble_slab", 6),
+                        stonecut(T + "polished_marble", T + "polished_marble_slab"))));
+
+        list.add(new BlockEntry("marble_brick_stairs", "Ступени из мраморной кладки", List.of(
+                "Лестница в тон кирпичных стен."),
+                List.of(craft(new String[]{"b  ", "bb ", "bbb"}, keys("b", S(T + "marble_bricks")), T + "marble_brick_stairs", 4),
+                        stonecut(T + "marble_bricks", T + "marble_brick_stairs"))));
+
+        list.add(new BlockEntry("marble_brick_slab", "Плита из мраморной кладки", List.of(
+                "Плита с узором кладки."),
+                List.of(craft(new String[]{"bbb"}, keys("b", S(T + "marble_bricks")), T + "marble_brick_slab", 6),
+                        stonecut(T + "marble_bricks", T + "marble_brick_slab"))));
+
+        list.add(new BlockEntry("marble_tile_stairs", "Ступени из мраморной плитки", List.of(
+                "Лестница с плиточным узором."),
+                List.of(craft(new String[]{"t  ", "tt ", "ttt"}, keys("t", S(T + "marble_tiles")), T + "marble_tile_stairs", 4),
+                        stonecut(T + "marble_tiles", T + "marble_tile_stairs"))));
+
+        list.add(new BlockEntry("marble_tile_slab", "Плита из мраморной плитки", List.of(
+                "Плита с плиточным узором."),
+                List.of(craft(new String[]{"ttt"}, keys("t", S(T + "marble_tiles")), T + "marble_tile_slab", 6),
+                        stonecut(T + "marble_tiles", T + "marble_tile_slab"))));
+
+        list.add(new BlockEntry("marble_side_stairs", "Горизонтальные мраморные ступени", List.of(
+                "Блок 3/4: делится на четыре столбика, один удалён. Для пандусов и «ступенек вбок»."),
+                List.of(craft(new String[]{"mm", "mm"}, keys("m", S(T + "marble")), T + "marble_side_stairs", 2),
+                        stonecut(T + "marble", T + "marble_side_stairs"))));
+
+        list.add(new BlockEntry("marble_fence_gate", "Мраморная калитка", List.of(
+                "Открывается, как ванильная, — с золотой окантовкой."),
+                List.of(craft(new String[]{"sms", "sms"},
+                        keys("s", S(M + "stick"), "m", S(T + "marble")), T + "marble_fence_gate", 1))));
+
+        list.add(new BlockEntry("marble_arch", "Мраморная арка", List.of(
+                "Арочная ниша с теснением. При установке поворачивается проёмом к игроку."),
+                List.of(craft(new String[]{"m m", "mmm"}, keys("m", S(T + "marble")), T + "marble_arch", 1),
+                        stonecut(T + "marble", T + "marble_arch"))));
+
+        list.add(new BlockEntry("marble_gate", "Мраморные ворота", List.of(
+                "Двустворчатый рельеф с выемками-окнами. Симметричный, с обеих сторон одинаковый."),
+                List.of(craft(new String[]{"mmm", "m m"}, keys("m", S(T + "marble")), T + "marble_gate", 1),
+                        stonecut(T + "marble", T + "marble_gate"))));
+
+        list.add(new BlockEntry("marble_column_mid", "Ствол мраморной колонны", List.of(
+                "Резная секция средней высоты — соединяет базу и капитель."),
+                List.of(craft(new String[]{"p", "p"}, keys("p", S(T + "marble_pillar")), T + "marble_column_mid", 1),
+                        stonecut(T + "marble", T + "marble_column_mid"))));
+
+        list.add(new BlockEntry("marble_column", "Мраморная колонна", List.of(
+                "Полная колонна: база + ствол + капитель в столбик. Ставится в один блок."),
+                List.of(craft(new String[]{"c", "m", "b"},
+                        keys("c", S(T + "marble_column_capital"), "m", S(T + "marble_column_mid"), "b", S(T + "marble_column_base")),
+                        T + "marble_column", 1),
+                        stonecut(T + "marble", T + "marble_column"))));
+
+        list.add(new BlockEntry("marble_door", "Мраморная дверь", List.of(
+                "Двухблочная дверь, открывается мгновенно, как ванильная. Две штуки за крафт."),
+                List.of(craft(new String[]{"mm", "mm", "mm"}, keys("m", S(T + "marble")), T + "marble_door", 2))));
+
+        list.add(new BlockEntry("marble_lamp", "Мраморный светильник", List.of(
+                "Тёплый свет уровня 13. Золото рядом ловит его блики — красиво в колоннадах."),
+                List.of(craft(new String[]{" m ", "mfm", " m "},
+                        keys("m", S(T + "marble"), "f", S(M + "torch")), T + "marble_lamp", 1))));
+
+        list.add(new BlockEntry("marble_pedestal", "Мраморный пьедестал", List.of(
+                "Массивное трёхступенчатое основание для статуй и колонн. Самый «дорогой» крафт."),
+                List.of(craft(new String[]{"mmm", "mmm", "mmm"}, keys("m", S(T + "marble")), T + "marble_pedestal", 1),
+                        stonecut(T + "marble", T + "marble_pedestal"),
+                        stonecut(T + "gold_trimmed_marble", T + "marble_pedestal"))));
+
+        list.add(new BlockEntry("chiseled_marble", "Резной мрамор", List.of(
+                "Рельефная решётка: узор вдавлен внутрь на 3px, сквозных дыр нет. Делается из двух плит."),
+                List.of(craft(new String[]{"s", "s"}, keys("s", S(T + "marble_slab")), T + "chiseled_marble", 1),
+                        stonecut(T + "marble", T + "chiseled_marble"),
+                        stonecut(T + "polished_marble", T + "chiseled_marble"))));
+
+        list.add(new BlockEntry("gold_trimmed_marble", "Мрамор с золотой окантовкой", List.of(
+                "Бледная золотая рамка — финальный штрих набора. Золото зеркально ловит свет фонарей.",
+                "Один слиток золота окантовывает сразу четыре блока."),
+                List.of(craft(new String[]{"mmm", "mgm", "mmm"},
+                        keys("m", S(T + "marble"), "g", S(M + "gold_ingot")), T + "gold_trimmed_marble", 4))));
+
+        return list;
     }
 }
