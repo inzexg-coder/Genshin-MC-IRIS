@@ -1,0 +1,27 @@
+{
+ "dimensions": {
+  "teyvat:teyvat": {
+   "type": "minecraft:overworld",
+   "generator": {
+    "type": "minecraft:noise",
+    "settings": "teyvat:teyvat",
+    "biome_source": {
+     "type": "minecraft:multi_noise",
+     "biomes": [
+      {
+       "biome": "teyvat:teyvat_beach",
+       "parameters": {
+        "temperature": 0.0,
+        "humidity": 0.0,
+        "continentalness": 0.0,
+        "erosion": 0.0,
+        "depth": 0.0,
+        "weirdness": 0.0
+       }
+      }
+     ]
+    }
+   }
+  }
+ }
+}
