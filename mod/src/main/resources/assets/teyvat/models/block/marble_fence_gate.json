@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:block/template_fence_gate",
   "textures": {
-    "texture": "teyvat:block/marble"
+    "texture": "teyvat:block/marble_trim"
   }
 }

@@ -1,6 +1,7 @@
 package net.teyvat;
 
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
@@ -15,6 +16,7 @@ public class TeyvatMod implements ModInitializer {
     public void onInitialize() {
         TeyvatBlocks.register();
         TeyvatBlocks.registerItemGroup();
+        CommandRegistrationCallback.EVENT.register(net.teyvat.command.ColumnCommand::register);
         LOGGER.info("Teyvat mod initialized: {} blocks registered", TeyvatBlocks.ALL_BLOCKS.size());
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {

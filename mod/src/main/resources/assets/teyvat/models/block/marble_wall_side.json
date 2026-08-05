@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:block/template_wall_side",
   "textures": {
-    "wall": "teyvat:block/marble"
+    "wall": "teyvat:block/marble_trim"
   }
 }

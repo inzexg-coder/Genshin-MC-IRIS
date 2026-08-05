@@ -285,7 +285,7 @@ for sid, tex in SLABS.items():
 bid = "marble_wall"
 for suffix, parent in (("_post", "template_wall_post"), ("_side", "template_wall_side"), ("_side_tall", "template_wall_side_tall")):
     w(f"{MB}/{bid}{suffix}.json", {"parent": f"minecraft:block/{parent}",
-       "textures": {"wall": "teyvat:block/marble"}})
+       "textures": {"wall": "teyvat:block/marble_trim"}})
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}_post"})
 item_def(bid, f"teyvat:block/{bid}_post")
 parts = [{"when": {"up": "true"}, "apply": {"model": f"teyvat:block/{bid}_post"}}]
@@ -298,7 +298,7 @@ w(f"{BS}/{bid}.json", {"multipart": parts})
 bid = "marble_fence"
 for suffix, parent in (("_post", "fence_post"), ("_side", "fence_side")):
     w(f"{MB}/{bid}{suffix}.json", {"parent": f"minecraft:block/{parent}",
-       "textures": {"texture": "teyvat:block/marble"}})
+       "textures": {"texture": "teyvat:block/marble_trim"}})
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}_post"})
 item_def(bid, f"teyvat:block/{bid}_post")
 parts = [{"apply": {"model": f"teyvat:block/{bid}_post"}}]
@@ -311,7 +311,7 @@ bid = "marble_fence_gate"
 for suffix, parent in (("", "template_fence_gate"), ("_open", "template_fence_gate_open"),
                        ("_wall", "template_fence_gate_wall"), ("_wall_open", "template_fence_gate_wall_open")):
     w(f"{MB}/{bid}{suffix}.json", {"parent": f"minecraft:block/{parent}",
-       "textures": {"texture": "teyvat:block/marble"}})
+       "textures": {"texture": "teyvat:block/marble_trim"}})
 w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
 item_def(bid, f"teyvat:block/{bid}")
 variants = {}

@@ -132,6 +132,11 @@ for y in range(S):
         img.putpixel((x, y), (236, 236, 236, 255))
 save("marble_recess", img, spec)
 
+# забор/калитка/стена: белый с тонкой золотой окантовкой по периметру
+img, d, spec, sd = base()
+gold_rect(d, sd, [0, 0, 15, 15])
+save("marble_trim", img, spec)
+
 # полированный: белый, отличается только глянцевым spec (без металла)
 img, d, spec, sd = base(POLISH_SPEC); save("marble_polished", img, spec)
 
