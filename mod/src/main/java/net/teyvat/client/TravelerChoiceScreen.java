@@ -232,21 +232,21 @@ public class TravelerChoiceScreen extends Screen {
         boolean hovered = isOver(i, mouseX, mouseY);
         float time = (this.age + delta) / 20.0f;
 
-        // Мягкое золотое свечение вокруг панели при наведении: три расширяющихся слоя.
+        // Мягкое голубое свечение вокруг панели при наведении: три расширяющихся слоя.
         if (hoverAmount > 0.01f) {
             float pulse = 0.5f + 0.5f * (float) Math.sin(time * 3.0);
             float k = hoverAmount * (0.7f + 0.3f * pulse);
             int g1 = (int) (0x30 * k);
             int g2 = (int) (0x50 * k);
             int g3 = (int) (0x78 * k);
-            context.fill(cx - 9, cy - 9, cx + cardW + 9, cy + cardH + 9, (g1 << 24) | 0xE8C86A);
-            context.fill(cx - 5, cy - 5, cx + cardW + 5, cy + cardH + 5, (g2 << 24) | 0xE8C86A);
-            context.fill(cx - 2, cy - 2, cx + cardW + 2, cy + cardH + 2, (g3 << 24) | 0xE8C86A);
+            context.fill(cx - 9, cy - 9, cx + cardW + 9, cy + cardH + 9, (g1 << 24) | 0x9FD0FF);
+            context.fill(cx - 5, cy - 5, cx + cardW + 5, cy + cardH + 5, (g2 << 24) | 0x9FD0FF);
+            context.fill(cx - 2, cy - 2, cx + cardW + 2, cy + cardH + 2, (g3 << 24) | 0x9FD0FF);
         }
 
-        // Полупрозрачная карточка: фон-скриншот остаётся виден. Рамка золотая при наведении.
+        // Полупрозрачная карточка: фон-скриншот остаётся виден. Рамка голубая при наведении.
         context.fill(cx, cy, cx + cardW, cy + cardH, 0x991B2338);
-        int border = hovered ? 0xFFE8C86A : 0xFF3A4A6A;
+        int border = hovered ? 0xFF9FD0FF : 0xFF3A4A6A;
         context.fill(cx, cy, cx + cardW, cy + 2, border);
         context.fill(cx, cy + cardH - 2, cx + cardW, cy + cardH, border);
         context.fill(cx, cy, cx + 2, cy + cardH, border);
