@@ -28,7 +28,6 @@ import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
-import net.teyvat.block.MarbleDoorBlock;
 import net.teyvat.block.MarbleSideStairsBlock;
 
 import java.util.ArrayList;
@@ -44,7 +43,7 @@ public final class TeyvatBlocks {
     public static final Block POLISHED_MARBLE = block("polished_marble");
     public static final Block MARBLE_BRICKS = block("marble_bricks");
     public static final Block MARBLE_TILES = block("marble_tiles");
-    public static final Block CHISELED_MARBLE = nonOpaque("chiseled_marble");
+    public static final Block CHISELED_MARBLE = block("chiseled_marble");
     public static final Block GOLD_TRIMMED_MARBLE = block("gold_trimmed_marble");
 
     // ---- columns / pillars ----
@@ -74,8 +73,8 @@ public final class TeyvatBlocks {
     // ---- beams / special ----
     public static final Block MARBLE_BEAM = pillar("marble_beam");
     public static final Block MARBLE_SIDE_STAIRS = sideStairs("marble_side_stairs");
-    public static final Block MARBLE_ARCH = nonOpaque("marble_arch");
-    public static final Block MARBLE_GATE = nonOpaque("marble_gate");
+    public static final Block MARBLE_ARCH = block("marble_arch");
+    public static final Block MARBLE_GATE = block("marble_gate");
     public static final Block MARBLE_DOOR = door("marble_door");
     public static final Block MARBLE_LAMP = lamp("marble_lamp");
 
@@ -122,9 +121,9 @@ public final class TeyvatBlocks {
         return register(name, new FenceGateBlock(WoodType.OAK, settings(name)));
     }
 
-    /** 2-блочная мраморная дверь: ванильная логика, но открывается медленно (плавная анимация). */
+    /** Мраморная дверь: стандартная ванильная 2-блочная, открывается мгновенно как oak_door. */
     private static Block door(String name) {
-        return register(name, new MarbleDoorBlock(BlockSetType.STONE, settings(name).nonOpaque()));
+        return register(name, new DoorBlock(BlockSetType.STONE, settings(name).nonOpaque()));
     }
 
     private static Block sideStairs(String name) {

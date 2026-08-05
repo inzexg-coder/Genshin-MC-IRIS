@@ -1,19 +1,23 @@
 {
   "variants": {
     "facing=south": {
-      "model": "teyvat:block/marble_side_stairs"
+      "model": "teyvat:block/marble_side_stairs",
+      "uvlock": true
     },
     "facing=west": {
       "model": "teyvat:block/marble_side_stairs",
-      "y": 90
+      "y": 90,
+      "uvlock": true
     },
     "facing=north": {
       "model": "teyvat:block/marble_side_stairs",
-      "y": 180
+      "y": 180,
+      "uvlock": true
     },
     "facing=east": {
       "model": "teyvat:block/marble_side_stairs",
-      "y": 270
+      "y": 270,
+      "uvlock": true
     }
   }
 }
