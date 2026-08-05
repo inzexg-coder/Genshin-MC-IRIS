@@ -1,3 +1,6 @@
 {
-  "parent": "teyvat:block/marble_fence_post"
+  "parent": "minecraft:block/fence_inventory",
+  "textures": {
+    "texture": "teyvat:block/marble_trim"
+  }
 }

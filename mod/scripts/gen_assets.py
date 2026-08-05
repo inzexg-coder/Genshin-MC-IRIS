@@ -300,8 +300,9 @@ bid = "marble_wall"
 for suffix, parent in (("_post", "template_wall_post"), ("_side", "template_wall_side"), ("_side_tall", "template_wall_side_tall")):
     w(f"{MB}/{bid}{suffix}.json", {"parent": f"minecraft:block/{parent}",
        "textures": {"wall": "teyvat:block/marble_trim"}})
-w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}_post"})
-item_def(bid, f"teyvat:block/{bid}_post")
+w(f"{MI}/{bid}.json", {"parent": "minecraft:block/wall_inventory",
+   "textures": {"wall": "teyvat:block/marble_trim"}})
+item_def(bid, f"teyvat:item/{bid}")
 parts = [{"when": {"up": "true"}, "apply": {"model": f"teyvat:block/{bid}_post"}}]
 for name, y in (("north", 0), ("east", 90), ("south", 180), ("west", 270)):
     for val, suffix in (("low", "_side"), ("tall", "_side_tall")):
@@ -313,8 +314,9 @@ bid = "marble_fence"
 for suffix, parent in (("_post", "fence_post"), ("_side", "fence_side")):
     w(f"{MB}/{bid}{suffix}.json", {"parent": f"minecraft:block/{parent}",
        "textures": {"texture": "teyvat:block/marble_trim"}})
-w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}_post"})
-item_def(bid, f"teyvat:block/{bid}_post")
+w(f"{MI}/{bid}.json", {"parent": "minecraft:block/fence_inventory",
+   "textures": {"texture": "teyvat:block/marble_trim"}})
+item_def(bid, f"teyvat:item/{bid}")
 parts = [{"apply": {"model": f"teyvat:block/{bid}_post"}}]
 for name, y in (("north", 0), ("east", 90), ("south", 180), ("west", 270)):
     parts.append({"when": {name: "true"}, "apply": {"model": f"teyvat:block/{bid}_side", "y": y, "uvlock": True}})

@@ -76,11 +76,12 @@ public class TravelerNotesScreen extends Screen {
             ctx.fill(x + pw - 1, y, x + pw, y + ph, 0xFF3A4A6A);
             Item item = itemOf(itemId);
             if (item != Items.AIR) {
-                // Рендер настоящей модели блока (свет и поворот как в игре), 4x = 64px
+                // Рендер настоящей модели блока (свет и поворот как в игре), 4x = 64px.
+                // Важно: сначала scale, потом translate — иначе смещение умножится на масштаб.
                 Matrix3x2fStack m = ctx.getMatrices();
                 m.pushMatrix();
-                m.translate(x + 12, y + 12);
                 m.scale(4.0f, 4.0f);
+                m.translate(x / 4.0f + 3.0f, y / 4.0f + 3.0f);
                 ctx.drawItem(new ItemStack(item), 0, 0);
                 m.popMatrix();
                 if (mouseX >= x && mouseX < x + pw && mouseY >= y && mouseY < y + ph) {
@@ -350,7 +351,7 @@ public class TravelerNotesScreen extends Screen {
         context.drawText(this.textRenderer, title,
                 (this.width - this.textRenderer.getWidth(title)) / 2,
                 (HEADER_H - 9) / 2, C_GOLD, true);
-        String ver = "Teyvat 0.8.11";
+        String ver = "Teyvat 0.8.12";
         context.drawText(this.textRenderer, ver, this.width - this.textRenderer.getWidth(ver) - 10,
                 (HEADER_H - 9) / 2, C_HINT, true);
 

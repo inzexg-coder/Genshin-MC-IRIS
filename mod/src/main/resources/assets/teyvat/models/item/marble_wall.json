@@ -1,3 +1,6 @@
 {
-  "parent": "teyvat:block/marble_wall_post"
+  "parent": "minecraft:block/wall_inventory",
+  "textures": {
+    "wall": "teyvat:block/marble_trim"
+  }
 }
