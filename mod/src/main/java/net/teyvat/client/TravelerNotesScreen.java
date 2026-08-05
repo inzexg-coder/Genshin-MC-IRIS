@@ -1,14 +1,10 @@
 package net.teyvat.client;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.texture.Sprite;
-import net.minecraft.client.texture.SpriteAtlasTexture;
-import net.minecraft.client.util.SpriteIdentifier;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -20,7 +16,6 @@ import org.joml.Matrix3x2fStack;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Consumer;
 
 import static net.teyvat.client.TravelerNotesContent.*;
@@ -78,52 +73,9 @@ public class TravelerNotesScreen extends Screen {
         }
     }
 
-    /** Крупное превью блока: рамка 80px, внутри увеличенная иконка 4x = 64px. */
+    /** Крупное превью блока: рамка 80px, внутри чёткий спрайт блока в анфас 5x = 80px. */
     private static final int PREVIEW_W = 80;
     private static final int PREVIEW_H = 80;
-
-    /** Текстура-спрайт для крупной иконки каждого блока (blockId -> путь в атласе блоков). */
-    private static final Map<String, String> PREVIEW_TEXTURES = Map.ofEntries(
-            Map.entry("marble", "block/marble"),
-            Map.entry("polished_marble", "block/marble_polished"),
-            Map.entry("marble_bricks", "block/marble_bricks"),
-            Map.entry("marble_tiles", "block/marble_tiles"),
-            Map.entry("chiseled_marble", "block/marble_chiseled"),
-            Map.entry("gold_trimmed_marble", "block/marble_gold"),
-            Map.entry("marble_pillar", "block/marble_pillar"),
-            Map.entry("marble_column_small", "block/marble_column_small"),
-            Map.entry("marble_beam", "block/marble_beam"),
-            Map.entry("marble_slab", "block/marble"),
-            Map.entry("marble_stairs", "block/marble"),
-            Map.entry("marble_wall", "block/marble_trim"),
-            Map.entry("marble_fence", "block/marble_trim"),
-            Map.entry("marble_column_base", "block/marble_column_base"),
-            Map.entry("marble_column_capital", "block/marble_column_capital"),
-            Map.entry("marble_column_mid", "block/marble_column_mid"),
-            Map.entry("marble_column", "block/marble_column"),
-            Map.entry("polished_marble_stairs", "block/marble_polished"),
-            Map.entry("polished_marble_slab", "block/marble_polished"),
-            Map.entry("marble_brick_stairs", "block/marble_bricks"),
-            Map.entry("marble_brick_slab", "block/marble_bricks"),
-            Map.entry("marble_tile_stairs", "block/marble_tiles"),
-            Map.entry("marble_tile_slab", "block/marble_tiles"),
-            Map.entry("marble_side_stairs", "block/marble_side_stairs"),
-            Map.entry("marble_fence_gate", "block/marble_trim"),
-            Map.entry("marble_arch", "block/marble_arch_front"),
-            Map.entry("marble_gate", "block/marble_gate"),
-            Map.entry("marble_door", "item/marble_door"),
-            Map.entry("marble_lamp", "block/marble_lamp"),
-            Map.entry("marble_pedestal", "block/marble_pedestal"));
-
-    private static Sprite previewSprite(String itemId) {
-        String tex = PREVIEW_TEXTURES.get(itemId);
-        if (tex == null) {
-            return null;
-        }
-        return MinecraftClient.getInstance().getAtlasManager().getSprite(
-                new SpriteIdentifier(SpriteAtlasTexture.BLOCK_ATLAS_TEXTURE,
-                        Identifier.of(TeyvatMod.MOD_ID, tex)));
-    }
 
     /** Все крафты блока слева, справа — крупное превью блока на всю высоту секции. */
     private record CraftSection(List<CraftGrid> grids, String itemId) implements Row {
@@ -222,19 +174,14 @@ public class TravelerNotesScreen extends Screen {
         // Identifier.of("marble") превращается в "minecraft:marble" и возвращает AIR.
         Item item = Registries.ITEM.get(Identifier.of(TeyvatMod.MOD_ID, itemId));
         if (item != Items.AIR) {
-            // 1) Крупная иконка из спрайта текстуры блока (4x = 64px) — рендерится всегда,
-            //    тем же путём, что и панели интерфейса.
-            Sprite sprite = previewSprite(itemId);
-            if (sprite != null) {
-                ctx.drawSpriteStretched(RenderPipelines.GUI_TEXTURED, sprite,
-                        px + 8, py + 8, PREVIEW_W - 16, PREVIEW_H - 16);
-            }
-            // 2) Поверх — модель предмета 4x (как иконка в инвентаре, со светом и поворотом).
-            //    Важно: сначала scale, потом translate — иначе смещение умножится на масштаб.
+            // Чёткий спрайт блока в анфас: item-модель с face-on GUI-трансформацией
+            // (задана в моделях блоков), рендерится item-атласом с NEAREST-фильтром.
+            // Поза 5x = 80px (рамка 80px): блок 64px по центру, без размытия.
+            // Важно: сначала scale, потом translate — иначе смещение умножится на масштаб.
             Matrix3x2fStack m = ctx.getMatrices();
             m.pushMatrix();
-            m.scale(4.0f, 4.0f);
-            m.translate(px / 4.0f + 2.0f, py / 4.0f + 2.0f);
+            m.scale(5.0f, 5.0f);
+            m.translate(px / 5.0f + 2.0f, py / 5.0f + 2.0f);
             ctx.drawItem(new ItemStack(item), 0, 0);
             m.popMatrix();
             if (mouseX >= px && mouseX < px + PREVIEW_W && mouseY >= py && mouseY < py + PREVIEW_H) {
@@ -432,7 +379,7 @@ public class TravelerNotesScreen extends Screen {
         context.drawText(this.textRenderer, title,
                 (this.width - this.textRenderer.getWidth(title)) / 2,
                 (HEADER_H - 9) / 2, C_GOLD, true);
-        String ver = "Teyvat 0.8.17";
+        String ver = "Teyvat 0.8.18";
         context.drawText(this.textRenderer, ver, this.width - this.textRenderer.getWidth(ver) - 10,
                 (HEADER_H - 9) / 2, C_HINT, true);
 
