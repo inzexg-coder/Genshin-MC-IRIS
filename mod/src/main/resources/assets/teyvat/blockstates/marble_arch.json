@@ -1,7 +1,23 @@
 {
   "variants": {
-    "": {
-      "model": "teyvat:block/marble_arch"
+    "facing=north": {
+      "model": "teyvat:block/marble_arch",
+      "uvlock": true
+    },
+    "facing=east": {
+      "model": "teyvat:block/marble_arch",
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=south": {
+      "model": "teyvat:block/marble_arch",
+      "uvlock": true,
+      "y": 180
+    },
+    "facing=west": {
+      "model": "teyvat:block/marble_arch",
+      "uvlock": true,
+      "y": 270
     }
   }
 }

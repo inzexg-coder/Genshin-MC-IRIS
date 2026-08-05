@@ -28,6 +28,7 @@ import net.minecraft.sound.BlockSoundGroup;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
+import net.teyvat.block.MarbleArchBlock;
 import net.teyvat.block.MarbleSideStairsBlock;
 
 import java.util.ArrayList;
@@ -73,7 +74,7 @@ public final class TeyvatBlocks {
     // ---- beams / special ----
     public static final Block MARBLE_BEAM = pillar("marble_beam");
     public static final Block MARBLE_SIDE_STAIRS = sideStairs("marble_side_stairs");
-    public static final Block MARBLE_ARCH = block("marble_arch");
+    public static final Block MARBLE_ARCH = arch("marble_arch");
     public static final Block MARBLE_GATE = block("marble_gate");
     public static final Block MARBLE_DOOR = door("marble_door");
     public static final Block MARBLE_LAMP = lamp("marble_lamp");
@@ -122,6 +123,10 @@ public final class TeyvatBlocks {
     }
 
     /** Мраморная дверь: стандартная ванильная 2-блочная, открывается мгновенно как oak_door. */
+    private static Block arch(String name) {
+        return register(name, new MarbleArchBlock(settings(name)));
+    }
+
     private static Block door(String name) {
         return register(name, new DoorBlock(BlockSetType.STONE, settings(name).nonOpaque()));
     }

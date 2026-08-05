@@ -126,13 +126,22 @@ def elv(from_, to_, faces):
         out[n] = f
     return {"from": from_, "to": to_, "faces": out}
 
-def voxel_model(bid, textures, elements):
+def voxel_model(bid, textures, elements, facing=False):
     w(f"{MB}/{bid}.json", {
         "parent": "minecraft:block/block",
         "textures": dict({"particle": "teyvat:block/marble"}, **textures),
         "elements": elements,
     })
-    w(f"{BS}/{bid}.json", {"variants": {"": {"model": f"teyvat:block/{bid}"}}})
+    if facing:
+        variants = {}
+        for fname, y in (("north", 0), ("east", 90), ("south", 180), ("west", 270)):
+            v = {"model": f"teyvat:block/{bid}", "uvlock": True}
+            if y:
+                v["y"] = y
+            variants[f"facing={fname}"] = v
+        w(f"{BS}/{bid}.json", {"variants": variants})
+    else:
+        w(f"{BS}/{bid}.json", {"variants": {"": {"model": f"teyvat:block/{bid}"}}})
     w(f"{MI}/{bid}.json", {"parent": f"teyvat:block/{bid}"})
     item_def(bid, f"teyvat:block/{bid}")
 
@@ -196,7 +205,7 @@ def arch_side(z0, cull_face):
     ]
 els = [recess_body()] + arch_side(0, "north") + arch_side(13, "south")
 voxel_model(bid, {"marble": "teyvat:block/marble", "recess": "teyvat:block/marble_recess",
-                  "front": "teyvat:block/marble_arch_front"}, els)
+                  "front": "teyvat:block/marble_arch_front"}, els, facing=True)
 
 # ---------- gate: две створки-теснение с прямоугольными выемками-окнами ----------
 bid = "marble_gate"
