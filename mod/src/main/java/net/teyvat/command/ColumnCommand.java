@@ -1,7 +1,7 @@
 package net.teyvat.command;
 
-import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.block.Block;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.argument.BlockPosArgumentType;
@@ -23,16 +23,14 @@ import net.teyvat.TeyvatBlocks;
 public final class ColumnCommand {
     private ColumnCommand() {}
 
-    public static void register(CommandDispatcher<ServerCommandSource> dispatcher, CommandRegistryAccess registryAccess,
-                                 CommandManager.RegistrationEnvironment environment) {
-        var column = CommandManager.literal("column")
+    /** Дерево /column ... — регистрируется и самостоятельно, и как /teyvat column. */
+    public static LiteralArgumentBuilder<ServerCommandSource> buildColumn() {
+        return CommandManager.literal("column")
                 .then(CommandManager.argument("pos", BlockPosArgumentType.blockPos())
                         .executes(ctx -> place(ctx.getSource(), BlockPosArgumentType.getLoadedBlockPos(ctx, "pos"), 1))
                         .then(CommandManager.argument("count", IntegerArgumentType.integer(1, 64))
                                 .executes(ctx -> place(ctx.getSource(), BlockPosArgumentType.getLoadedBlockPos(ctx, "pos"),
                                         IntegerArgumentType.getInteger(ctx, "count")))));
-        dispatcher.register(column);
-        dispatcher.register(CommandManager.literal("teyvat").then(column));
     }
 
     private static int place(ServerCommandSource source, BlockPos pos, int count) {

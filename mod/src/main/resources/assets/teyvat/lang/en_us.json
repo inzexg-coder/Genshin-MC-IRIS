@@ -1,4 +1,5 @@
 {
+  "key.teyvat.notes": "Traveler's Notes",
   "itemGroup.teyvat.blocks": "Teyvat Blocks",
   "block.teyvat.marble": "Marble",
   "block.teyvat.polished_marble": "Polished Marble",
@@ -6,7 +7,7 @@
   "block.teyvat.marble_tiles": "Marble Tiles",
   "block.teyvat.chiseled_marble": "Chiseled Marble",
   "block.teyvat.gold_trimmed_marble": "Gold-Trimmed Marble",
-  "block.teyvat.marble_pillar": "Marble Pillar",
+  "block.teyvat.marble_pillar": "Fluted Marble Pillar",
   "block.teyvat.marble_column": "Marble Column",
   "block.teyvat.marble_column_small": "Small Marble Column",
   "block.teyvat.marble_column_base": "Marble Column Base",
@@ -29,5 +30,6 @@
   "block.teyvat.marble_arch": "Marble Arch",
   "block.teyvat.marble_gate": "Marble Gate",
   "block.teyvat.marble_door": "Marble Door",
-  "block.teyvat.marble_lamp": "Marble Lamp"
+  "block.teyvat.marble_lamp": "Marble Lamp",
+  "key.category.teyvat.main": "Teyvat"
 }

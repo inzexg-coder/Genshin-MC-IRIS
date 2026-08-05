@@ -29,5 +29,7 @@
   "block.teyvat.marble_arch": "Мраморная арка",
   "block.teyvat.marble_gate": "Мраморные ворота",
   "block.teyvat.marble_door": "Мраморная дверь",
-  "block.teyvat.marble_lamp": "Мраморный светильник"
+  "block.teyvat.marble_lamp": "Мраморный светильник",
+  "key.teyvat.notes": "Заметки путешественника",
+  "key.category.teyvat.main": "Teyvat"
 }
