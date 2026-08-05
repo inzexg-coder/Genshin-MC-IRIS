@@ -64,98 +64,123 @@ public class TravelerNotesScreen extends Screen {
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {}
     }
 
-    /** Крупное изображение блока «как в игре» (рендер модели 64px в рамке) + название. */
-    private record BlockRow(String itemId, String name) implements Row {
-        public int height() { return 92; }
+    /** Название блока (золотом). Превью теперь справа от сеток крафта. */
+    private record NameRow(String name) implements Row {
+        public int height() { return LINE_H; }
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
-            int pw = 88, ph = 88;
-            ctx.fill(x, y, x + pw, y + ph, 0xFF141A2A);
-            ctx.fill(x, y, x + pw, y + 1, 0xFF3A4A6A);
-            ctx.fill(x, y + ph - 1, x + pw, y + ph, 0xFF3A4A6A);
-            ctx.fill(x, y, x + 1, y + ph, 0xFF3A4A6A);
-            ctx.fill(x + pw - 1, y, x + pw, y + ph, 0xFF3A4A6A);
-            Item item = itemOf(itemId);
-            if (item != Items.AIR) {
-                // Рендер настоящей модели блока (свет и поворот как в игре), 4x = 64px.
-                // Важно: сначала scale, потом translate — иначе смещение умножится на масштаб.
-                Matrix3x2fStack m = ctx.getMatrices();
-                m.pushMatrix();
-                m.scale(4.0f, 4.0f);
-                m.translate(x / 4.0f + 3.0f, y / 4.0f + 3.0f);
-                ctx.drawItem(new ItemStack(item), 0, 0);
-                m.popMatrix();
-                if (mouseX >= x && mouseX < x + pw && mouseY >= y && mouseY < y + ph) {
-                    tooltip.accept(item.getName());
-                }
-            }
-            ctx.drawText(MinecraftClient.getInstance().textRenderer, name, x + pw + 14, y + ph / 2 - 5, C_GOLD, true);
+            ctx.drawText(MinecraftClient.getInstance().textRenderer, name, x, y, C_GOLD, true);
         }
     }
 
-    /** Сетка рецепта: слоты с предметами, стрелка и результат (по центру сетки). */
-    private record GridRow(CraftGrid grid) implements Row {
+    /** Крупное превью блока: рамка 96px, внутри рендер модели 5x = 80px. */
+    private static final int PREVIEW_W = 96;
+    private static final int PREVIEW_H = 96;
+
+    /** Все крафты блока слева, справа — крупное превью блока на всю высоту секции. */
+    private record CraftSection(List<CraftGrid> grids, String itemId) implements Row {
         public int height() {
-            return 16 + gridH() + 8;
-        }
-        private int gridH() {
-            return grid.pattern().length * 18 + (grid.pattern().length - 1) * 2;
-        }
-        private void cell(DrawContext ctx, int cx, int cy, int borderColor, int bg) {
-            ctx.fill(cx, cy, cx + 18, cy + 18, bg);
-            ctx.fill(cx, cy, cx + 18, cy + 1, borderColor);
-            ctx.fill(cx, cy + 17, cx + 18, cy + 18, borderColor);
-            ctx.fill(cx, cy, cx + 1, cy + 18, borderColor);
-            ctx.fill(cx + 17, cy, cx + 18, cy + 18, borderColor);
+            int h = 0;
+            for (CraftGrid g : grids) {
+                h += 14 + gridH(g.pattern()) + 8;
+            }
+            h += Math.max(0, grids.size() - 1) * 8;
+            return Math.max(h, PREVIEW_H);
         }
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
-            MinecraftClient client = MinecraftClient.getInstance();
-            ctx.drawText(client.textRenderer, grid.title(), x, y + 2, C_GOLD, true);
-            int gy = y + 14;
-            String[] pattern = grid.pattern();
-            int cols = pattern[0].length();
-            int gx = x;
-            for (int r = 0; r < pattern.length; r++) {
-                for (int cIdx = 0; cIdx < cols; cIdx++) {
-                    char key = pattern[r].charAt(cIdx);
-                    Slot slot = grid.keys().get(key);
-                    int cx = gx + cIdx * 20;
-                    int cy = gy + r * 20;
-                    boolean hovered = slot != null && mouseX >= cx && mouseX < cx + 18 && mouseY >= cy && mouseY < cy + 18;
-                    if (slot == null) {
-                        cell(ctx, cx, cy, 0xFF141A2A, 0xFF12182A);
-                    } else {
-                        cell(ctx, cx, cy, hovered ? 0xFFE8C86A : 0xFF3A4A6A, 0xFF1B2338);
-                        Item item = itemOf(slot.item());
-                        if (item != Items.AIR) {
-                            ctx.drawItem(new ItemStack(item), cx + 1, cy + 1);
-                        }
-                        if (slot.count() > 1) {
-                            ctx.drawText(client.textRenderer, String.valueOf(slot.count()),
-                                    cx + 9, cy + 8, 0xFFFFFFFF, true);
-                        }
-                        if (hovered) {
-                            tooltip.accept(item.getName());
-                        }
+            int gy = y;
+            int maxGridW = 0;
+            for (CraftGrid g : grids) {
+                maxGridW = Math.max(maxGridW, g.pattern()[0].length() * 20 - 2);
+                drawGrid(ctx, g, x, gy, mouseX, mouseY, tooltip);
+                gy += 14 + gridH(g.pattern()) + 8;
+            }
+            int px = x + maxGridW + 36 + 16;
+            int py = y + (height() - PREVIEW_H) / 2;
+            drawPreview(ctx, px, py, itemId, mouseX, mouseY, tooltip);
+        }
+    }
+
+    private static int gridH(String[] pattern) {
+        return pattern.length * 18 + (pattern.length - 1) * 2;
+    }
+
+    private static void cell(DrawContext ctx, int cx, int cy, int borderColor, int bg) {
+        ctx.fill(cx, cy, cx + 18, cy + 18, bg);
+        ctx.fill(cx, cy, cx + 18, cy + 1, borderColor);
+        ctx.fill(cx, cy + 17, cx + 18, cy + 18, borderColor);
+        ctx.fill(cx, cy, cx + 1, cy + 18, borderColor);
+        ctx.fill(cx + 17, cy, cx + 18, cy + 18, borderColor);
+    }
+
+    private static void drawGrid(DrawContext ctx, CraftGrid grid, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        ctx.drawText(client.textRenderer, grid.title(), x, y + 2, C_GOLD, true);
+        int gy = y + 14;
+        String[] pattern = grid.pattern();
+        int cols = pattern[0].length();
+        for (int r = 0; r < pattern.length; r++) {
+            for (int cIdx = 0; cIdx < cols; cIdx++) {
+                char key = pattern[r].charAt(cIdx);
+                Slot slot = grid.keys().get(key);
+                int cx = x + cIdx * 20;
+                int cy = gy + r * 20;
+                boolean hovered = slot != null && mouseX >= cx && mouseX < cx + 18 && mouseY >= cy && mouseY < cy + 18;
+                if (slot == null) {
+                    cell(ctx, cx, cy, 0xFF141A2A, 0xFF12182A);
+                } else {
+                    cell(ctx, cx, cy, hovered ? 0xFFE8C86A : 0xFF3A4A6A, 0xFF1B2338);
+                    Item item = itemOf(slot.item());
+                    if (item != Items.AIR) {
+                        ctx.drawItem(new ItemStack(item), cx + 1, cy + 1);
+                    }
+                    if (slot.count() > 1) {
+                        ctx.drawText(client.textRenderer, String.valueOf(slot.count()),
+                                cx + 9, cy + 8, 0xFFFFFFFF, true);
+                    }
+                    if (hovered) {
+                        tooltip.accept(item.getName());
                     }
                 }
             }
-            int gridW = cols * 20 - 2;
-            int gMid = gy + gridH() / 2 - 4;
-            ctx.drawText(client.textRenderer, "→", gx + gridW + 4, gMid, C_GOLD, true);
-            int rx = gx + gridW + 18;
-            int ry = gy + gridH() / 2 - 9; // ровно напротив среднего ряда
-            boolean rh = mouseX >= rx && mouseX < rx + 18 && mouseY >= ry && mouseY < ry + 18;
-            cell(ctx, rx, ry, rh ? 0xFFFFFFFF : 0xFFE8C86A, 0xFF1B2338);
-            Item result = itemOf(grid.result());
-            if (result != Items.AIR) {
-                ctx.drawItem(new ItemStack(result), rx + 1, ry + 1);
-                if (grid.resultCount() > 1) {
-                    ctx.drawText(client.textRenderer, String.valueOf(grid.resultCount()),
-                            rx + 9, ry + 8, 0xFFFFFFFF, true);
-                }
-                if (rh) {
-                    tooltip.accept(result.getName());
-                }
+        }
+        int gridW = cols * 20 - 2;
+        int gMid = gy + gridH(pattern) / 2 - 4;
+        ctx.drawText(client.textRenderer, "→", x + gridW + 4, gMid, C_GOLD, true);
+        int rx = x + gridW + 18;
+        int ry = gy + gridH(pattern) / 2 - 9; // ровно напротив среднего ряда
+        boolean rh = mouseX >= rx && mouseX < rx + 18 && mouseY >= ry && mouseY < ry + 18;
+        cell(ctx, rx, ry, rh ? 0xFFFFFFFF : 0xFFE8C86A, 0xFF1B2338);
+        Item result = itemOf(grid.result());
+        if (result != Items.AIR) {
+            ctx.drawItem(new ItemStack(result), rx + 1, ry + 1);
+            if (grid.resultCount() > 1) {
+                ctx.drawText(client.textRenderer, String.valueOf(grid.resultCount()),
+                        rx + 9, ry + 8, 0xFFFFFFFF, true);
+            }
+            if (rh) {
+                tooltip.accept(result.getName());
+            }
+        }
+    }
+
+    private static void drawPreview(DrawContext ctx, int px, int py, String itemId, int mouseX, int mouseY, Consumer<Text> tooltip) {
+        ctx.fill(px, py, px + PREVIEW_W, py + PREVIEW_H, 0xFF141A2A);
+        ctx.fill(px, py, px + PREVIEW_W, py + 1, C_GOLD);
+        ctx.fill(px, py + PREVIEW_H - 1, px + PREVIEW_W, py + PREVIEW_H, C_GOLD);
+        ctx.fill(px, py, px + 1, py + PREVIEW_H, C_GOLD);
+        ctx.fill(px + PREVIEW_W - 1, py, px + PREVIEW_W, py + PREVIEW_H, C_GOLD);
+        Item item = itemOf(itemId);
+        if (item != Items.AIR) {
+            // Рендер модели блока 5x = 80px (рамка 96px, отступ 8px для центрирования).
+            // Важно: сначала scale, потом translate — иначе смещение умножится на масштаб.
+            Matrix3x2fStack m = ctx.getMatrices();
+            m.pushMatrix();
+            m.scale(5.0f, 5.0f);
+            m.translate(px / 5.0f + 1.6f, py / 5.0f + 1.6f);
+            ctx.drawItem(new ItemStack(item), 0, 0);
+            m.popMatrix();
+            if (mouseX >= px && mouseX < px + PREVIEW_W && mouseY >= py && mouseY < py + PREVIEW_H) {
+                tooltip.accept(item.getName());
             }
         }
     }
@@ -197,15 +222,13 @@ public class TravelerNotesScreen extends Screen {
             }
             rows.add(new GapRow(10));
             for (BlockEntry e : blocks()) {
-                rows.add(new BlockRow(e.id(), e.name()));
+                rows.add(new NameRow(e.name()));
                 rows.add(new GapRow(3));
                 for (String desc : e.description()) {
                     wrapIntoRows(desc, C_DESC);
                 }
                 rows.add(new GapRow(6));
-                for (CraftGrid g : e.crafts()) {
-                    rows.add(new GridRow(g));
-                }
+                rows.add(new CraftSection(e.crafts(), e.id()));
                 rows.add(new GapRow(14));
             }
         }
@@ -351,7 +374,7 @@ public class TravelerNotesScreen extends Screen {
         context.drawText(this.textRenderer, title,
                 (this.width - this.textRenderer.getWidth(title)) / 2,
                 (HEADER_H - 9) / 2, C_GOLD, true);
-        String ver = "Teyvat 0.8.12";
+        String ver = "Teyvat 0.8.13";
         context.drawText(this.textRenderer, ver, this.width - this.textRenderer.getWidth(ver) - 10,
                 (HEADER_H - 9) / 2, C_HINT, true);
 
