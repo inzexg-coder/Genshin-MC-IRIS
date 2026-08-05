@@ -1,6 +1,11 @@
 {
-  "parent": "minecraft:block/cube_all",
+  "parent": "minecraft:block/cube",
   "textures": {
-    "all": "teyvat:block/marble_arch_front"
+    "up": "teyvat:block/marble",
+    "down": "teyvat:block/marble",
+    "north": "teyvat:block/marble_arch_front",
+    "south": "teyvat:block/marble_arch_front",
+    "east": "teyvat:block/marble",
+    "west": "teyvat:block/marble"
   }
 }

@@ -43,9 +43,14 @@ public class MarbleSideStairsBlock extends Block {
         return this.getDefaultState().with(FACING, ctx.getHorizontalPlayerFacing().getOpposite());
     }
 
-    /** Тот же поворот, что у модели в blockstate: south=0, west=90, north=180, east=270. */
+    /** Поворот совпадает с моделью (blockstate y): south=0, west=90, north=180, east=270. */
     private VoxelShape shapeFor(BlockState state) {
-        return rotateShape(Direction.SOUTH, state.get(FACING), LOCAL_SHAPE);
+        VoxelShape shape = LOCAL_SHAPE;
+        int turns = state.get(FACING).getHorizontalQuarterTurns();
+        for (int i = 0; i < turns; i++) {
+            shape = rotate90(shape);
+        }
+        return shape;
     }
 
     @Override
@@ -58,18 +63,7 @@ public class MarbleSideStairsBlock extends Block {
         return shapeFor(state);
     }
 
-    /** Копия ванильного поворота VoxelShape (StairsBlock.rotateShape): согласовано с моделями. */
-    private static VoxelShape rotateShape(Direction from, Direction to, VoxelShape shape) {
-        VoxelShape[] buffer = new VoxelShape[]{shape, VoxelShapes.empty()};
-        int i = from.getHorizontalQuarterTurns() - to.getHorizontalQuarterTurns();
-        int j = Math.floorMod(i, 4);
-        for (int k = 0; k < j; k++) {
-            buffer[0] = rotate90(buffer[0]);
-            buffer[1] = VoxelShapes.empty();
-        }
-        return buffer[0];
-    }
-
+    /** Поворот на 90° (как у блок-моделей MC: (x,z) -> (16-z, x)). */
     private static VoxelShape rotate90(VoxelShape shape) {
         VoxelShape[] buffer = new VoxelShape[]{shape, VoxelShapes.empty()};
         shape.forEachBox((x1, y1, z1, x2, y2, z2) -> {

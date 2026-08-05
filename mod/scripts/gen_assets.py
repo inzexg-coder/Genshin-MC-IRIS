@@ -117,15 +117,19 @@ col_model("marble_pedestal", [
 
 # ---------- arch (цельный блок-врата: резной фасад, никаких сквозных проёмов) ----------
 w(f"{BS}/marble_arch.json", {"variants": {"": {"model": "teyvat:block/marble_arch"}}})
-w(f"{MB}/marble_arch.json", {"parent": "minecraft:block/cube_all",
-   "textures": {"all": "teyvat:block/marble_arch_front"}})
+w(f"{MB}/marble_arch.json", {"parent": "minecraft:block/cube",
+   "textures": {"up": "teyvat:block/marble", "down": "teyvat:block/marble",
+                "north": "teyvat:block/marble_arch_front", "south": "teyvat:block/marble_arch_front",
+                "east": "teyvat:block/marble", "west": "teyvat:block/marble"}})
 w(f"{MI}/marble_arch.json", {"parent": "teyvat:block/marble_arch"})
 item_def("marble_arch", "teyvat:block/marble_arch")
 
 # ---------- gate (cube with carved front/back) ----------
 w(f"{BS}/marble_gate.json", {"variants": {"": {"model": "teyvat:block/marble_gate"}}})
-w(f"{MB}/marble_gate.json", {"parent": "minecraft:block/cube_all",
-   "textures": {"all": "teyvat:block/marble_gate"}})
+w(f"{MB}/marble_gate.json", {"parent": "minecraft:block/cube",
+   "textures": {"up": "teyvat:block/marble", "down": "teyvat:block/marble",
+                "north": "teyvat:block/marble_gate", "south": "teyvat:block/marble_gate",
+                "east": "teyvat:block/marble", "west": "teyvat:block/marble"}})
 w(f"{MI}/marble_gate.json", {"parent": "teyvat:block/marble_gate"})
 item_def("marble_gate", "teyvat:block/marble_gate")
 

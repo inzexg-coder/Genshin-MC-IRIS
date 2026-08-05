@@ -248,7 +248,7 @@ void main() {
         // Teyvat: зеркальная золотая окантовка. Металл определяется по labPBR specular-карте
         // (_s.png: G=metal, R=smoothness) для любых блоков — не зависит от мат-идов.
         // Металл получает отражения как вода (colortex4.a ~ 0.95, composite1 применяет их
-        // через fresnelM). Фонарь (мат-ид 10997) дополнительно сильно светится.
+        // через fresnelM).
         vec4 teyvatSpec = texture2D(specular, texCoord);
         float teyvatMetal = clamp(teyvatSpec.g, 0.0, 1.0);
         float teyvatSmooth = clamp(pow2(teyvatSpec.r), 0.0, 1.0);
@@ -258,9 +258,6 @@ void main() {
             smoothnessD = max(smoothnessD, teyvatSmooth);
             highlightMult += 3.0 * goldMix;
             reflectionStrength = 0.98 * goldMix;
-        }
-        if (mat == 10997) {
-            emission = max(emission, 7.0);
         }
     #endif
 
