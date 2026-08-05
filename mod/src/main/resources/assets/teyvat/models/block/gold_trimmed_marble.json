@@ -1,13 +1,5 @@
 {
-  "parent": "minecraft:block/cube_bottom_top",
-  "display": {
-    "gui": {
-      "rotation": [0, 0, 0],
-      "translation": [0, 0, 0],
-      "scale": [0.8, 0.8, 0.8]
-    }
-  },
-  "textures": {
+  "parent": "minecraft:block/cube_bottom_top",  "textures": {
     "top": "teyvat:block/marble_gold_top",
     "bottom": "teyvat:block/marble_gold_top",
     "side": "teyvat:block/marble_gold"

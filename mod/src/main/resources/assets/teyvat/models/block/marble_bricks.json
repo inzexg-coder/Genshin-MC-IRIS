@@ -1,13 +1,5 @@
 {
-  "parent": "minecraft:block/cube_all",
-  "display": {
-    "gui": {
-      "rotation": [0, 0, 0],
-      "translation": [0, 0, 0],
-      "scale": [0.8, 0.8, 0.8]
-    }
-  },
-  "textures": {
+  "parent": "minecraft:block/cube_all",  "textures": {
     "all": "teyvat:block/marble_bricks"
   }
 }

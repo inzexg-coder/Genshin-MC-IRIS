@@ -11,8 +11,6 @@ import net.minecraft.item.Items;
 import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-import net.teyvat.TeyvatMod;
-import org.joml.Matrix3x2fStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -22,7 +20,7 @@ import static net.teyvat.client.TravelerNotesContent.*;
 
 /**
  * «Заметки путешественника»: две вкладки — «О сборке» и «Селестия»
- * (блоки от простого крафта к сложному: крупная иконка, описание, сетка рецепта).
+ * (блоки от простого крафта к сложному: описание, рецепт по центру).
  * Доступно в любом режиме игры: клавиша N или /teyvat notes.
  */
 public class TravelerNotesScreen extends Screen {
@@ -73,49 +71,52 @@ public class TravelerNotesScreen extends Screen {
         }
     }
 
-    /** Крупное превью блока: рамка 80px, внутри чёткий спрайт блока в анфас 5x = 80px. */
-    private static final int PREVIEW_W = 80;
-    private static final int PREVIEW_H = 80;
+    /** Ячейка крафта: 26px, шаг 28px — сетка крупнее прежней (18px). */
+    private static final int CELL = 26;
+    private static final int PITCH = 28;
 
-    /** Все крафты блока слева, справа — крупное превью блока на всю высоту секции. */
+    /** Все крафты блока: по центру контента, увеличенные. */
     private record CraftSection(List<CraftGrid> grids, String itemId) implements Row {
         public int height() {
             int h = 0;
             for (CraftGrid g : grids) {
-                h += 14 + gridH(g.pattern()) + 8;
+                h += 14 + gridH(g.pattern()) + 10;
             }
-            h += Math.max(0, grids.size() - 1) * 8;
-            return Math.max(h, PREVIEW_H);
+            return h;
         }
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
-            int gy = y;
-            int maxGridW = 0;
+            int availW = MinecraftClient.getInstance().getWindow().getScaledWidth() - 2 * PAD - 8;
+            int maxBlockW = 0;
             for (CraftGrid g : grids) {
-                maxGridW = Math.max(maxGridW, g.pattern()[0].length() * 20 - 2);
-                drawGrid(ctx, g, x, gy, mouseX, mouseY, tooltip);
-                gy += 14 + gridH(g.pattern()) + 8;
+                int cols = g.pattern()[0].length();
+                maxBlockW = Math.max(maxBlockW, cols * PITCH - 2 + 18 + CELL);
             }
-            int px = x + maxGridW + 36 + 16;
-            int py = y + (height() - PREVIEW_H) / 2;
-            drawPreview(ctx, px, py, itemId, mouseX, mouseY, tooltip);
+            int gx = x + Math.max(0, (availW - maxBlockW) / 2);
+            int gy = y;
+            for (CraftGrid g : grids) {
+                drawGrid(ctx, g, gx, gy, mouseX, mouseY, tooltip, maxBlockW);
+                gy += 14 + gridH(g.pattern()) + 10;
+            }
         }
     }
 
     private static int gridH(String[] pattern) {
-        return pattern.length * 18 + (pattern.length - 1) * 2;
+        return pattern.length * CELL + (pattern.length - 1) * 2;
     }
 
     private static void cell(DrawContext ctx, int cx, int cy, int borderColor, int bg) {
-        ctx.fill(cx, cy, cx + 18, cy + 18, bg);
-        ctx.fill(cx, cy, cx + 18, cy + 1, borderColor);
-        ctx.fill(cx, cy + 17, cx + 18, cy + 18, borderColor);
-        ctx.fill(cx, cy, cx + 1, cy + 18, borderColor);
-        ctx.fill(cx + 17, cy, cx + 18, cy + 18, borderColor);
+        ctx.fill(cx, cy, cx + CELL, cy + CELL, bg);
+        ctx.fill(cx, cy, cx + CELL, cy + 1, borderColor);
+        ctx.fill(cx, cy + CELL - 1, cx + CELL, cy + CELL, borderColor);
+        ctx.fill(cx, cy, cx + 1, cy + CELL, borderColor);
+        ctx.fill(cx + CELL - 1, cy, cx + CELL, cy + CELL, borderColor);
     }
 
-    private static void drawGrid(DrawContext ctx, CraftGrid grid, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
+    private static void drawGrid(DrawContext ctx, CraftGrid grid, int x, int y, int mouseX, int mouseY,
+                                 Consumer<Text> tooltip, int blockW) {
         MinecraftClient client = MinecraftClient.getInstance();
-        ctx.drawText(client.textRenderer, grid.title(), x, y + 2, C_GOLD, true);
+        ctx.drawText(client.textRenderer, grid.title(), x + (blockW - client.textRenderer.getWidth(grid.title())) / 2,
+                y + 2, C_GOLD, true);
         int gy = y + 14;
         String[] pattern = grid.pattern();
         int cols = pattern[0].length();
@@ -123,20 +124,20 @@ public class TravelerNotesScreen extends Screen {
             for (int cIdx = 0; cIdx < cols; cIdx++) {
                 char key = pattern[r].charAt(cIdx);
                 Slot slot = grid.keys().get(key);
-                int cx = x + cIdx * 20;
-                int cy = gy + r * 20;
-                boolean hovered = slot != null && mouseX >= cx && mouseX < cx + 18 && mouseY >= cy && mouseY < cy + 18;
+                int cx = x + cIdx * PITCH;
+                int cy = gy + r * PITCH;
+                boolean hovered = slot != null && mouseX >= cx && mouseX < cx + CELL && mouseY >= cy && mouseY < cy + CELL;
                 if (slot == null) {
                     cell(ctx, cx, cy, 0xFF141A2A, 0xFF12182A);
                 } else {
                     cell(ctx, cx, cy, hovered ? 0xFFE8C86A : 0xFF3A4A6A, 0xFF1B2338);
                     Item item = itemOf(slot.item());
                     if (item != Items.AIR) {
-                        ctx.drawItem(new ItemStack(item), cx + 1, cy + 1);
+                        ctx.drawItem(new ItemStack(item), cx + (CELL - 16) / 2, cy + (CELL - 16) / 2);
                     }
                     if (slot.count() > 1) {
                         ctx.drawText(client.textRenderer, String.valueOf(slot.count()),
-                                cx + 9, cy + 8, 0xFFFFFFFF, true);
+                                cx + CELL - 12, cy + CELL - 10, 0xFFFFFFFF, true);
                     }
                     if (hovered) {
                         tooltip.accept(item.getName());
@@ -144,48 +145,22 @@ public class TravelerNotesScreen extends Screen {
                 }
             }
         }
-        int gridW = cols * 20 - 2;
+        int gridW = cols * PITCH - 2;
         int gMid = gy + gridH(pattern) / 2 - 4;
-        ctx.drawText(client.textRenderer, "→", x + gridW + 4, gMid, C_GOLD, true);
+        ctx.drawText(client.textRenderer, "→", x + gridW + 6, gMid, C_GOLD, true);
         int rx = x + gridW + 18;
-        int ry = gy + gridH(pattern) / 2 - 9; // ровно напротив среднего ряда
-        boolean rh = mouseX >= rx && mouseX < rx + 18 && mouseY >= ry && mouseY < ry + 18;
+        int ry = gy + gridH(pattern) / 2 - CELL / 2; // ровно напротив среднего ряда
+        boolean rh = mouseX >= rx && mouseX < rx + CELL && mouseY >= ry && mouseY < ry + CELL;
         cell(ctx, rx, ry, rh ? 0xFFFFFFFF : 0xFFE8C86A, 0xFF1B2338);
         Item result = itemOf(grid.result());
         if (result != Items.AIR) {
-            ctx.drawItem(new ItemStack(result), rx + 1, ry + 1);
+            ctx.drawItem(new ItemStack(result), rx + (CELL - 16) / 2, ry + (CELL - 16) / 2);
             if (grid.resultCount() > 1) {
                 ctx.drawText(client.textRenderer, String.valueOf(grid.resultCount()),
-                        rx + 9, ry + 8, 0xFFFFFFFF, true);
+                        rx + CELL - 12, ry + CELL - 10, 0xFFFFFFFF, true);
             }
             if (rh) {
                 tooltip.accept(result.getName());
-            }
-        }
-    }
-
-    private static void drawPreview(DrawContext ctx, int px, int py, String itemId, int mouseX, int mouseY, Consumer<Text> tooltip) {
-        ctx.fill(px, py, px + PREVIEW_W, py + PREVIEW_H, 0xFF141A2A);
-        ctx.fill(px, py, px + PREVIEW_W, py + 1, C_GOLD);
-        ctx.fill(px, py + PREVIEW_H - 1, px + PREVIEW_W, py + PREVIEW_H, C_GOLD);
-        ctx.fill(px, py, px + 1, py + PREVIEW_H, C_GOLD);
-        ctx.fill(px + PREVIEW_W - 1, py, px + PREVIEW_W, py + PREVIEW_H, C_GOLD);
-        // itemId — короткое имя блока ("marble"), а не полный ID: без namespace
-        // Identifier.of("marble") превращается в "minecraft:marble" и возвращает AIR.
-        Item item = Registries.ITEM.get(Identifier.of(TeyvatMod.MOD_ID, itemId));
-        if (item != Items.AIR) {
-            // Чёткий спрайт блока в анфас: item-модель с face-on GUI-трансформацией
-            // (задана в моделях блоков), рендерится item-атласом с NEAREST-фильтром.
-            // Поза 5x = 80px (рамка 80px): блок 64px по центру, без размытия.
-            // Важно: сначала scale, потом translate — иначе смещение умножится на масштаб.
-            Matrix3x2fStack m = ctx.getMatrices();
-            m.pushMatrix();
-            m.scale(5.0f, 5.0f);
-            m.translate(px / 5.0f + 2.0f, py / 5.0f + 2.0f);
-            ctx.drawItem(new ItemStack(item), 0, 0);
-            m.popMatrix();
-            if (mouseX >= px && mouseX < px + PREVIEW_W && mouseY >= py && mouseY < py + PREVIEW_H) {
-                tooltip.accept(item.getName());
             }
         }
     }
@@ -379,7 +354,7 @@ public class TravelerNotesScreen extends Screen {
         context.drawText(this.textRenderer, title,
                 (this.width - this.textRenderer.getWidth(title)) / 2,
                 (HEADER_H - 9) / 2, C_GOLD, true);
-        String ver = "Teyvat 0.8.18";
+        String ver = "Teyvat 0.8.19";
         context.drawText(this.textRenderer, ver, this.width - this.textRenderer.getWidth(ver) - 10,
                 (HEADER_H - 9) / 2, C_HINT, true);
 

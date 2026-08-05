@@ -1,13 +1,5 @@
 {
-  "parent": "minecraft:block/block",
-  "display": {
-    "gui": {
-      "rotation": [0, 0, 0],
-      "translation": [0, 0, 0],
-      "scale": [0.8, 0.8, 0.8]
-    }
-  },
-  "textures": {
+  "parent": "minecraft:block/block",  "textures": {
     "particle": "teyvat:block/marble",
     "marble": "teyvat:block/marble",
     "recess": "teyvat:block/marble_recess",
