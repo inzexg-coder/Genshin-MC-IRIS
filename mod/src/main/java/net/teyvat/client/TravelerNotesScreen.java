@@ -15,13 +15,13 @@ import org.joml.Matrix3x2fStack;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.function.Consumer;
 
 import static net.teyvat.client.TravelerNotesContent.*;
 
 /**
  * «Заметки путешественника»: две вкладки — «О сборке» и «Селестия»
- * (блоки от простого крафта к сложному: иконка, описание, сетка рецепта).
+ * (блоки от простого крафта к сложному: крупная иконка, описание, сетка рецепта).
  * Доступно в любом режиме игры: клавиша N или /teyvat notes.
  */
 public class TravelerNotesScreen extends Screen {
@@ -45,41 +45,44 @@ public class TravelerNotesScreen extends Screen {
     private int contentH = 0;
     private double scroll = 0;
     private boolean dragging = false;
+    private Text hoverTooltip = null;
 
     private interface Row {
         int height();
-        void draw(DrawContext ctx, int x, int y);
+        void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip);
     }
 
     private record TextRow(String text, int color) implements Row {
         public int height() { return LINE_H; }
-        public void draw(DrawContext ctx, int x, int y) {
+        public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
             ctx.drawText(MinecraftClient.getInstance().textRenderer, text, x, y, color, true);
         }
     }
 
     private record GapRow(int h) implements Row {
         public int height() { return h; }
-        public void draw(DrawContext ctx, int x, int y) {}
+        public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {}
     }
 
+    /** Крупная иконка блока (48px) + название — шапка карточки блока. */
     private record BlockRow(String itemId, String name) implements Row {
-        public int height() { return 36; }
-        public void draw(DrawContext ctx, int x, int y) {
+        public int height() { return 52; }
+        public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
             Item item = itemOf(itemId);
             if (item != Items.AIR) {
                 Matrix3x2fStack m = ctx.getMatrices();
                 m.pushMatrix();
-                m.translate(x, y + 1);
-                m.scale(2.0f, 2.0f);
+                m.translate(x, y + 2);
+                m.scale(3.0f, 3.0f);
                 ctx.drawItem(new ItemStack(item), 0, 0);
                 m.popMatrix();
             }
-            ctx.drawText(MinecraftClient.getInstance().textRenderer, name, x + 42, y + 12, C_GOLD, true);
-            ctx.fill(x, y + 33, x + 240, y + 34, 0x443A4A6A);
+            ctx.drawText(MinecraftClient.getInstance().textRenderer, name, x + 56, y + 20, C_GOLD, true);
+            ctx.fill(x, y + 50, x + 320, y + 51, 0x443A4A6A);
         }
     }
 
+    /** Сетка рецепта: слоты с предметами, стрелка и результат (по центру сетки). */
     private record GridRow(CraftGrid grid) implements Row {
         public int height() {
             return 16 + gridH() + 8;
@@ -87,8 +90,16 @@ public class TravelerNotesScreen extends Screen {
         private int gridH() {
             return grid.pattern().length * 18 + (grid.pattern().length - 1) * 2;
         }
-        public void draw(DrawContext ctx, int x, int y) {
-            ctx.drawText(MinecraftClient.getInstance().textRenderer, grid.title(), x, y + 2, C_GOLD, true);
+        private void cell(DrawContext ctx, int cx, int cy, int borderColor, int bg) {
+            ctx.fill(cx, cy, cx + 18, cy + 18, bg);
+            ctx.fill(cx, cy, cx + 18, cy + 1, borderColor);
+            ctx.fill(cx, cy + 17, cx + 18, cy + 18, borderColor);
+            ctx.fill(cx, cy, cx + 1, cy + 18, borderColor);
+            ctx.fill(cx + 17, cy, cx + 18, cy + 18, borderColor);
+        }
+        public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            ctx.drawText(client.textRenderer, grid.title(), x, y + 2, C_GOLD, true);
             int gy = y + 14;
             String[] pattern = grid.pattern();
             int cols = pattern[0].length();
@@ -99,40 +110,41 @@ public class TravelerNotesScreen extends Screen {
                     Slot slot = grid.keys().get(key);
                     int cx = gx + cIdx * 20;
                     int cy = gy + r * 20;
+                    boolean hovered = slot != null && mouseX >= cx && mouseX < cx + 18 && mouseY >= cy && mouseY < cy + 18;
                     if (slot == null) {
-                        ctx.fill(cx, cy, cx + 18, cy + 18, 0xFF12182A);
+                        cell(ctx, cx, cy, 0xFF141A2A, 0xFF12182A);
                     } else {
-                        ctx.fill(cx, cy, cx + 18, cy + 18, 0xFF1B2338);
-                        ctx.fill(cx, cy, cx + 18, cy + 1, 0xFF3A4A6A);
-                        ctx.fill(cx, cy + 17, cx + 18, cy + 18, 0xFF3A4A6A);
-                        ctx.fill(cx, cy, cx + 1, cy + 18, 0xFF3A4A6A);
-                        ctx.fill(cx + 17, cy, cx + 18, cy + 18, 0xFF3A4A6A);
+                        cell(ctx, cx, cy, hovered ? 0xFFE8C86A : 0xFF3A4A6A, 0xFF1B2338);
                         Item item = itemOf(slot.item());
                         if (item != Items.AIR) {
                             ctx.drawItem(new ItemStack(item), cx + 1, cy + 1);
                         }
                         if (slot.count() > 1) {
-                            ctx.drawText(MinecraftClient.getInstance().textRenderer, String.valueOf(slot.count()),
+                            ctx.drawText(client.textRenderer, String.valueOf(slot.count()),
                                     cx + 9, cy + 8, 0xFFFFFFFF, true);
+                        }
+                        if (hovered) {
+                            tooltip.accept(item.getName());
                         }
                     }
                 }
             }
             int gridW = cols * 20 - 2;
             int gMid = gy + gridH() / 2 - 4;
-            ctx.drawText(MinecraftClient.getInstance().textRenderer, "→", gx + gridW + 4, gMid, C_GOLD, true);
+            ctx.drawText(client.textRenderer, "→", gx + gridW + 4, gMid, C_GOLD, true);
             int rx = gx + gridW + 18;
-            ctx.fill(rx, gy, rx + 18, gy + 18, 0xFF1B2338);
-            ctx.fill(rx, gy, rx + 18, gy + 1, 0xFFE8C86A);
-            ctx.fill(rx, gy + 17, rx + 18, gy + 18, 0xFFE8C86A);
-            ctx.fill(rx, gy, rx + 1, gy + 18, 0xFFE8C86A);
-            ctx.fill(rx + 17, gy, rx + 18, gy + 18, 0xFFE8C86A);
+            int ry = gy + gridH() / 2 - 9; // ровно напротив среднего ряда
+            boolean rh = mouseX >= rx && mouseX < rx + 18 && mouseY >= ry && mouseY < ry + 18;
+            cell(ctx, rx, ry, rh ? 0xFFFFFFFF : 0xFFE8C86A, 0xFF1B2338);
             Item result = itemOf(grid.result());
             if (result != Items.AIR) {
-                ctx.drawItem(new ItemStack(result), rx + 1, gy + 1);
+                ctx.drawItem(new ItemStack(result), rx + 1, ry + 1);
                 if (grid.resultCount() > 1) {
-                    ctx.drawText(MinecraftClient.getInstance().textRenderer, String.valueOf(grid.resultCount()),
-                            rx + 9, gy + 8, 0xFFFFFFFF, true);
+                    ctx.drawText(client.textRenderer, String.valueOf(grid.resultCount()),
+                            rx + 9, ry + 8, 0xFFFFFFFF, true);
+                }
+                if (rh) {
+                    tooltip.accept(result.getName());
                 }
             }
         }
@@ -187,6 +199,7 @@ public class TravelerNotesScreen extends Screen {
                 rows.add(new GapRow(14));
             }
         }
+        rows.add(new GapRow(18)); // нижний отступ, чтобы контент не упирался в край
         contentH = 0;
         for (Row r : rows) {
             contentH += r.height();
@@ -249,7 +262,6 @@ public class TravelerNotesScreen extends Screen {
         double mouseX = click.x();
         double mouseY = click.y();
         int button = click.button();
-        // Вкладки
         for (int i = 0; i < tabs.size(); i++) {
             int tx = 10 + i * 140;
             if (mouseX >= tx && mouseX <= tx + 130 && mouseY >= HEADER_H + 2 && mouseY <= HEADER_H + TAB_H - 2) {
@@ -261,7 +273,6 @@ public class TravelerNotesScreen extends Screen {
                 return true;
             }
         }
-        // Скроллбар
         int sbX = contentX1 + 4;
         if (button == 0 && mouseX >= sbX && mouseX <= sbX + 5 && mouseY >= contentY0 && mouseY <= contentY1) {
             dragging = true;
@@ -321,20 +332,19 @@ public class TravelerNotesScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, this.width, this.height, 0xEE0F1420);
+        // Полностью непрозрачный фон — мир/хотбар позади не просвечивают
+        context.fill(0, 0, this.width, this.height, 0xFF0F1420);
 
-        // Заголовок
-        context.fill(0, 0, this.width, HEADER_H, 0xF21B2338);
+        context.fill(0, 0, this.width, HEADER_H, 0xFF1B2338);
         context.fill(0, HEADER_H, this.width, HEADER_H + 1, 0xFF3A4A6A);
         String title = "「Заметки путешественника」";
         context.drawText(this.textRenderer, title,
                 (this.width - this.textRenderer.getWidth(title)) / 2,
                 (HEADER_H - 9) / 2, C_GOLD, true);
-        String ver = "Teyvat 0.8.9";
+        String ver = "Teyvat 0.8.10";
         context.drawText(this.textRenderer, ver, this.width - this.textRenderer.getWidth(ver) - 10,
                 (HEADER_H - 9) / 2, C_HINT, true);
 
-        // Вкладки
         for (int i = 0; i < tabs.size(); i++) {
             int tx = 10 + i * 140;
             boolean sel = tab == i;
@@ -349,18 +359,21 @@ public class TravelerNotesScreen extends Screen {
         }
         context.fill(0, HEADER_H + TAB_H, this.width, HEADER_H + TAB_H + 1, 0xFF3A4A6A);
 
-        // Контент
-        context.enableScissor(contentX0, contentY0, contentX1 - contentX0, contentY1 - contentY0);
+        hoverTooltip = null;
+        context.enableScissor(contentX0, contentY0, contentX1, contentY1);
         int y = contentY0 - (int) scroll;
         for (Row r : rows) {
             if (y + r.height() >= contentY0 && y <= contentY1) {
-                r.draw(context, contentX0, y);
+                r.draw(context, contentX0, y, mouseX, mouseY, t -> hoverTooltip = t);
             }
             y += r.height();
         }
         context.disableScissor();
 
-        // Скроллбар
+        if (hoverTooltip != null) {
+            context.drawTooltip(this.textRenderer, hoverTooltip, mouseX + 8, mouseY + 8);
+        }
+
         int sbX = contentX1 + 4;
         context.fill(sbX, contentY0, sbX + 5, contentY1, 0x66222C44);
         if (contentH > viewH) {
@@ -369,8 +382,7 @@ public class TravelerNotesScreen extends Screen {
             context.fill(sbX, thumbY, sbX + 5, thumbY + thumbH, 0xFFE8C86A);
         }
 
-        // Подвал
-        context.fill(0, this.height - FOOTER_H, this.width, this.height, 0xF21B2338);
+        context.fill(0, this.height - FOOTER_H, this.width, this.height, 0xFF1B2338);
         context.fill(0, this.height - FOOTER_H - 1, this.width, this.height - FOOTER_H, 0xFF3A4A6A);
         String hint = "Колесо / стрелки — прокрутка · Esc — закрыть · N — открыть · /teyvat notes";
         context.drawText(this.textRenderer, hint, 12, this.height - 17, C_HINT, true);
