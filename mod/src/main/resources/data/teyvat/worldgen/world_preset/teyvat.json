@@ -1,6 +1,6 @@
 {
  "dimensions": {
-  "teyvat:teyvat": {
+  "minecraft:overworld": {
    "type": "minecraft:overworld",
    "generator": {
     "type": "minecraft:noise",
@@ -16,10 +16,32 @@
         "continentalness": 0.0,
         "erosion": 0.0,
         "depth": 0.0,
-        "weirdness": 0.0
+        "weirdness": 0.0,
+        "offset": 0.0
        }
       }
      ]
+    }
+   }
+  },
+  "minecraft:the_nether": {
+   "type": "minecraft:the_nether",
+   "generator": {
+    "type": "minecraft:noise",
+    "settings": "minecraft:nether",
+    "biome_source": {
+     "type": "minecraft:multi_noise",
+     "preset": "minecraft:nether"
+    }
+   }
+  },
+  "minecraft:the_end": {
+   "type": "minecraft:the_end",
+   "generator": {
+    "type": "minecraft:noise",
+    "settings": "minecraft:end",
+    "biome_source": {
+     "type": "minecraft:the_end"
     }
    }
   }
