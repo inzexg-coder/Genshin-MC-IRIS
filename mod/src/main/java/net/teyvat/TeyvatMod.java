@@ -12,6 +12,7 @@ import net.teyvat.command.TeyvatCommand;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.TeyvatSpawn;
 import net.teyvat.worldgen.TeyvatOceanEdge;
+import net.teyvat.worldgen.TeyvatXEdge;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.network.TravelerChoicePayload;
 import net.teyvat.network.TravelerChoiceSyncPayload;
@@ -34,6 +35,7 @@ public class TeyvatMod implements ModInitializer {
     @Override
     public void onInitialize() {
         TeyvatOceanEdge.register();
+        TeyvatXEdge.register();
         TeyvatBlocks.register();
         TeyvatBlocks.registerItemGroup();
         PayloadTypeRegistry.playS2C().register(NotesOpenPayload.ID, NotesOpenPayload.CODEC);

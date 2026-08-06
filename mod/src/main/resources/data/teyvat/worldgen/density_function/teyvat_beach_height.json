@@ -7,97 +7,54 @@
    "input": {
     "type": "minecraft:add",
     "argument1": {
-     "type": "minecraft:spline",
-     "spline": {
-      "coordinate": {
-       "type": "teyvat:z_edge"
-      },
-      "points": [
-       {
-        "location": -1.0,
-        "value": -1.45,
-        "derivative": 0.2
-       },
-       {
-        "location": -0.7,
-        "value": -1.42,
-        "derivative": 0.3
-       },
-       {
-        "location": -0.35,
-        "value": -1.36,
-        "derivative": 0.4
-       },
-       {
-        "location": 0.0,
-        "value": -1.3,
-        "derivative": 0.8
-       },
-       {
-        "location": 0.15,
-        "value": -0.9,
-        "derivative": 1.6
-       },
-       {
-        "location": 0.25,
-        "value": -0.3,
-        "derivative": 3.0
-       },
-       {
-        "location": 0.31,
-        "value": 0.167,
-        "derivative": 2.2
-       },
-       {
-        "location": 0.5,
-        "value": 0.35,
-        "derivative": 1.2
-       },
-       {
-        "location": 0.75,
-        "value": 0.48,
-        "derivative": 0.6
-       },
-       {
-        "location": 1.0,
-        "value": 0.55,
-        "derivative": 0.3
+     "type": "minecraft:add",
+     "argument1": {
+      "type": "minecraft:mul",
+      "argument1": "teyvat:teyvat_beach_weight",
+      "argument2": {
+       "type": "minecraft:add",
+       "argument1": "teyvat:teyvat_beach_profile",
+       "argument2": {
+        "type": "minecraft:mul",
+        "argument1": -1.0,
+        "argument2": "teyvat:teyvat_cliff_profile"
        }
-      ]
-     }
+      }
+     },
+     "argument2": "teyvat:teyvat_cliff_profile"
     },
     "argument2": {
      "type": "minecraft:add",
      "argument1": {
       "type": "minecraft:mul",
-      "argument1": 1.5,
+      "argument1": 0.8,
       "argument2": {
        "type": "minecraft:shifted_noise",
        "noise": "minecraft:erosion",
        "shift_x": "minecraft:shift_x",
        "shift_y": 0.0,
        "shift_z": "minecraft:shift_z",
-       "xz_scale": 0.3,
+       "xz_scale": 0.5,
        "y_scale": 0.0
       }
      },
      "argument2": {
       "type": "minecraft:mul",
-      "argument1": 0.7,
+      "argument1": 0.4,
       "argument2": {
        "type": "minecraft:shifted_noise",
        "noise": "minecraft:erosion_large",
        "shift_x": "minecraft:shift_x",
        "shift_y": 0.0,
        "shift_z": "minecraft:shift_z",
-       "xz_scale": 0.1,
+       "xz_scale": 0.12,
        "y_scale": 0.0
       }
      }
     }
    },
    "min": -1.45,
-   "max": 1.1
+   "max": 1.5
   }
  }
 }

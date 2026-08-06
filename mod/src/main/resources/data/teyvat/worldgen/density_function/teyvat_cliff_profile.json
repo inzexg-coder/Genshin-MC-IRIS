@@ -1,0 +1,36 @@
+{
+ "type": "minecraft:flat_cache",
+ "argument": {
+  "type": "minecraft:cache_2d",
+  "argument": {
+   "type": "minecraft:spline",
+   "spline": {
+    "coordinate": {
+     "type": "teyvat:z_edge"
+    },
+    "points": [
+     {
+      "location": -1.0,
+      "value": -1.45,
+      "derivative": 0.0
+     },
+     {
+      "location": 0.28,
+      "value": -1.45,
+      "derivative": 0.1
+     },
+     {
+      "location": 0.31,
+      "value": 1.35,
+      "derivative": 5.0
+     },
+     {
+      "location": 1.0,
+      "value": 1.35,
+      "derivative": 0.1
+     }
+    ]
+   }
+  }
+ }
+}
