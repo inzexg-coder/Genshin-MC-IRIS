@@ -21,7 +21,7 @@ public final class TeyvatXEdge {
     public static final Identifier TYPE_ID = Identifier.of(TeyvatMod.MOD_ID, "x_edge");
 
     /** Полуширина зоны перехода пляж/поля: x_edge = ±1 на |x| = BEACH_HALF. Пляж короткий (вглубь ~80 блоков). */
-    public static final int BEACH_HALF = 140; // полуширина пляжа: ширина чуть увеличена, длина (вглубь) сокращена
+    public static final int BEACH_HALF = 70; // полуширина пляжа: ширина и длина уменьшены в 2 раза, форма полукруглая
 
     private static final DensityFunction INSTANCE = new DensityFunction.Base() {
         @Override
