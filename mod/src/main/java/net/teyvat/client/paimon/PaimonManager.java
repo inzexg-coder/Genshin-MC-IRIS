@@ -28,8 +28,15 @@ public final class PaimonManager {
     private static final double TELEPORT_DIST = 16.0;
     /** Дистанция до игрока во время знакомства. */
     private static final double INTRO_DIST = 2.4;
+    /** Высота над игроком во время знакомства (чуть выше линии взгляда). */
+    private static final double INTRO_UP = 1.4;
+    /** Сглаживание поворота цели следования: быстрые движения мыши не дёргают Паймон. */
+    private static final float REF_YAW_LERP = 0.08f;
 
     private static PaimonEntity paimon;
+    /** Сглаженный угол, от которого зависит цель Паймон (не дёргается от взгляда). */
+    private static float refYaw;
+    private static boolean refYawReady;
 
     private PaimonManager() {}
 
@@ -69,7 +76,9 @@ public final class PaimonManager {
         }
         PaimonEntity entity = new PaimonEntity(PaimonEntity.TYPE, world);
         entity.setOwner(client.player.getUuid());
-        Vec3d start = playerPos(client.player).add(forward(client.player, INTRO_DIST)).add(0.0, 1.2, 0.0);
+        refYaw = client.player.getYaw();
+        refYawReady = true;
+        Vec3d start = playerPos(client.player).add(forwardDeg(refYaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
         entity.setPosition(start.x, start.y, start.z);
         entity.setYaw(client.player.getYaw());
         world.addEntity(entity);
@@ -83,6 +92,11 @@ public final class PaimonManager {
             return;
         }
 
+        if (!refYawReady) {
+            refYaw = player.getYaw();
+            refYawReady = true;
+        }
+
         if (!entity.isFollowing()) {
             int ticks = entity.getIntroTicks() + 1;
             entity.setIntroTicks(ticks);
@@ -94,9 +108,14 @@ public final class PaimonManager {
                 entity.setFollowing(true);
                 say(player, "Пойдём! Паймон покажет дорогу и будет рядом, куда бы ты ни пошёл.");
             }
+        } else {
+            // Сглаживаем поворот: при быстром движении мыши цель почти не смещается.
+            refYaw = MathHelper.lerpAngleDegrees(REF_YAW_LERP, refYaw, player.getYaw());
         }
 
-        Vec3d target = entity.isFollowing() ? followTarget(player) : introTarget(player);
+        // Во время знакомства цель стоит в направлении, зафиксированном при появлении,
+        // поэтому поворот камеры её не дёргает.
+        Vec3d target = entity.isFollowing() ? followTarget(player, refYaw) : introTarget(player, refYaw);
         if (entity.squaredDistanceTo(target) >= TELEPORT_DIST * TELEPORT_DIST) {
             entity.refreshPositionAfterTeleport(target);
             entity.setYaw(faceYaw(entity, player));
@@ -113,16 +132,16 @@ public final class PaimonManager {
         entity.setPitch(0.0f);
     }
 
-    /** Цель полёта во время знакомства: чуть перед игроком, на уровне его глаз. */
-    private static Vec3d introTarget(AbstractClientPlayerEntity player) {
-        return playerPos(player).add(forward(player, INTRO_DIST)).add(0.0, 1.2, 0.0);
+    /** Цель полёта во время знакомства: перед игроком, чуть выше линии взгляда. */
+    private static Vec3d introTarget(AbstractClientPlayerEntity player, float yaw) {
+        return playerPos(player).add(forwardDeg(yaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
     }
 
     /** Цель полёта за игроком: сзади и чуть сбоку, выше головы. */
-    private static Vec3d followTarget(AbstractClientPlayerEntity player) {
-        double rad = Math.toRadians(player.getYaw());
+    private static Vec3d followTarget(AbstractClientPlayerEntity player, float yaw) {
+        double rad = Math.toRadians(yaw);
         Vec3d behind = new Vec3d(-Math.sin(rad), 0.0, Math.cos(rad));
-        double sideRad = Math.toRadians(player.getYaw() + FOLLOW_SIDE_DEG);
+        double sideRad = Math.toRadians(yaw + FOLLOW_SIDE_DEG);
         Vec3d side = new Vec3d(-Math.sin(sideRad), 0.0, Math.cos(sideRad));
         return playerPos(player)
                 .add(behind.multiply(FOLLOW_DIST))
@@ -130,8 +149,8 @@ public final class PaimonManager {
                 .add(0.0, FOLLOW_UP, 0.0);
     }
 
-    private static Vec3d forward(AbstractClientPlayerEntity player, double dist) {
-        double rad = Math.toRadians(player.getYaw());
+    private static Vec3d forwardDeg(float yaw, double dist) {
+        double rad = Math.toRadians(yaw);
         return new Vec3d(-Math.sin(rad), 0.0, Math.cos(rad)).multiply(dist);
     }
 
