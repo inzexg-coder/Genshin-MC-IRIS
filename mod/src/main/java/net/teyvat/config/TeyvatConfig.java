@@ -36,6 +36,17 @@ public final class TeyvatConfig {
     /** Телепортировать новых игроков (без кровати) на пляж при входе. */
     public boolean teleport_new_players = true;
 
+    /** Паймон-компаньон. */
+    public Paimon paimon = new Paimon();
+
+    /** Настройки Паймон. */
+    public static class Paimon {
+        /** Показывать Паймон после выбора путешественника. */
+        public boolean enabled = true;
+        /** Длительность знакомства после появления, тики. */
+        public int intro_ticks = 140;
+    }
+
     private static TeyvatConfig instance;
 
     public static TeyvatConfig get() {
@@ -55,6 +66,9 @@ public final class TeyvatConfig {
                     cfg = parsed;
                     if (cfg.spawn == null) {
                         cfg.spawn = new Spawn();
+                    }
+                    if (cfg.paimon == null) {
+                        cfg.paimon = new Paimon();
                     }
                 }
             } catch (Exception ignored) {

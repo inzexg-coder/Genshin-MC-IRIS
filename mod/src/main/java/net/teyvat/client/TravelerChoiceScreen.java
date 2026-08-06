@@ -16,6 +16,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.teyvat.network.TravelerChoicePayload;
+import net.teyvat.client.paimon.PaimonManager;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.lwjgl.glfw.GLFW;
@@ -110,6 +111,8 @@ public class TravelerChoiceScreen extends Screen {
         }
         closing = true;
         flash = 0f;
+        // Паймон вылетает поприветствовать путешественника и знакомит его с миром.
+        PaimonManager.startIntro();
     }
 
     @Override

@@ -79,6 +79,7 @@ public class TeyvatMod implements ModInitializer {
             }
             if (existing != null) {
                 TRAVELER_CHOICES.put(player.getUuid(), existing);
+                ServerPlayNetworking.send(player, new TravelerChoiceSyncPayload(player.getUuid(), existing));
                 for (ServerPlayerEntity other : server.getPlayerManager().getPlayerList()) {
                     if (!other.getUuid().equals(player.getUuid())) {
                         ServerPlayNetworking.send(other, new TravelerChoiceSyncPayload(player.getUuid(), existing));

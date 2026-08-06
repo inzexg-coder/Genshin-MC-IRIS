@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
@@ -12,6 +13,9 @@ import net.minecraft.util.Identifier;
 import net.teyvat.client.TravelerChoiceClient;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.teyvat.client.TravelerNotesScreen;
+import net.teyvat.client.paimon.PaimonEntityRenderer;
+import net.teyvat.client.paimon.PaimonEntity;
+import net.teyvat.client.paimon.PaimonManager;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.network.TravelerChoiceSyncPayload;
@@ -27,6 +31,9 @@ public class TeyvatClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        // Рендер клиентской Паймон.
+        EntityRendererRegistry.register(PaimonEntity.TYPE, PaimonEntityRenderer::new);
+
         // Клавиша открывает заметки в любом режиме игры (клиентская сторона).
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (OPEN_NOTES.wasPressed()) {
@@ -40,6 +47,7 @@ public class TeyvatClient implements ClientModInitializer {
                     client.setScreen(new TravelerChoiceScreen());
                 }
             }
+            PaimonManager.tick();
         });
 
         // /teyvat notes: сервер просит клиент открыть экран.
@@ -58,13 +66,23 @@ public class TeyvatClient implements ClientModInitializer {
 
         // Синхронизация выбора: применяем скин игрока через локальные текстуры мода.
         ClientPlayNetworking.registerGlobalReceiver(TravelerChoiceSyncPayload.ID, (payload, context) -> {
-            context.client().execute(() -> TravelerChoiceClient.set(payload.playerId(), payload.choice()));
+            context.client().execute(() -> {
+                TravelerChoiceClient.set(payload.playerId(), payload.choice());
+                if (context.client().player != null
+                        && payload.playerId().equals(context.client().player.getUuid())) {
+                    // Свой выбор — Паймон выходит поприветствовать путешественника.
+                    PaimonManager.startIntro();
+                }
+            });
         });
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (client.player != null) {
+                if (TravelerChoiceClient.get(client.player.getUuid()) != null) {
+                    PaimonManager.startIntro();
+                }
                 client.player.sendMessage(Text.literal(
-                        "§e[Teyvat 0.8.56] §7Заметки путешественника: клавиша §bN§7 или §b/teyvat notes"), false);
+                        "§e[Teyvat 0.8.57] §7Заметки путешественника: клавиша §bN§7 или §b/teyvat notes"), false);
             }
         });
     }
