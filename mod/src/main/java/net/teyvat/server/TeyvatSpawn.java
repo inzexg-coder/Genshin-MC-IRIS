@@ -12,7 +12,11 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.WorldProperties;
 import net.minecraft.world.biome.Biome;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import net.minecraft.world.border.WorldBorder;
 import net.teyvat.config.TeyvatConfig;
+import net.teyvat.worldgen.TeyvatOceanEdge;
 
 import java.util.Set;
 
@@ -23,6 +27,7 @@ import java.util.Set;
  * Новые игроки (без кровати и без отметки teyvat:welcomed) телепортируются туда один раз.
  */
 public final class TeyvatSpawn {
+    private static final Logger LOGGER = LoggerFactory.getLogger("Teyvat");
     private static final Identifier BEACH_BIOME_ID = Identifier.of("teyvat", "teyvat_beach");
     private static final RegistryKey<Biome> BEACH_BIOME = RegistryKey.of(RegistryKeys.BIOME, BEACH_BIOME_ID);
     private static final String WELCOME_TAG = "teyvat:welcomed";
@@ -37,7 +42,20 @@ public final class TeyvatSpawn {
     public static void prepare(MinecraftServer server) {
         beachSpawn = null;
         beachYaw = 0f;
-        beachSpawn(server.getOverworld());
+        ServerWorld world = server.getOverworld();
+        setupWorldBorder(world);
+        beachSpawn(world);
+    }
+
+    /**
+     * Мировой бордер = граница карты и барьер в море: квадрат с центром (0,0)
+     * и стороной 4000 блоков. Северный край (z = -2000) упирается в глубокую
+     * часть моря, поэтому дальше него уплыть нельзя.
+     */
+    private static void setupWorldBorder(ServerWorld world) {
+        WorldBorder border = world.getWorldBorder();
+        border.setCenter(0, 0);
+        border.setSize(TeyvatOceanEdge.BORDER_SIZE);
     }
 
     /** Вызывается при входе игрока: телепортировать новичка на пляж один раз. */
@@ -78,7 +96,10 @@ public final class TeyvatSpawn {
             pos = new BlockPos(cfg.fixed_x, y, cfg.fixed_z);
         } else {
             BlockPos anchor = new BlockPos(cfg.anchor_x, 0, cfg.anchor_z);
-            BlockPos found = findBeachSpawn(world, anchor, Math.max(16, cfg.search_radius));
+            BlockPos found = findShoreSpawn(world, anchor);
+            if (found == null) {
+                found = findBeachSpawn(world, anchor, Math.max(16, cfg.search_radius));
+            }
             if (found == null) {
                 // вокруг якоря ничего не нашлось (например, чанки не загружены) —
                 // ищем вокруг точки мирового спавна, она гарантированно загружена
@@ -91,7 +112,86 @@ public final class TeyvatSpawn {
         beachSpawn = pos;
         beachYaw = yaw;
         world.setSpawnPoint(WorldProperties.SpawnPoint.create(world.getRegistryKey(), pos, yaw, 0f));
+        LOGGER.info("Пляжный спавн: x={}, y={}, z={}, yaw={} (море на севере, суша позади)", pos.getX(), pos.getY(), pos.getZ(), yaw);
         return pos;
+    }
+
+    /**
+     * Поиск точки у кромки моря: полоса поперёк берега (z около уреза воды).
+     * Море всегда на севере, поэтому полоса идёт вдоль X вокруг якоря.
+     * Принимается и суша на уровне моря (песок по щиколотку в воде) —
+     * это и есть самая кромка воды. Чанки полосы генерируются тут же.
+     */
+    private static BlockPos findShoreSpawn(ServerWorld world, BlockPos origin) {
+        int zMin = TeyvatOceanEdge.WATERLINE_Z - 160;
+        int zMax = TeyvatOceanEdge.WATERLINE_Z + 80;
+        BlockPos best = null;
+        int bestScore = Integer.MIN_VALUE;
+        BlockPos bestAny = null;
+        int bestAnyScore = Integer.MIN_VALUE;
+        for (int x = origin.getX() - 256; x <= origin.getX() + 256; x += 8) {
+            for (int z = zMin; z <= zMax; z += 8) {
+                BlockPos cand = new BlockPos(x, 0, z);
+                // Явная генерация чанка полосы (один раз при старте): getTopY и
+                // getBiome без неё не создают чанки и возвращают заглушки.
+                world.getChunk(cand.getX() >> 4, cand.getZ() >> 4);
+                int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cand.getX(), cand.getZ());
+                if (topY < world.getSeaLevel() - 1) {
+                    continue;
+                }
+                if (!world.getBiome(cand).matchesKey(BEACH_BIOME)) {
+                    continue;
+                }
+                BlockPos top = new BlockPos(cand.getX(), topY, cand.getZ());
+                if (!world.getFluidState(top).isEmpty()) {
+                    continue;
+                }
+                if (!world.getFluidState(top.up()).isEmpty()) {
+                    continue;
+                }
+                BlockState below = world.getBlockState(top.down());
+                if (!below.isFullCube(world, top.down())) {
+                    continue;
+                }
+                int dryScore = beachScore(world, top);
+                if (dryScore > bestAnyScore) {
+                    bestAnyScore = dryScore;
+                    bestAny = top;
+                }
+                int water = seaAround(world, top);
+                if (water <= 0) {
+                    continue; // спавн только рядом с морем
+                }
+                int score = dryScore + water * 20;
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = top;
+                }
+            }
+        }
+        return best != null ? best : bestAny;
+    }
+
+    /** Сколько направлений вокруг точки занято морем (кольца до 24 блоков). */
+    private static int seaAround(ServerWorld world, BlockPos top) {
+        int count = 0;
+        int[][] dirs = {{8, 0}, {-8, 0}, {0, 8}, {0, -8}, {6, 6}, {6, -6}, {-6, 6}, {-6, -6}};
+        for (int d = 8; d <= 24; d += 8) {
+            for (int[] dir : dirs) {
+                int nx = top.getX() + dir[0] * d;
+                int nz = top.getZ() + dir[1] * d;
+                world.getChunk(nx >> 4, nz >> 4);
+                int ny = world.getTopY(Heightmap.Type.MOTION_BLOCKING, nx, nz);
+                if (ny <= world.getSeaLevel()) {
+                    count++;
+                    continue;
+                }
+                if (!world.getFluidState(new BlockPos(nx, ny, nz)).isEmpty()) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     /**
