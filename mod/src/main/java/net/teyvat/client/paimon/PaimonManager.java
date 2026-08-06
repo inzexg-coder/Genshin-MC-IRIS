@@ -208,19 +208,18 @@ public final class PaimonManager {
         }
     }
 
-    /** Цель полёта: Паймон очень плавно «переплывает» с одного бока героя на другой,
-     *  облетая его по мягкому эллипсу (медленный синус), как в Genshin. По вертикали
-     *  слегка выныривает и ныряет, поэтому не летит по ровной линии. Точка привязана
-     *  к сглаженному взгляду, так что при повороте героя Паймон мягко дрейфует,
-     *  а не перелетает за спину. */
+    /** Цель полёта: Паймон держится за спиной героя и очень плавно «переплывает»
+     *  то влево, то вправо (медленный синус по бокам), никогда не оказываясь перед
+     *  лицом. По вертикали слегка выныривает и ныряет, поэтому не летит по ровной
+     *  линии. Точка привязана к сглаженному взгляду, так что при повороте героя
+     *  Паймон мягко дрейфует и остаётся за спиной. */
     private static Vec3d followTarget(AbstractClientPlayerEntity player, float yaw, PaimonEntity entity) {
         double orbit = entity.age * 0.045;
         double side = Math.sin(orbit) * FOLLOW_SIDE * 1.05;
-        double fwd = Math.cos(orbit) * 0.6;
         double bob = Math.sin(entity.age * 0.12 + 1.7) * 0.12;
         return playerPos(player)
                 .add(sideDeg(yaw, side))
-                .add(forwardDeg(yaw, fwd))
+                .add(forwardDeg(yaw, -0.5))
                 .add(0.0, FOLLOW_UP + bob, 0.0);
     }
 
