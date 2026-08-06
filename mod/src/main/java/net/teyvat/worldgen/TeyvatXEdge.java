@@ -20,8 +20,8 @@ import net.teyvat.TeyvatMod;
 public final class TeyvatXEdge {
     public static final Identifier TYPE_ID = Identifier.of(TeyvatMod.MOD_ID, "x_edge");
 
-    /** Полуширина зоны перехода пляж/поля: x_edge = ±1 на |x| = BEACH_HALF. */
-    public static final int BEACH_HALF = 122; // полуширина пляжа: площадь уменьшена вдвое (было 245)
+    /** Полуширина зоны перехода пляж/поля: x_edge = ±1 на |x| = BEACH_HALF. Пляж короткий (вглубь ~80 блоков). */
+    public static final int BEACH_HALF = 140; // полуширина пляжа: ширина чуть увеличена, длина (вглубь) сокращена
 
     private static final DensityFunction INSTANCE = new DensityFunction.Base() {
         @Override

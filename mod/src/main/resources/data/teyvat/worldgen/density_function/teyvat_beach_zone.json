@@ -1,6 +1,70 @@
 {
  "type": "minecraft:range_choice",
- "input": "teyvat:teyvat_beach_weight",
+ "input": {
+  "type": "minecraft:mul",
+  "argument1": "teyvat:teyvat_beach_weight",
+  "argument2": {
+   "type": "minecraft:spline",
+   "spline": {
+    "coordinate": {
+     "type": "minecraft:add",
+     "argument1": {
+      "type": "teyvat:z_edge"
+     },
+     "argument2": {
+      "type": "minecraft:mul",
+      "argument1": 0.03,
+      "argument2": {
+       "type": "minecraft:shifted_noise",
+       "noise": "minecraft:erosion",
+       "shift_x": "minecraft:shift_x",
+       "shift_y": 0.0,
+       "shift_z": "minecraft:shift_z",
+       "xz_scale": 0.5,
+       "y_scale": 0.0
+      }
+     }
+    },
+    "points": [
+     {
+      "location": -1.0,
+      "value": 1.0,
+      "derivative": 0.0
+     },
+     {
+      "location": 0.3,
+      "value": 1.0,
+      "derivative": 0.0
+     },
+     {
+      "location": 0.45,
+      "value": 0.95,
+      "derivative": -0.8
+     },
+     {
+      "location": 0.55,
+      "value": 0.6,
+      "derivative": -2.5
+     },
+     {
+      "location": 0.65,
+      "value": 0.15,
+      "derivative": -1.5
+     },
+     {
+      "location": 0.75,
+      "value": 0.0,
+      "derivative": 0.0
+     },
+     {
+      "location": 1.0,
+      "value": 0.0,
+      "derivative": 0.0
+     }
+    ]
+   }
+  }
+ },
  "min_inclusive": 0.5,
  "max_exclusive": 2.0,
  "when_in_range": 1.0,

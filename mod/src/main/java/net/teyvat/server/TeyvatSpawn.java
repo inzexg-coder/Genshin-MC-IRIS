@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import net.minecraft.world.border.WorldBorder;
 import net.teyvat.config.TeyvatConfig;
 import net.teyvat.worldgen.TeyvatOceanEdge;
+import net.teyvat.worldgen.TeyvatXEdge;
 
 import java.util.Set;
 
@@ -129,44 +130,54 @@ public final class TeyvatSpawn {
         int bestScore = Integer.MIN_VALUE;
         BlockPos bestAny = null;
         int bestAnyScore = Integer.MIN_VALUE;
-        for (int x = origin.getX() - 256; x <= origin.getX() + 256; x += 8) {
-            for (int z = zMin; z <= zMax; z += 8) {
-                BlockPos cand = new BlockPos(x, 0, z);
-                // Явная генерация чанка полосы (один раз при старте): getTopY и
-                // getBiome без неё не создают чанки и возвращают заглушки.
-                world.getChunk(cand.getX() >> 4, cand.getZ() >> 4);
-                int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cand.getX(), cand.getZ());
-                if (topY < world.getSeaLevel() - 1) {
-                    continue;
-                }
-                // Пляж — только биом «Пляж»: поля с обрывами по краям не подходят для спавна.
-                if (!world.getBiome(cand).matchesKey(BEACH_BIOME)) {
-                    continue;
-                }
-                BlockPos top = new BlockPos(cand.getX(), topY, cand.getZ());
-                if (!world.getFluidState(top).isEmpty()) {
-                    continue;
-                }
-                if (!world.getFluidState(top.up()).isEmpty()) {
-                    continue;
-                }
-                BlockState below = world.getBlockState(top.down());
-                if (!below.isFullCube(world, top.down())) {
-                    continue;
-                }
-                int dryScore = beachScore(world, top);
-                if (dryScore > bestAnyScore) {
-                    bestAnyScore = dryScore;
-                    bestAny = top;
-                }
-                int water = seaAround(world, top);
-                if (water <= 0) {
-                    continue; // спавн только рядом с морем
-                }
-                int score = dryScore + water * 20;
-                if (score > bestScore) {
-                    bestScore = score;
-                    best = top;
+        // Сканируем от центра пляжа к краям: спавн должен быть в середине полосы,
+        // между боковыми биомами, а не на стыке с холмами.
+        int half = TeyvatXEdge.BEACH_HALF;
+        for (int dx = 0; dx <= half; dx += 8) {
+            int[] xs = dx == 0 ? new int[]{origin.getX()} : new int[]{origin.getX() + dx, origin.getX() - dx};
+            for (int x : xs) {
+                for (int z = zMin; z <= zMax; z += 8) {
+                    BlockPos cand = new BlockPos(x, 0, z);
+                    // Явная генерация чанка полосы (один раз при старте): getTopY и
+                    // getBiome без неё не создают чанки и возвращают заглушки.
+                    world.getChunk(cand.getX() >> 4, cand.getZ() >> 4);
+                    int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cand.getX(), cand.getZ());
+                    if (topY < world.getSeaLevel() - 1) {
+                        continue;
+                    }
+                    // Пляж — только биом «Пляж»: поля с обрывами по краям не подходят для спавна.
+                    if (!world.getBiome(cand).matchesKey(BEACH_BIOME)) {
+                        continue;
+                    }
+                    BlockPos top = new BlockPos(cand.getX(), topY, cand.getZ());
+                    if (!world.getFluidState(top).isEmpty()) {
+                        continue;
+                    }
+                    if (!world.getFluidState(top.up()).isEmpty()) {
+                        continue;
+                    }
+                    BlockState below = world.getBlockState(top.down());
+                    if (!below.isFullCube(world, top.down())) {
+                        continue;
+                    }
+                    int dryScore = beachScore(world, top);
+                    if (dryScore > bestAnyScore) {
+                        bestAnyScore = dryScore;
+                        bestAny = top;
+                    }
+                    int water = seaAround(world, top);
+                    if (water <= 0) {
+                        continue; // спавн только рядом с морем
+                    }
+                    int score = dryScore + water * 20;
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = top;
+                    }
+                    // Первая же точка от центра с сухой площадкой и водой рядом — спавн.
+                    if (dryScore >= 12 && water >= 3) {
+                        return top;
+                    }
                 }
             }
         }
