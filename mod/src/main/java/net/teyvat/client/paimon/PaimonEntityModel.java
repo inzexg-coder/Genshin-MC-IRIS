@@ -36,21 +36,21 @@ public class PaimonEntityModel extends EntityModel<PaimonRenderState> {
     public PaimonEntityModel(ModelPart root) {
         super(root);
         this.bone10 = root.getChild("bone10");
-        this.body = root.getChild("body");
-        this.arms = root.getChild("arms");
-        this.bone8 = root.getChild("bone8");
-        this.bone9 = root.getChild("bone9");
-        this.legs = root.getChild("legs");
-        this.bone7 = root.getChild("bone7");
-        this.cube_r1 = root.getChild("cube_r1");
-        this.cube_r2 = root.getChild("cube_r2");
-        this.cube_r3 = root.getChild("cube_r3");
-        this.cube_r4 = root.getChild("cube_r4");
-        this.head = root.getChild("head");
-        this.cube_r5 = root.getChild("cube_r5");
-        this.blink = root.getChild("blink");
-        this.bone6 = root.getChild("bone6");
-        this.bone5 = root.getChild("bone5");
+        this.body = this.bone10.getChild("body");
+        this.arms = this.body.getChild("arms");
+        this.bone8 = this.arms.getChild("bone8");
+        this.bone9 = this.arms.getChild("bone9");
+        this.legs = this.body.getChild("legs");
+        this.bone7 = this.body.getChild("bone7");
+        this.cube_r1 = this.bone7.getChild("cube_r1");
+        this.cube_r2 = this.bone7.getChild("cube_r2");
+        this.cube_r3 = this.bone7.getChild("cube_r3");
+        this.cube_r4 = this.bone7.getChild("cube_r4");
+        this.head = this.bone10.getChild("head");
+        this.cube_r5 = this.head.getChild("cube_r5");
+        this.blink = this.head.getChild("blink");
+        this.bone6 = this.head.getChild("bone6");
+        this.bone5 = this.head.getChild("bone5");
     }
 
     public static TexturedModelData getTexturedModelData() {
