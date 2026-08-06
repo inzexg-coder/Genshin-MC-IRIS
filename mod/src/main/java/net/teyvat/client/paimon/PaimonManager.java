@@ -51,6 +51,8 @@ public final class PaimonManager {
     private static boolean refYawReady;
     /** Счётчик для шлейфа: порция частиц каждый 2-й тик. */
     private static int trailTimer;
+    /** Высота середины тела Паймон над ногами — отсюда идёт шлейф. */
+    private static final double TRAIL_UP = 0.85;
     /** Абсолютная точка знакомства: Паймон не сдвигается с неё, пока говорит. */
     private static Vec3d introPos;
 
@@ -150,7 +152,7 @@ public final class PaimonManager {
             entity.refreshPositionAfterTeleport(target);
             entity.setYaw(faceYaw(entity, player));
             entity.clearTrail();
-            entity.pushTrailPoint(entityPos(entity));
+            entity.pushTrailPoint(entityPos(entity).add(0.0, TRAIL_UP, 0.0));
             return;
         }
 
@@ -165,7 +167,7 @@ public final class PaimonManager {
         entity.setYaw(faceYaw(entity, player));
         entity.setPitch(0.0f);
         if (entity.isFollowing()) {
-            entity.pushTrailPoint(entityPos(entity));
+            entity.pushTrailPoint(entityPos(entity).add(0.0, TRAIL_UP, 0.0));
             spawnGoldenTrail((ClientWorld) client.world, entity);
         }
     }
@@ -180,7 +182,7 @@ public final class PaimonManager {
         }
         var random = world.random;
         double x = entity.getX();
-        double y = entity.getY() + 0.4;
+        double y = entity.getY() + TRAIL_UP;
         double z = entity.getZ();
         // Искры фейерверка: разлетаются в стороны и вниз, оставляя за собой дорожку.
         for (int i = 0; i < 4; i++) {

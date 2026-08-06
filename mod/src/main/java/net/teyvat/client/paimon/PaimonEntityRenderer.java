@@ -81,7 +81,7 @@ public class PaimonEntityRenderer extends EntityRenderer<PaimonEntity, PaimonRen
             Vec3d camLocal = cameraState.pos.subtract(state.trailBase);
             RenderLayer glowLayer = RenderLayer.getEntityTranslucentEmissive(TRAIL_GLOW);
             queue.submitCustom(matrices, glowLayer, (entry, consumer) ->
-                    drawBillboard(entry, consumer, camLocal, new Vec3d(0.0, 0.8, 0.0), 0.55f, 0.5f));
+                    drawBillboard(entry, consumer, camLocal, new Vec3d(0.0, 0.8, 0.0), 0.45f, 0.20f));
         }
         super.render(state, matrices, queue, cameraState);
     }
@@ -92,8 +92,8 @@ public class PaimonEntityRenderer extends EntityRenderer<PaimonEntity, PaimonRen
         int count = trail.size();
         for (int i = 0; i < count; i++) {
             float t = (i + 1) / (float) count;
-            float size = 0.10f + 0.26f * t;
-            float alpha = 0.10f + 0.55f * t;
+            float size = 0.08f + 0.22f * t;
+            float alpha = 0.05f + 0.27f * t;
             drawBillboard(entry, consumer, camLocal, trail.get(i), size, alpha);
         }
     }
@@ -115,7 +115,7 @@ public class PaimonEntityRenderer extends EntityRenderer<PaimonEntity, PaimonRen
         float x = (float) p.x, y = (float) p.y, z = (float) p.z;
         float rx = (float) (right.x * size), ry = (float) (right.y * size), rz = (float) (right.z * size);
         float ux = (float) (up.x * size), uy = (float) (up.y * size), uz = (float) (up.z * size);
-        // Золото (1.0, 0.84, 0.38) с прозрачностью по краям пути.
+        // Бледное золото (1.0, 0.92, 0.70), прозрачное по краям пути.
         quad(entry, consumer, x, y, z, rx, ry, rz, ux, uy, uz, alpha);
     }
 
@@ -131,7 +131,7 @@ public class PaimonEntityRenderer extends EntityRenderer<PaimonEntity, PaimonRen
     private static void vertex(MatrixStack.Entry entry, VertexConsumer consumer,
                                float x, float y, float z, float u, float v, float alpha) {
         consumer.vertex(entry, x, y, z)
-                .color(1.0f, 0.84f, 0.38f, alpha)
+                .color(1.0f, 0.92f, 0.70f, alpha)
                 .texture(u, v)
                 .overlay(OverlayTexture.DEFAULT_UV)
                 .light(0xF0, 0xF0)
