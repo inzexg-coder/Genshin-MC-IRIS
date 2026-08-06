@@ -8,8 +8,11 @@ import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.UUID;
 
 /**
@@ -32,6 +35,9 @@ public class PaimonEntity extends Entity {
                     .maxTrackingRange(64)
                     .build(RegistryKey.of(RegistryKeys.ENTITY_TYPE, TYPE_ID)));
 
+    /** Сколько точек пути хранит золотой шлейф за Паймон (по одной в тик полёта). */
+    private static final int TRAIL_LENGTH = 14;
+
     /** Дёргает статический инициализатор на обеих сторонах (сервер тоже регистрирует тип). */
     public static void register() {
         if (TYPE == null) {
@@ -43,6 +49,8 @@ public class PaimonEntity extends Entity {
     private boolean following;
     private int introTicks;
     private final int introTicksLimit;
+    /** Последние позиции Паймон — рендер рисует по ним золотой шлейф. */
+    private final Deque<Vec3d> trail = new ArrayDeque<>();
 
     public PaimonEntity(EntityType<? extends PaimonEntity> type, World world) {
         super(type, world);
@@ -77,6 +85,27 @@ public class PaimonEntity extends Entity {
 
     public int getIntroTicksLimit() {
         return this.introTicksLimit;
+    }
+
+    /** Запоминает точку пути шлейфа (не чаще, чем раз в 0.02 блока — иначе висит на месте). */
+    public void pushTrailPoint(Vec3d pos) {
+        Vec3d last = this.trail.peekLast();
+        if (last == null || last.squaredDistanceTo(pos) >= 0.0004) {
+            this.trail.addLast(pos);
+            while (this.trail.size() > TRAIL_LENGTH) {
+                this.trail.removeFirst();
+            }
+        }
+    }
+
+    /** Очищает шлейф (например, после телепорта к игроку). */
+    public void clearTrail() {
+        this.trail.clear();
+    }
+
+    /** Точки пути шлейфа от старых к свежим. */
+    public Deque<Vec3d> getTrail() {
+        return this.trail;
     }
 
     @Override

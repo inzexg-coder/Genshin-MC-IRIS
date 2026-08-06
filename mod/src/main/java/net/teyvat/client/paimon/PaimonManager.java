@@ -140,7 +140,7 @@ public final class PaimonManager {
 
         Vec3d target;
         if (entity.isFollowing()) {
-            target = followTarget(player, refYaw);
+            target = followTarget(player, refYaw, entity);
         } else {
             // Во время знакомства Паймон не двигается: стоит на зафиксированной точке
             // и только поворачивается лицом к игроку.
@@ -149,6 +149,8 @@ public final class PaimonManager {
         if (entity.squaredDistanceTo(target) >= TELEPORT_DIST * TELEPORT_DIST) {
             entity.refreshPositionAfterTeleport(target);
             entity.setYaw(faceYaw(entity, player));
+            entity.clearTrail();
+            entity.pushTrailPoint(entityPos(entity));
             return;
         }
 
@@ -163,6 +165,7 @@ public final class PaimonManager {
         entity.setYaw(faceYaw(entity, player));
         entity.setPitch(0.0f);
         if (entity.isFollowing()) {
+            entity.pushTrailPoint(entityPos(entity));
             spawnGoldenTrail((ClientWorld) client.world, entity);
         }
     }
@@ -205,11 +208,17 @@ public final class PaimonManager {
 
     /** Цель полёта: справа от героя на уровне головы, как Паймон в Genshin.
      *  Точка привязана к сглаженному взгляду, поэтому при повороте Паймон мягко
-     *  дрейфует, а не перелетает за спину; при беге она не оказывается перед лицом. */
-    private static Vec3d followTarget(AbstractClientPlayerEntity player, float yaw) {
+     *  дрейфует, а не перелетает за спину; при беге она не оказывается перед лицом.
+     *  На цель наложены плавные синусоидальные колебания — Паймон «выныривает»
+     *  и ныряет, как в самой игре, а не летит по ровной линии. */
+    private static Vec3d followTarget(AbstractClientPlayerEntity player, float yaw, PaimonEntity entity) {
+        double t = entity.age * 0.08;
         return playerPos(player)
                 .add(sideDeg(yaw, FOLLOW_SIDE))
-                .add(0.0, FOLLOW_UP, 0.0);
+                .add(0.0, FOLLOW_UP, 0.0)
+                .add(Math.sin(t) * 0.07,
+                        Math.sin(t * 0.6 + 1.9) * 0.15,
+                        Math.cos(t) * 0.07);
     }
 
     /** Направление вбок (перпендикулярно взгляду) для позиции сбоку от героя. */
