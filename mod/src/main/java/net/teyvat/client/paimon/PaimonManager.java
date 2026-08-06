@@ -3,8 +3,8 @@ package net.teyvat.client.paimon;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.ParticleTypes;
-import net.minecraft.particle.TrailParticleEffect;
 import net.minecraft.text.Text;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.minecraft.util.math.MathHelper;
@@ -31,6 +31,12 @@ public final class PaimonManager {
     private static final double FOLLOW_EASE = 0.16;
     /** Если Паймон отстала дальше этого расстояния — телепорт к игроку. */
     private static final double TELEPORT_DIST = 16.0;
+    /** Фразы Паймон: показываются внизу экрана (action bar) с паузами между ними. */
+    private static final String PHRASE_1 = "Ой! Ты наконец проснулся, путешественник? Паймон уже думала, ты будешь спать вечно!";
+    private static final String PHRASE_2 = "Это пляж Тейвата. За холмами стоит Мондштадт — город свободы. Оттуда всё и начинается.";
+    private static final String PHRASE_3 = "Пойдём! Паймон покажет дорогу и будет рядом, куда бы ты ни пошёл.";
+    /** Сколько тиков финальная фраза держится на экране после знакомства. */
+    private static final int POST_INTRO_TICKS = 70;
     /** Дистанция до игрока во время знакомства. */
     private static final double INTRO_DIST = 2.4;
     /** Высота над игроком во время знакомства (чуть выше линии взгляда). */
@@ -42,6 +48,11 @@ public final class PaimonManager {
     private static boolean refYawReady;
     /** Счётчик для дорожки свечения. */
     private static int trailTimer;
+    /** Прошлая позиция Паймон: по отрезку пути рисуем шлейф. */
+    private static Vec3d lastTrailPos;
+    private static boolean hasLastTrailPos;
+    /** Оставшиеся тики финальной фразы на экране после знакомства. */
+    private static int postIntroTicks;
     /** Абсолютная точка знакомства: Паймон не сдвигается с неё, пока говорит. */
     private static Vec3d introPos;
 
@@ -115,17 +126,35 @@ public final class PaimonManager {
         if (!entity.isFollowing()) {
             int ticks = entity.getIntroTicks() + 1;
             entity.setIntroTicks(ticks);
-            if (ticks == 1) {
-                say(player, "Ой! Ты наконец проснулся, путешественник? Паймон уже думала, ты будешь спать вечно!");
-            } else if (ticks == 55) {
-                say(player, "Это пляж Тейвата. За холмами стоит Мондштадт — город свободы. Оттуда всё и начинается.");
-            } else if (ticks >= entity.getIntroTicksLimit()) {
+            int limit = entity.getIntroTicksLimit();
+            // Диалог внизу экрана: фраза — пауза — фраза — пауза — переход к полёту.
+            int p1End = (int) (limit * 0.45);
+            int p2Start = (int) (limit * 0.55);
+            int p2End = (int) (limit * 0.9);
+            if (ticks < p1End) {
+                showActionBar(player, PHRASE_1);
+            } else if (ticks < p2Start) {
+                clearActionBar(player);
+            } else if (ticks < p2End) {
+                showActionBar(player, PHRASE_2);
+            } else if (ticks < limit) {
+                clearActionBar(player);
+            } else {
                 entity.setFollowing(true);
-                say(player, "Пойдём! Паймон покажет дорогу и будет рядом, куда бы ты ни пошёл.");
+                postIntroTicks = POST_INTRO_TICKS;
             }
         } else {
             // Плавно доводим угол: быстрые повороты мыши почти не сдвигают позицию Паймон.
             refYaw = MathHelper.lerpAngleDegrees(REF_YAW_LERP, refYaw, player.getYaw());
+            // Финальная фраза после знакомства держится на экране несколько секунд.
+            if (postIntroTicks > 0) {
+                postIntroTicks--;
+                if (postIntroTicks == 0) {
+                    clearActionBar(player);
+                } else {
+                    showActionBar(player, PHRASE_3);
+                }
+            }
         }
 
         Vec3d target;
@@ -139,6 +168,7 @@ public final class PaimonManager {
         if (entity.squaredDistanceTo(target) >= TELEPORT_DIST * TELEPORT_DIST) {
             entity.refreshPositionAfterTeleport(target);
             entity.setYaw(faceYaw(entity, player));
+            hasLastTrailPos = false;
             return;
         }
 
@@ -171,37 +201,44 @@ public final class PaimonManager {
         return forwardDeg(yaw + 90.0f, dist);
     }
 
-    /** Сияющий золотой шлейф за Паймон.
-     *  Используются частицы TRAIL и END_ROD: они рендерятся с максимальной яркостью
-     *  (unlit), поэтому шейдер рисует их светящимися золотом даже в тени,
-     *  без синеватой подкраски от обычного освещения. */
+    /** Плотный золотой шлейф за Паймон: частицы сыплются вдоль её пути.
+     *  Используются золотая пыль и искры END_ROD — те типы, которые гарантированно
+     *  видны в шейдере; синеватый GLOW-ореол убран. */
     private static void spawnGoldenTrail(ClientWorld world, PaimonEntity entity) {
         if (trailTimer++ % 2 != 0) {
             return;
         }
         var random = world.random;
-        double x = entity.getX();
-        double y = entity.getY() + 0.3;
-        double z = entity.getZ();
-        // Светящиеся золотые искры, скользящие вниз и назад по ходу движения.
-        for (int i = 0; i < 3; i++) {
-            double ox = (random.nextDouble() - 0.5) * 0.5;
-            double oy = (random.nextDouble() - 0.5) * 0.5;
-            double oz = (random.nextDouble() - 0.5) * 0.5;
-            world.addParticleClient(new TrailParticleEffect(
-                            new Vec3d(x + ox + (random.nextDouble() - 0.5) * 0.4,
-                                    y + oy - 0.45,
-                                    z + oz + (random.nextDouble() - 0.5) * 0.4),
-                            0xFFD760, 14),
-                    x + ox, y + oy, z + oz, 0.0, 0.0, 0.0);
+        Vec3d now = entityPos(entity).add(0.0, 0.3, 0.0);
+        Vec3d from = hasLastTrailPos ? lastTrailPos : now;
+        hasLastTrailPos = true;
+        lastTrailPos = now;
+        double dist = from.distanceTo(now);
+        // Частицы по всей дуге от прошлой позиции к текущей — дорожка видна даже
+        // при быстром полёте.
+        int steps = 1 + Math.min(6, (int) (dist * 8.0));
+        for (int s = 0; s < steps; s++) {
+            double t = s / (double) steps;
+            double px = MathHelper.lerp(t, from.x, now.x);
+            double py = MathHelper.lerp(t, from.y, now.y);
+            double pz = MathHelper.lerp(t, from.z, now.z);
+            for (int j = 0; j < 2; j++) {
+                world.addParticleClient(
+                        new DustColorTransitionParticleEffect(0xFFE066, 0xFFF7CC,
+                                0.9f + random.nextFloat() * 0.5f),
+                        px + (random.nextDouble() - 0.5) * 0.35,
+                        py + (random.nextDouble() - 0.5) * 0.35,
+                        pz + (random.nextDouble() - 0.5) * 0.35,
+                        (random.nextDouble() - 0.5) * 0.02, -0.02, (random.nextDouble() - 0.5) * 0.02);
+            }
         }
         // Яркие золотистые искры-штрихи.
         if (random.nextInt(2) == 0) {
             world.addParticleClient(ParticleTypes.END_ROD,
-                    x + (random.nextDouble() - 0.5) * 0.4,
-                    y + (random.nextDouble() - 0.5) * 0.4,
-                    z + (random.nextDouble() - 0.5) * 0.4,
-                    (random.nextDouble() - 0.5) * 0.03, 0.01, (random.nextDouble() - 0.5) * 0.03);
+                    now.x + (random.nextDouble() - 0.5) * 0.35,
+                    now.y + (random.nextDouble() - 0.5) * 0.35,
+                    now.z + (random.nextDouble() - 0.5) * 0.35,
+                    (random.nextDouble() - 0.5) * 0.04, 0.01, (random.nextDouble() - 0.5) * 0.04);
         }
     }
 
@@ -226,8 +263,14 @@ public final class PaimonManager {
         return (float) (MathHelper.atan2(dz, dx) * 180.0 / Math.PI) - 90.0f;
     }
 
-    private static void say(AbstractClientPlayerEntity player, String text) {
-        player.sendMessage(Text.literal("§fПаймон§7: §f" + text), false);
+    /** Реплика Паймон внизу экрана, как action bar командного блока. */
+    private static void showActionBar(AbstractClientPlayerEntity player, String text) {
+        player.sendMessage(Text.literal("§fПаймон§7: §f" + text), true);
+    }
+
+    /** Убирает реплику с нижней части экрана. */
+    private static void clearActionBar(AbstractClientPlayerEntity player) {
+        player.sendMessage(Text.empty(), true);
     }
 
     public static void remove() {
