@@ -42,7 +42,6 @@ public class PaimonEntity extends Entity {
     private UUID ownerUuid = NO_OWNER;
     private boolean following;
     private int introTicks;
-    private int transitionTicks;
     private final int introTicksLimit;
 
     public PaimonEntity(EntityType<? extends PaimonEntity> type, World world) {
@@ -78,14 +77,6 @@ public class PaimonEntity extends Entity {
 
     public int getIntroTicksLimit() {
         return this.introTicksLimit;
-    }
-
-    public int getTransitionTicks() {
-        return this.transitionTicks;
-    }
-
-    public void setTransitionTicks(int transitionTicks) {
-        this.transitionTicks = transitionTicks;
     }
 
     @Override
