@@ -5,6 +5,7 @@ import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.particle.TintedParticleEffect;
 import net.minecraft.text.Text;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.minecraft.util.math.MathHelper;
@@ -166,30 +167,39 @@ public final class PaimonManager {
         }
     }
 
-    /** Простой шлейф: светящиеся золотые частицы вокруг Паймон.
-     *  END_ROD всегда яркие (не зависят от освещения), золотая пыль добавляет плотность. */
+    /** Шлейф из частиц фейерверка: яркие золотые искры и крупные вспышки.
+     *  FIREWORK — светящаяся искра фейерверка, FLASH — большая яркая вспышка взрыва
+     *  (та самая, что вспыхивает, когда фейерверк разрывается). Обе не зависят от
+     *  освещения и видны при любом шейдере. */
     private static void spawnGoldenTrail(ClientWorld world, PaimonEntity entity) {
         if (trailTimer++ % 2 != 0) {
             return;
         }
         var random = world.random;
         double x = entity.getX();
-        double y = entity.getY() + 0.3;
+        double y = entity.getY() + 0.4;
         double z = entity.getZ();
+        // Искры фейерверка: разлетаются в стороны и вниз, оставляя за собой дорожку.
         for (int i = 0; i < 4; i++) {
-            world.addParticleClient(ParticleTypes.END_ROD,
-                    x + (random.nextDouble() - 0.5) * 0.5,
-                    y + (random.nextDouble() - 0.5) * 0.5,
-                    z + (random.nextDouble() - 0.5) * 0.5,
-                    (random.nextDouble() - 0.5) * 0.05, -0.01, (random.nextDouble() - 0.5) * 0.05);
-        }
-        for (int i = 0; i < 3; i++) {
-            world.addParticleClient(new DustColorTransitionParticleEffect(0xFFE066, 0xFFF7CC,
-                            0.8f + random.nextFloat() * 0.5f),
+            world.addParticleClient(ParticleTypes.FIREWORK,
                     x + (random.nextDouble() - 0.5) * 0.6,
                     y + (random.nextDouble() - 0.5) * 0.6,
                     z + (random.nextDouble() - 0.5) * 0.6,
-                    (random.nextDouble() - 0.5) * 0.02, -0.02, (random.nextDouble() - 0.5) * 0.02);
+                    (random.nextDouble() - 0.5) * 0.09, -0.03, (random.nextDouble() - 0.5) * 0.09);
+        }
+        // Большая золотая вспышка взрыва — яркое золотое свечение вокруг Паймон.
+        world.addParticleClient(TintedParticleEffect.create(ParticleTypes.FLASH, 1.0f, 0.85f, 0.35f),
+                x + (random.nextDouble() - 0.5) * 0.4,
+                y + (random.nextDouble() - 0.5) * 0.4,
+                z + (random.nextDouble() - 0.5) * 0.4,
+                0.0, -0.02, 0.0);
+        // Светящаяся золотая пыль добавляет плотность дорожке.
+        for (int i = 0; i < 2; i++) {
+            world.addParticleClient(new DustColorTransitionParticleEffect(0xFFE066, 0xFFF7CC, 1.2f),
+                    x + (random.nextDouble() - 0.5) * 0.8,
+                    y + (random.nextDouble() - 0.5) * 0.8,
+                    z + (random.nextDouble() - 0.5) * 0.8,
+                    (random.nextDouble() - 0.5) * 0.03, -0.03, (random.nextDouble() - 0.5) * 0.03);
         }
     }
 
@@ -241,5 +251,10 @@ public final class PaimonManager {
 
     public static boolean isActive() {
         return paimon != null && !paimon.isRemoved();
+    }
+
+    /** Идёт ли сейчас знакомство с Паймон: HUD скрыт, пока она представляется. */
+    public static boolean isIntroActive() {
+        return paimon != null && !paimon.isRemoved() && !paimon.isFollowing();
     }
 }
