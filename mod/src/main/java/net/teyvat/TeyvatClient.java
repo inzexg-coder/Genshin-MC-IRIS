@@ -64,7 +64,7 @@ public class TeyvatClient implements ClientModInitializer {
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             if (client.player != null) {
                 client.player.sendMessage(Text.literal(
-                        "§e[Teyvat 0.8.55] §7Заметки путешественника: клавиша §bN§7 или §b/teyvat notes"), false);
+                        "§e[Teyvat 0.8.56] §7Заметки путешественника: клавиша §bN§7 или §b/teyvat notes"), false);
             }
         });
     }
