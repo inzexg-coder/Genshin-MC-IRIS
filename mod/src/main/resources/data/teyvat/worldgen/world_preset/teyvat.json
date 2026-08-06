@@ -12,8 +12,38 @@
        "biome": "teyvat:teyvat_lake",
        "parameters": {
         "temperature": [
+         0.5,
+         2.0
+        ],
+        "humidity": [
          -1.0,
          1.0
+        ],
+        "erosion": [
+         -1.0,
+         1.0
+        ],
+        "depth": [
+         -1.0,
+         1.0
+        ],
+        "weirdness": [
+         -1.0,
+         1.0
+        ],
+        "offset": 0.0,
+        "continentalness": [
+         -2.0,
+         0.0
+        ]
+       }
+      },
+      {
+       "biome": "teyvat:teyvat_rocky_sea",
+       "parameters": {
+        "temperature": [
+         -2.0,
+         0.5
         ],
         "humidity": [
          -1.0,
@@ -42,8 +72,8 @@
        "biome": "teyvat:teyvat_beach",
        "parameters": {
         "temperature": [
-         -1.0,
-         1.0
+         0.5,
+         2.0
         ],
         "humidity": [
          -1.0,
@@ -72,8 +102,8 @@
        "biome": "teyvat:teyvat_outskirts",
        "parameters": {
         "temperature": [
-         -1.0,
-         1.0
+         -2.0,
+         2.0
         ],
         "humidity": [
          -1.0,

@@ -1,0 +1,8 @@
+{
+ "type": "minecraft:range_choice",
+ "input": "teyvat:teyvat_beach_weight",
+ "min_inclusive": 0.5,
+ "max_exclusive": 2.0,
+ "when_in_range": 1.0,
+ "when_out_of_range": -1.0
+}

@@ -9,7 +9,7 @@
    "level": "0"
   }
  },
- "disable_mob_generation": false,
+ "disable_mob_generation": true,
  "legacy_random_source": false,
  "noise": {
   "height": 384,
@@ -38,7 +38,7 @@
    "upper_bound": 96
   },
   "ridges": 0.0,
-  "temperature": 0.0,
+  "temperature": "teyvat:teyvat_beach_zone",
   "vegetation": 0.0,
   "vein_gap": 0.0,
   "vein_ridged": 0.0,
