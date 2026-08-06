@@ -3,8 +3,8 @@ package net.teyvat.client.paimon;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
-import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.particle.TrailParticleEffect;
 import net.minecraft.text.Text;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.minecraft.util.math.MathHelper;
@@ -56,7 +56,8 @@ public final class PaimonManager {
         }
         // Пока открыт экран выбора героя, Паймон не появляется: знакомство
         // начнётся заново после выбора, а не проиграется незаметно за меню.
-        if (client.currentScreen instanceof TravelerChoiceScreen) {
+        // Если экран уже закрывается вспышкой — Паймон остаётся: сцена идёт за ней.
+        if (client.currentScreen instanceof TravelerChoiceScreen screen && !screen.isClosing()) {
             remove();
             return;
         }
@@ -170,32 +171,38 @@ public final class PaimonManager {
         return forwardDeg(yaw + 90.0f, dist);
     }
 
-    /** Яркая золотистая светящаяся дорожка, тянущаяся за Паймон. */
+    /** Сияющий золотой шлейф за Паймон.
+     *  Используются частицы TRAIL и END_ROD: они рендерятся с максимальной яркостью
+     *  (unlit), поэтому шейдер рисует их светящимися золотом даже в тени,
+     *  без синеватой подкраски от обычного освещения. */
     private static void spawnGoldenTrail(ClientWorld world, PaimonEntity entity) {
         if (trailTimer++ % 2 != 0) {
             return;
         }
         var random = world.random;
-        // Густая золотая пыль с мягким свечением.
-        for (int i = 0; i < 5; i++) {
-            world.addParticleClient(new DustColorTransitionParticleEffect(0xFFE066, 0xFFF7CC, 0.9f),
-                    entity.getX() + (random.nextDouble() - 0.5) * 0.6,
-                    entity.getY() + (random.nextDouble() - 0.5) * 0.6 + 0.3,
-                    entity.getZ() + (random.nextDouble() - 0.5) * 0.6,
-                    (random.nextDouble() - 0.5) * 0.02, -0.02, (random.nextDouble() - 0.5) * 0.02);
+        double x = entity.getX();
+        double y = entity.getY() + 0.3;
+        double z = entity.getZ();
+        // Светящиеся золотые искры, скользящие вниз и назад по ходу движения.
+        for (int i = 0; i < 3; i++) {
+            double ox = (random.nextDouble() - 0.5) * 0.5;
+            double oy = (random.nextDouble() - 0.5) * 0.5;
+            double oz = (random.nextDouble() - 0.5) * 0.5;
+            world.addParticleClient(new TrailParticleEffect(
+                            new Vec3d(x + ox + (random.nextDouble() - 0.5) * 0.4,
+                                    y + oy - 0.45,
+                                    z + oz + (random.nextDouble() - 0.5) * 0.4),
+                            0xFFD760, 14),
+                    x + ox, y + oy, z + oz, 0.0, 0.0, 0.0);
         }
-        // Яркие золотые искры.
-        if (random.nextInt(3) == 0) {
+        // Яркие золотистые искры-штрихи.
+        if (random.nextInt(2) == 0) {
             world.addParticleClient(ParticleTypes.END_ROD,
-                    entity.getX() + (random.nextDouble() - 0.5) * 0.4,
-                    entity.getY() + (random.nextDouble() - 0.5) * 0.4 + 0.3,
-                    entity.getZ() + (random.nextDouble() - 0.5) * 0.4,
+                    x + (random.nextDouble() - 0.5) * 0.4,
+                    y + (random.nextDouble() - 0.5) * 0.4,
+                    z + (random.nextDouble() - 0.5) * 0.4,
                     (random.nextDouble() - 0.5) * 0.03, 0.01, (random.nextDouble() - 0.5) * 0.03);
         }
-        // Мягкое золотое свечение вокруг Паймон.
-        world.addParticleClient(ParticleTypes.GLOW,
-                entity.getX(), entity.getY() + 0.3, entity.getZ(),
-                0.0, 0.0, 0.0);
     }
 
     /** Направление «вперёд» при данном угле. Отрицательная дистанция — за спину. */

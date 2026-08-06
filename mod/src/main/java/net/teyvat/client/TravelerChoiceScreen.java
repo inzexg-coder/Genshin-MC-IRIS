@@ -64,6 +64,7 @@ public class TravelerChoiceScreen extends Screen {
     private boolean closing = false;              // выбран персонаж, идёт вспышка
     private boolean dissolving = false;           // вспышка достигла пика и растворяется в мир
     private float flash = 0f;                     // 0..1, белая вспышка
+    private float flashHold = 0f;                 // время удержания полного белого
 
     public TravelerChoiceScreen() {
         super(Text.literal("Выбор путешественника"));
@@ -98,6 +99,11 @@ public class TravelerChoiceScreen extends Screen {
             }
         }
         return super.mouseClicked(click, bl);
+    }
+
+    /** True, пока экран закрывается белой вспышкой после выбора. */
+    public boolean isClosing() {
+        return closing;
     }
 
     private void choose(Card card) {
@@ -180,15 +186,19 @@ public class TravelerChoiceScreen extends Screen {
             yaw[i] += (targetYaw - yaw[i]) * Math.min(1f, frameSec * 7f);
         }
 
-        // Вспышка: растёт до полного белого, затем плавно растворяется, открывая мир.
+        // Вспышка: растёт, удерживается в полном белом (даёт Паймон время появиться
+        // и начать сцену знакомства), затем плавно растворяется, открывая мир.
         if (closing) {
             if (!dissolving) {
-                flash = Math.min(1f, flash + frameSec * 3.2f);
+                flash = Math.min(1f, flash + frameSec * 2.6f);
                 if (flash >= 1f) {
-                    dissolving = true;
+                    flashHold += frameSec;
+                    if (flashHold >= 0.6f) {
+                        dissolving = true;
+                    }
                 }
             } else {
-                flash = Math.max(0f, flash - frameSec * 2.2f);
+                flash = Math.max(0f, flash - frameSec * 1.5f);
                 if (flash <= 0f) {
                     this.close();
                     return;
