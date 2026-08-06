@@ -52,7 +52,7 @@ public final class PaimonManager {
     /** Счётчик для шлейфа: порция частиц каждый 2-й тик. */
     private static int trailTimer;
     /** Высота середины тела Паймон над ногами — отсюда идёт шлейф. */
-    private static final double TRAIL_UP = 0.85;
+    private static final double TRAIL_UP = 0.45;
     /** Абсолютная точка знакомства: Паймон не сдвигается с неё, пока говорит. */
     private static Vec3d introPos;
 
@@ -208,19 +208,20 @@ public final class PaimonManager {
         }
     }
 
-    /** Цель полёта: справа от героя на уровне головы, как Паймон в Genshin.
-     *  Точка привязана к сглаженному взгляду, поэтому при повороте Паймон мягко
-     *  дрейфует, а не перелетает за спину; при беге она не оказывается перед лицом.
-     *  На цель наложены плавные синусоидальные колебания — Паймон «выныривает»
-     *  и ныряет, как в самой игре, а не летит по ровной линии. */
+    /** Цель полёта: Паймон очень плавно «переплывает» с одного бока героя на другой,
+     *  облетая его по мягкому эллипсу (медленный синус), как в Genshin. По вертикали
+     *  слегка выныривает и ныряет, поэтому не летит по ровной линии. Точка привязана
+     *  к сглаженному взгляду, так что при повороте героя Паймон мягко дрейфует,
+     *  а не перелетает за спину. */
     private static Vec3d followTarget(AbstractClientPlayerEntity player, float yaw, PaimonEntity entity) {
-        double t = entity.age * 0.08;
+        double orbit = entity.age * 0.045;
+        double side = Math.sin(orbit) * FOLLOW_SIDE * 1.05;
+        double fwd = Math.cos(orbit) * 0.6;
+        double bob = Math.sin(entity.age * 0.12 + 1.7) * 0.12;
         return playerPos(player)
-                .add(sideDeg(yaw, FOLLOW_SIDE))
-                .add(0.0, FOLLOW_UP, 0.0)
-                .add(Math.sin(t) * 0.07,
-                        Math.sin(t * 0.6 + 1.9) * 0.15,
-                        Math.cos(t) * 0.07);
+                .add(sideDeg(yaw, side))
+                .add(forwardDeg(yaw, fwd))
+                .add(0.0, FOLLOW_UP + bob, 0.0);
     }
 
     /** Направление вбок (перпендикулярно взгляду) для позиции сбоку от героя. */

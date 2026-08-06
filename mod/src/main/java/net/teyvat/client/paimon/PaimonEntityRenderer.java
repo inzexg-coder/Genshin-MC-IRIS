@@ -81,7 +81,7 @@ public class PaimonEntityRenderer extends EntityRenderer<PaimonEntity, PaimonRen
             Vec3d camLocal = cameraState.pos.subtract(state.trailBase);
             RenderLayer glowLayer = RenderLayer.getEntityTranslucentEmissive(TRAIL_GLOW);
             queue.submitCustom(matrices, glowLayer, (entry, consumer) ->
-                    drawBillboard(entry, consumer, camLocal, new Vec3d(0.0, 0.8, 0.0), 0.45f, 0.20f));
+                    drawBillboard(entry, consumer, camLocal, new Vec3d(0.0, 0.45, 0.0), 0.45f, 0.20f));
         }
         super.render(state, matrices, queue, cameraState);
     }
