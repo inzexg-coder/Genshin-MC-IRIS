@@ -139,9 +139,8 @@ public final class TeyvatSpawn {
                 if (topY < world.getSeaLevel() - 1) {
                     continue;
                 }
-                if (!world.getBiome(cand).matchesKey(BEACH_BIOME)) {
-                    continue;
-                }
+                // Граница биома «Озеро»/«Пляж» извивается шумом и не обязана совпадать
+                // с урезом воды: важны сухость и близость моря, а не ярлык биома.
                 BlockPos top = new BlockPos(cand.getX(), topY, cand.getZ());
                 if (!world.getFluidState(top).isEmpty()) {
                     continue;

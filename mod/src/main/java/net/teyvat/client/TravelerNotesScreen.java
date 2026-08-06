@@ -354,7 +354,7 @@ public class TravelerNotesScreen extends Screen {
         context.drawText(this.textRenderer, title,
                 (this.width - this.textRenderer.getWidth(title)) / 2,
                 (HEADER_H - 9) / 2, C_GOLD, true);
-        String ver = "Teyvat 0.8.48";
+        String ver = "Teyvat 0.8.49";
         context.drawText(this.textRenderer, ver, this.width - this.textRenderer.getWidth(ver) - 10,
                 (HEADER_H - 9) / 2, C_HINT, true);
 
