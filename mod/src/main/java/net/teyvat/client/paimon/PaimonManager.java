@@ -17,11 +17,10 @@ import net.teyvat.config.TeyvatConfig;
  * оставалась сервер-совместимой.
  */
 public final class PaimonManager {
-    private static final double FOLLOW_DIST = 1.15;
-    /** Высота полёта над игроком. */
-    private static final double FOLLOW_UP = 1.2;
-    /** Сдвиг вбок при полёте за игроком, как в оригинальном моде APaimon. */
-    private static final float FOLLOW_SIDE_DEG = 30.0f;
+    /** Насколько близко за спиной игрока держится Паймон. */
+    private static final double FOLLOW_DIST = 0.9;
+    /** Высота полёта за спиной (чуть выше головы героя). */
+    private static final double FOLLOW_UP = 1.5;
     /** Скорость полёта к цели, блоков/тик. */
     private static final double MOVE_SPEED = 0.22;
     /** Если Паймон отстала дальше этого расстояния — телепорт к игроку. */
@@ -32,11 +31,17 @@ public final class PaimonManager {
     private static final double INTRO_UP = 1.4;
     /** Сглаживание поворота цели следования: быстрые движения мыши не дёргают Паймон. */
     private static final float REF_YAW_LERP = 0.08f;
+    /** Сколько тиков Паймон облетает героя по дуге после знакомства. */
+    private static final int TRANSITION_TICKS = 30;
+    /** Насколько сильно дуга уводит Паймон в сторону, чтобы она не пролетала сквозь героя. */
+    private static final double TRANSITION_ARC = 1.8;
 
     private static PaimonEntity paimon;
     /** Сглаженный угол, от которого зависит цель Паймон (не дёргается от взгляда). */
     private static float refYaw;
     private static boolean refYawReady;
+    /** Абсолютная точка знакомства: Паймон не сдвигается с неё, пока говорит. */
+    private static Vec3d introPos;
 
     private PaimonManager() {}
 
@@ -78,8 +83,9 @@ public final class PaimonManager {
         entity.setOwner(client.player.getUuid());
         refYaw = client.player.getYaw();
         refYawReady = true;
-        Vec3d start = playerPos(client.player).add(forwardDeg(refYaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
-        entity.setPosition(start.x, start.y, start.z);
+        // Точка знакомства фиксируется абсолютно: Паймон стоит на месте, пока говорит.
+        introPos = playerPos(client.player).add(forwardDeg(refYaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
+        entity.setPosition(introPos.x, introPos.y, introPos.z);
         entity.setYaw(client.player.getYaw());
         world.addEntity(entity);
         paimon = entity;
@@ -106,6 +112,9 @@ public final class PaimonManager {
                 say(player, "Это пляж Тейвата. За холмами стоит Мондштадт — город свободы. Оттуда всё и начинается.");
             } else if (ticks >= entity.getIntroTicksLimit()) {
                 entity.setFollowing(true);
+                entity.setTransitionTicks(0);
+                // Сразу за спину по текущему взгляду игрока, без долгого разворота цели.
+                refYaw = player.getYaw();
                 say(player, "Пойдём! Паймон покажет дорогу и будет рядом, куда бы ты ни пошёл.");
             }
         } else {
@@ -113,9 +122,22 @@ public final class PaimonManager {
             refYaw = MathHelper.lerpAngleDegrees(REF_YAW_LERP, refYaw, player.getYaw());
         }
 
-        // Во время знакомства цель стоит в направлении, зафиксированном при появлении,
-        // поэтому поворот камеры её не дёргает.
-        Vec3d target = entity.isFollowing() ? followTarget(player, refYaw) : introTarget(player, refYaw);
+        Vec3d target;
+        if (entity.isFollowing()) {
+            target = followTarget(player, refYaw);
+            // Первые мгновения после знакомства Паймон облетает героя по дуге,
+            // чтобы не пролететь сквозь него по пути из «перед лицом» в «за спину».
+            int t = entity.getTransitionTicks() + 1;
+            entity.setTransitionTicks(t);
+            if (t < TRANSITION_TICKS) {
+                double arc = Math.sin(Math.PI * t / TRANSITION_TICKS) * TRANSITION_ARC;
+                target = target.add(sideDeg(refYaw, arc));
+            }
+        } else {
+            // Во время знакомства Паймон не двигается: стоит на зафиксированной точке
+            // и только поворачивается лицом к игроку.
+            target = introPos;
+        }
         if (entity.squaredDistanceTo(target) >= TELEPORT_DIST * TELEPORT_DIST) {
             entity.refreshPositionAfterTeleport(target);
             entity.setYaw(faceYaw(entity, player));
@@ -132,26 +154,22 @@ public final class PaimonManager {
         entity.setPitch(0.0f);
     }
 
-    /** Цель полёта во время знакомства: перед игроком, чуть выше линии взгляда. */
-    private static Vec3d introTarget(AbstractClientPlayerEntity player, float yaw) {
-        return playerPos(player).add(forwardDeg(yaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
-    }
-
-    /** Цель полёта за игроком: сзади и чуть сбоку, выше головы. */
+    /** Цель полёта за игроком: за спиной и чуть выше головы. */
     private static Vec3d followTarget(AbstractClientPlayerEntity player, float yaw) {
-        double rad = Math.toRadians(yaw);
-        Vec3d behind = new Vec3d(-Math.sin(rad), 0.0, Math.cos(rad));
-        double sideRad = Math.toRadians(yaw + FOLLOW_SIDE_DEG);
-        Vec3d side = new Vec3d(-Math.sin(sideRad), 0.0, Math.cos(sideRad));
         return playerPos(player)
-                .add(behind.multiply(FOLLOW_DIST))
-                .add(side.multiply(FOLLOW_DIST * 0.35))
+                .add(forwardDeg(yaw, -FOLLOW_DIST))
                 .add(0.0, FOLLOW_UP, 0.0);
     }
 
+    /** Направление «вперёд» при данном угле. Отрицательная дистанция — за спину. */
     private static Vec3d forwardDeg(float yaw, double dist) {
         double rad = Math.toRadians(yaw);
         return new Vec3d(-Math.sin(rad), 0.0, Math.cos(rad)).multiply(dist);
+    }
+
+    /** Направление вбок (перпендикулярно взгляду) для дуги облёта. */
+    private static Vec3d sideDeg(float yaw, double dist) {
+        return forwardDeg(yaw + 90.0f, dist);
     }
 
     private static Vec3d playerPos(AbstractClientPlayerEntity player) {
