@@ -1,7 +1,7 @@
 package net.teyvat.server;
 
 import net.minecraft.block.BlockState;
-import net.minecraft.network.packet.s2c.play.PositionFlag;
+import net.minecraft.block.Blocks;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.server.MinecraftServer;
@@ -12,27 +12,31 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.WorldProperties;
 import net.minecraft.world.biome.Biome;
+import net.teyvat.config.TeyvatConfig;
 
 import java.util.Set;
 
 /**
  * Спавн всех игроков в биоме «Пляж» (teyvat:teyvat_beach).
- * На старте сервера ищет сухую точку в этом биоме и делает её мировым спавном.
+ * На старте сервера находит точку на пляже (по конфигу config/teyvat.json)
+ * и делает её мировым спавном с правильным поворотом.
  * Новые игроки (без кровати и без отметки teyvat:welcomed) телепортируются туда один раз.
  */
 public final class TeyvatSpawn {
     private static final Identifier BEACH_BIOME_ID = Identifier.of("teyvat", "teyvat_beach");
     private static final RegistryKey<Biome> BEACH_BIOME = RegistryKey.of(RegistryKeys.BIOME, BEACH_BIOME_ID);
-    private static final int SEARCH_RADIUS = 140; // внутри сгенерированной спавн-области
     private static final String WELCOME_TAG = "teyvat:welcomed";
 
     private static BlockPos beachSpawn;
+    private static float beachYaw;
 
     private TeyvatSpawn() {
     }
 
     /** Вызывается на старте сервера: найти пляжный спавн и установить его мировым. */
     public static void prepare(MinecraftServer server) {
+        beachSpawn = null;
+        beachYaw = 0f;
         beachSpawn(server.getOverworld());
     }
 
@@ -44,14 +48,18 @@ public final class TeyvatSpawn {
         if (player.getRespawn() != null) {
             return; // у игрока есть своя точка возрождения (кровать и т.п.)
         }
+        if (!TeyvatConfig.get().teleport_new_players) {
+            return;
+        }
         ServerWorld world = server.getOverworld();
         BlockPos pos = beachSpawn(world);
+        float yaw = beachYaw;
         server.execute(() -> {
             int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, pos.getX(), pos.getZ());
             double x = pos.getX() + 0.5;
             double y = topY + 1.0;
             double z = pos.getZ() + 0.5;
-            player.teleport(world, x, y, z, Set.of(), 0f, 0f, false);
+            player.teleport(world, x, y, z, Set.of(), yaw, 0f, false);
             player.addCommandTag(WELCOME_TAG);
         });
     }
@@ -60,19 +68,40 @@ public final class TeyvatSpawn {
         if (beachSpawn != null) {
             return beachSpawn;
         }
-        BlockPos origin = world.getSpawnPoint().globalPos().pos();
-        BlockPos found = findBeachSpawn(world, origin, SEARCH_RADIUS);
-        if (found != null) {
-            beachSpawn = found;
-            world.setSpawnPoint(WorldProperties.SpawnPoint.create(world.getRegistryKey(), found, 0f, 0f));
+        TeyvatConfig.Spawn cfg = TeyvatConfig.get().spawn;
+        BlockPos pos;
+        if (cfg.use_fixed_position) {
+            int y = cfg.fixed_y;
+            if (y <= 0) {
+                y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cfg.fixed_x, cfg.fixed_z);
+            }
+            pos = new BlockPos(cfg.fixed_x, y, cfg.fixed_z);
         } else {
-            beachSpawn = origin;
+            BlockPos anchor = new BlockPos(cfg.anchor_x, 0, cfg.anchor_z);
+            BlockPos found = findBeachSpawn(world, anchor, Math.max(16, cfg.search_radius));
+            if (found == null) {
+                // вокруг якоря ничего не нашлось (например, чанки не загружены) —
+                // ищем вокруг точки мирового спавна, она гарантированно загружена
+                BlockPos worldSpawn = world.getSpawnPoint().globalPos().pos();
+                found = findBeachSpawn(world, worldSpawn, Math.max(16, cfg.search_radius));
+            }
+            pos = found != null ? found : world.getSpawnPoint().globalPos().pos();
         }
-        return beachSpawn;
+        float yaw = cfg.yaw >= 0f ? cfg.yaw : autoYaw(world, pos);
+        beachSpawn = pos;
+        beachYaw = yaw;
+        world.setSpawnPoint(WorldProperties.SpawnPoint.create(world.getRegistryKey(), pos, yaw, 0f));
+        return pos;
     }
 
-    /** Поиск по спирали от origin: биом пляжа, сухая земля выше уровня моря, над головой воздух. */
+    /**
+     * Поиск лучшей точки пляжа по спирали от origin:
+     * биом пляжа, сухая земля выше уровня моря, над головой воздух.
+     * Оценка: предпочитаем песок под ногами и открытую ровную площадку.
+     */
     private static BlockPos findBeachSpawn(ServerWorld world, BlockPos origin, int radius) {
+        BlockPos best = null;
+        int bestScore = Integer.MIN_VALUE;
         for (int r = 0; r <= radius; r++) {
             for (int dx = -r; dx <= r; dx++) {
                 for (int dz = -r; dz <= r; dz++) {
@@ -101,10 +130,77 @@ public final class TeyvatSpawn {
                     if (!below.isFullCube(world, top.down())) {
                         continue;
                     }
-                    return top;
+                    int score = beachScore(world, top);
+                    if (score > bestScore) {
+                        bestScore = score;
+                        best = top;
+                    }
                 }
             }
         }
-        return null;
+        return best;
+    }
+
+    /** Оценка точки: песок под ногами + количество сухих твёрдых соседей в пределах 5x5. */
+    private static int beachScore(ServerWorld world, BlockPos top) {
+        int score = 0;
+        int x = top.getX();
+        int y = top.getY();
+        int z = top.getZ();
+        if (world.getBlockState(top.down()).isOf(Blocks.SAND)) {
+            score += 10;
+        }
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
+                if (dx == 0 && dz == 0) {
+                    continue;
+                }
+                int nx = x + dx;
+                int nz = z + dz;
+                if (!world.isChunkLoaded(nx >> 4, nz >> 4)) {
+                    continue;
+                }
+                int ny = world.getTopY(Heightmap.Type.MOTION_BLOCKING, nx, nz);
+                if (Math.abs(ny - y) > 2) {
+                    continue;
+                }
+                BlockPos np = new BlockPos(nx, ny, nz);
+                if (world.getFluidState(np).isEmpty()
+                        && world.getFluidState(np.up()).isEmpty()
+                        && world.getBlockState(np.down()).isFullCube(world, np.down())) {
+                    score++;
+                }
+            }
+        }
+        return score;
+    }
+
+    /** Автоповорот: сканируем по кругу, вода позади игрока, суша впереди. */
+    private static float autoYaw(ServerWorld world, BlockPos pos) {
+        float bestYaw = 0f;
+        int bestWater = -1;
+        for (int i = 0; i < 32; i++) {
+            double rad = i * Math.PI * 2.0 / 32.0;
+            double dx = Math.sin(rad);
+            double dz = Math.cos(rad);
+            int water = 0;
+            for (int d = 6; d <= 24; d += 4) {
+                int x = pos.getX() + (int) Math.round(dx * d);
+                int z = pos.getZ() + (int) Math.round(dz * d);
+                if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+                    continue;
+                }
+                int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
+                BlockPos p = new BlockPos(x, topY, z);
+                if (topY <= world.getSeaLevel() || !world.getFluidState(p).isEmpty()) {
+                    water++;
+                }
+            }
+            if (water > bestWater) {
+                bestWater = water;
+                bestYaw = (float) Math.toDegrees(Math.atan2(dx, -dz));
+            }
+        }
+        return bestYaw;
     }
 }
