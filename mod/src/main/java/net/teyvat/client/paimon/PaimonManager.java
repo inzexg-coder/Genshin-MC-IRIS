@@ -3,6 +3,7 @@ package net.teyvat.client.paimon;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -17,14 +18,11 @@ import net.teyvat.config.TeyvatConfig;
  * оставалась сервер-совместимой.
  */
 public final class PaimonManager {
-    /** Как далеко за спиной держится Паймон (как в Genshin). */
-    private static final double FOLLOW_DIST = 1.0;
-    /** Боковое смещение (справа от героя), чтобы Паймон не висела ровно за спиной. */
-    private static final double FOLLOW_SIDE = 0.35;
-    /** Высота полёта: на уровне головы героя. */
-    private static final double FOLLOW_UP = 1.4;
-    /** Сглаживание поворота цели: быстрые движения мыши не дёргают Паймон. */
-    private static final float REF_YAW_LERP = 0.06f;
+    /** Горизонтальное смещение точки полёта от координаты игрока (фиксированное в мире).
+     *  Не зависит от взгляда: при повороте игрока Паймон не перелетает, на неё можно посмотреть. */
+    private static final double FOLLOW_H_OFFSET = 0.9;
+    /** Высота полёта над игроком (чуть выше головы героя). */
+    private static final double FOLLOW_UP = 1.7;
     /** Плавность полёта к цели (доля оставшегося пути за тик) — без рывков и тряски. */
     private static final double FOLLOW_EASE = 0.16;
     /** Если Паймон отстала дальше этого расстояния — телепорт к игроку. */
@@ -35,9 +33,8 @@ public final class PaimonManager {
     private static final double INTRO_UP = 1.4;
 
     private static PaimonEntity paimon;
-    /** Сглаженный угол, от которого зависит точка полёта (не дёргается от взгляда). */
-    private static float refYaw;
-    private static boolean refYawReady;
+    /** Счётчик для дорожки свечения (каждый 2-й тик — порция частиц). */
+    private static int trailTimer;
     /** Абсолютная точка знакомства: Паймон не сдвигается с неё, пока говорит. */
     private static Vec3d introPos;
 
@@ -79,10 +76,9 @@ public final class PaimonManager {
         }
         PaimonEntity entity = new PaimonEntity(PaimonEntity.TYPE, world);
         entity.setOwner(client.player.getUuid());
-        refYaw = client.player.getYaw();
-        refYawReady = true;
         // Точка знакомства фиксируется абсолютно: Паймон стоит на месте, пока говорит.
-        introPos = playerPos(client.player).add(forwardDeg(refYaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
+        float yaw = client.player.getYaw();
+        introPos = playerPos(client.player).add(forwardDeg(yaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
         entity.setPosition(introPos.x, introPos.y, introPos.z);
         entity.setYaw(client.player.getYaw());
         world.addEntity(entity);
@@ -96,11 +92,6 @@ public final class PaimonManager {
             return;
         }
 
-        if (!refYawReady) {
-            refYaw = player.getYaw();
-            refYawReady = true;
-        }
-
         if (!entity.isFollowing()) {
             int ticks = entity.getIntroTicks() + 1;
             entity.setIntroTicks(ticks);
@@ -112,14 +103,11 @@ public final class PaimonManager {
                 entity.setFollowing(true);
                 say(player, "Пойдём! Паймон покажет дорогу и будет рядом, куда бы ты ни пошёл.");
             }
-        } else {
-            // Плавно доводим угол цели: быстрые повороты мыши почти не сдвигают точку полёта.
-            refYaw = MathHelper.lerpAngleDegrees(REF_YAW_LERP, refYaw, player.getYaw());
         }
 
         Vec3d target;
         if (entity.isFollowing()) {
-            target = followTarget(player, refYaw);
+            target = followTarget(player);
         } else {
             // Во время знакомства Паймон не двигается: стоит на зафиксированной точке
             // и только поворачивается лицом к игроку.
@@ -141,25 +129,36 @@ public final class PaimonManager {
         }
         entity.setYaw(faceYaw(entity, player));
         entity.setPitch(0.0f);
+        if (entity.isFollowing()) {
+            spawnGoldenTrail((ClientWorld) client.world, entity);
+        }
     }
 
-    /** Цель полёта: чуть за спиной и справа от героя, на уровне головы (как в Genshin). */
-    private static Vec3d followTarget(AbstractClientPlayerEntity player, float yaw) {
-        return playerPos(player)
-                .add(forwardDeg(yaw, -FOLLOW_DIST))
-                .add(sideDeg(yaw, FOLLOW_SIDE))
-                .add(0.0, FOLLOW_UP, 0.0);
+    /** Цель полёта: фиксированное смещение от координаты игрока, чуть выше головы сбоку.
+     *  Не зависит от взгляда игрока — Паймон просто держится рядом и смотрит на него. */
+    private static Vec3d followTarget(AbstractClientPlayerEntity player) {
+        return playerPos(player).add(FOLLOW_H_OFFSET, FOLLOW_UP, 0.0);
+    }
+
+    /** Золотистая светящаяся дорожка, тянущаяся за Паймон. */
+    private static void spawnGoldenTrail(ClientWorld world, PaimonEntity entity) {
+        if (trailTimer++ % 2 != 0) {
+            return;
+        }
+        var random = world.random;
+        for (int i = 0; i < 3; i++) {
+            world.addParticleClient(new DustColorTransitionParticleEffect(0xF7D45A, 0xFFF3B0, 0.45f),
+                    entity.getX() + (random.nextDouble() - 0.5) * 0.35,
+                    entity.getY() + (random.nextDouble() - 0.5) * 0.35,
+                    entity.getZ() + (random.nextDouble() - 0.5) * 0.35,
+                    0.0, -0.015, 0.0);
+        }
     }
 
     /** Направление «вперёд» при данном угле. Отрицательная дистанция — за спину. */
     private static Vec3d forwardDeg(float yaw, double dist) {
         double rad = Math.toRadians(yaw);
         return new Vec3d(-Math.sin(rad), 0.0, Math.cos(rad)).multiply(dist);
-    }
-
-    /** Направление вбок (перпендикулярно взгляду) для позиции сбоку от героя. */
-    private static Vec3d sideDeg(float yaw, double dist) {
-        return forwardDeg(yaw + 90.0f, dist);
     }
 
     private static Vec3d playerPos(AbstractClientPlayerEntity player) {

@@ -11,6 +11,7 @@ import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.client.render.entity.state.LivingEntityRenderState;
+import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.Entity;
 import net.minecraft.text.Text;
@@ -328,6 +329,18 @@ public class TravelerChoiceScreen extends Screen {
         state.hitbox = null;
         state.shadowPieces.clear();
         state.outlineColor = 0;
+        if (state instanceof PlayerEntityRenderState player) {
+            // Превью-игроки не имеют сетевых настроек скина (data tracker = 0),
+            // поэтому все слои по умолчанию выключены и скин выглядит плоским.
+            // Включаем их, чтобы объёмные волосы и одежда рендерились как в игре.
+            player.hatVisible = true;
+            player.jacketVisible = true;
+            player.leftSleeveVisible = true;
+            player.rightSleeveVisible = true;
+            player.leftPantsLegVisible = true;
+            player.rightPantsLegVisible = true;
+            player.capeVisible = true;
+        }
         if (state instanceof LivingEntityRenderState living) {
             living.limbSwingAmplitude = hoverAmount;
             living.limbSwingAnimationProgress = walkPhase;
