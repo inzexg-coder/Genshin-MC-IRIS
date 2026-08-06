@@ -3,6 +3,8 @@ package net.teyvat.client.paimon;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.particle.DustColorTransitionParticleEffect;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.text.Text;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.minecraft.util.math.MathHelper;
@@ -29,10 +31,10 @@ public final class PaimonManager {
     private static final double FOLLOW_EASE = 0.16;
     /** Если Паймон отстала дальше этого расстояния — телепорт к игроку. */
     private static final double TELEPORT_DIST = 16.0;
-    /** Фразы Паймон: пишутся в чат с большими паузами, чтобы игрок успел освоиться. */
-    private static final String PHRASE_1 = "Ой! Ты наконец проснулся, путешественник? Паймон уже думала, ты будешь спать вечно!";
-    private static final String PHRASE_2 = "Это пляж Тейвата. За холмами стоит Мондштадт — город свободы. Оттуда всё и начинается.";
-    private static final String PHRASE_3 = "Пойдём! Паймон покажет дорогу и будет рядом, куда бы ты ни пошёл.";
+    /** Фразы Паймон: короткое введение в мир, представление Паймон и призыв в путь. */
+    private static final String PHRASE_1 = "Ты наконец очнулся, путешественник! Это берега Тейвата — отсюда начинается твоя история.";
+    private static final String PHRASE_2 = "Меня зовут Паймон! Лучший гид Тейвата... и теперь твой спутник.";
+    private static final String PHRASE_3 = "Ну что, давай в путь! Впереди Мондштадт и большие приключения.";
     /** Тик первой фразы знакомства. */
     private static final int PHRASE_1_TICK = 50;
     /** Тик второй фразы знакомства. */
@@ -46,6 +48,8 @@ public final class PaimonManager {
     /** Сглаженный угол, от которого зависит позиция Паймон (не дёргается от взгляда). */
     private static float refYaw;
     private static boolean refYawReady;
+    /** Счётчик для шлейфа: порция частиц каждый 2-й тик. */
+    private static int trailTimer;
     /** Абсолютная точка знакомства: Паймон не сдвигается с неё, пока говорит. */
     private static Vec3d introPos;
 
@@ -157,9 +161,35 @@ public final class PaimonManager {
         }
         entity.setYaw(faceYaw(entity, player));
         entity.setPitch(0.0f);
-        // Точка пути для золотого шлейфа (рисуется в рендере сущности).
         if (entity.isFollowing()) {
-            entity.pushTrailPoint(entityPos(entity));
+            spawnGoldenTrail((ClientWorld) client.world, entity);
+        }
+    }
+
+    /** Простой шлейф: светящиеся золотые частицы вокруг Паймон.
+     *  END_ROD всегда яркие (не зависят от освещения), золотая пыль добавляет плотность. */
+    private static void spawnGoldenTrail(ClientWorld world, PaimonEntity entity) {
+        if (trailTimer++ % 2 != 0) {
+            return;
+        }
+        var random = world.random;
+        double x = entity.getX();
+        double y = entity.getY() + 0.3;
+        double z = entity.getZ();
+        for (int i = 0; i < 4; i++) {
+            world.addParticleClient(ParticleTypes.END_ROD,
+                    x + (random.nextDouble() - 0.5) * 0.5,
+                    y + (random.nextDouble() - 0.5) * 0.5,
+                    z + (random.nextDouble() - 0.5) * 0.5,
+                    (random.nextDouble() - 0.5) * 0.05, -0.01, (random.nextDouble() - 0.5) * 0.05);
+        }
+        for (int i = 0; i < 3; i++) {
+            world.addParticleClient(new DustColorTransitionParticleEffect(0xFFE066, 0xFFF7CC,
+                            0.8f + random.nextFloat() * 0.5f),
+                    x + (random.nextDouble() - 0.5) * 0.6,
+                    y + (random.nextDouble() - 0.5) * 0.6,
+                    z + (random.nextDouble() - 0.5) * 0.6,
+                    (random.nextDouble() - 0.5) * 0.02, -0.02, (random.nextDouble() - 0.5) * 0.02);
         }
     }
 
