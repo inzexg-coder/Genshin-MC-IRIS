@@ -4,7 +4,9 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.text.Text;
+import net.teyvat.client.TravelerChoiceScreen;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.teyvat.client.TravelerChoiceClient;
@@ -18,11 +20,13 @@ import net.teyvat.config.TeyvatConfig;
  * оставалась сервер-совместимой.
  */
 public final class PaimonManager {
-    /** Горизонтальное смещение точки полёта от координаты игрока (фиксированное в мире).
-     *  Не зависит от взгляда: при повороте игрока Паймон не перелетает, на неё можно посмотреть. */
-    private static final double FOLLOW_H_OFFSET = 0.9;
-    /** Высота полёта над игроком (чуть выше головы героя). */
-    private static final double FOLLOW_UP = 1.7;
+    /** Как далеко сбоку (справа) от героя держится Паймон — как в Genshin, всегда в поле зрения.
+     *  Боковая позиция не зависит от того, куда герой бежит: она не попадает в лицо и не прячется за спину. */
+    private static final double FOLLOW_SIDE = 1.0;
+    /** Высота полёта: на уровне головы героя. */
+    private static final double FOLLOW_UP = 1.6;
+    /** Сглаживание угла позиции: быстрые повороты мыши не дёргают Паймон. */
+    private static final float REF_YAW_LERP = 0.05f;
     /** Плавность полёта к цели (доля оставшегося пути за тик) — без рывков и тряски. */
     private static final double FOLLOW_EASE = 0.16;
     /** Если Паймон отстала дальше этого расстояния — телепорт к игроку. */
@@ -33,7 +37,10 @@ public final class PaimonManager {
     private static final double INTRO_UP = 1.4;
 
     private static PaimonEntity paimon;
-    /** Счётчик для дорожки свечения (каждый 2-й тик — порция частиц). */
+    /** Сглаженный угол, от которого зависит позиция Паймон (не дёргается от взгляда). */
+    private static float refYaw;
+    private static boolean refYawReady;
+    /** Счётчик для дорожки свечения. */
     private static int trailTimer;
     /** Абсолютная точка знакомства: Паймон не сдвигается с неё, пока говорит. */
     private static Vec3d introPos;
@@ -44,6 +51,12 @@ public final class PaimonManager {
     public static void tick() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null || client.player == null) {
+            remove();
+            return;
+        }
+        // Пока открыт экран выбора героя, Паймон не появляется: знакомство
+        // начнётся заново после выбора, а не проиграется незаметно за меню.
+        if (client.currentScreen instanceof TravelerChoiceScreen) {
             remove();
             return;
         }
@@ -76,9 +89,10 @@ public final class PaimonManager {
         }
         PaimonEntity entity = new PaimonEntity(PaimonEntity.TYPE, world);
         entity.setOwner(client.player.getUuid());
+        refYaw = client.player.getYaw();
+        refYawReady = true;
         // Точка знакомства фиксируется абсолютно: Паймон стоит на месте, пока говорит.
-        float yaw = client.player.getYaw();
-        introPos = playerPos(client.player).add(forwardDeg(yaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
+        introPos = playerPos(client.player).add(forwardDeg(refYaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
         entity.setPosition(introPos.x, introPos.y, introPos.z);
         entity.setYaw(client.player.getYaw());
         world.addEntity(entity);
@@ -92,6 +106,11 @@ public final class PaimonManager {
             return;
         }
 
+        if (!refYawReady) {
+            refYaw = player.getYaw();
+            refYawReady = true;
+        }
+
         if (!entity.isFollowing()) {
             int ticks = entity.getIntroTicks() + 1;
             entity.setIntroTicks(ticks);
@@ -103,11 +122,14 @@ public final class PaimonManager {
                 entity.setFollowing(true);
                 say(player, "Пойдём! Паймон покажет дорогу и будет рядом, куда бы ты ни пошёл.");
             }
+        } else {
+            // Плавно доводим угол: быстрые повороты мыши почти не сдвигают позицию Паймон.
+            refYaw = MathHelper.lerpAngleDegrees(REF_YAW_LERP, refYaw, player.getYaw());
         }
 
         Vec3d target;
         if (entity.isFollowing()) {
-            target = followTarget(player);
+            target = followTarget(player, refYaw);
         } else {
             // Во время знакомства Паймон не двигается: стоит на зафиксированной точке
             // и только поворачивается лицом к игроку.
@@ -134,25 +156,46 @@ public final class PaimonManager {
         }
     }
 
-    /** Цель полёта: фиксированное смещение от координаты игрока, чуть выше головы сбоку.
-     *  Не зависит от взгляда игрока — Паймон просто держится рядом и смотрит на него. */
-    private static Vec3d followTarget(AbstractClientPlayerEntity player) {
-        return playerPos(player).add(FOLLOW_H_OFFSET, FOLLOW_UP, 0.0);
+    /** Цель полёта: справа от героя на уровне головы, как Паймон в Genshin.
+     *  Точка привязана к сглаженному взгляду, поэтому при повороте Паймон мягко
+     *  дрейфует, а не перелетает за спину; при беге она не оказывается перед лицом. */
+    private static Vec3d followTarget(AbstractClientPlayerEntity player, float yaw) {
+        return playerPos(player)
+                .add(sideDeg(yaw, FOLLOW_SIDE))
+                .add(0.0, FOLLOW_UP, 0.0);
     }
 
-    /** Золотистая светящаяся дорожка, тянущаяся за Паймон. */
+    /** Направление вбок (перпендикулярно взгляду) для позиции сбоку от героя. */
+    private static Vec3d sideDeg(float yaw, double dist) {
+        return forwardDeg(yaw + 90.0f, dist);
+    }
+
+    /** Яркая золотистая светящаяся дорожка, тянущаяся за Паймон. */
     private static void spawnGoldenTrail(ClientWorld world, PaimonEntity entity) {
         if (trailTimer++ % 2 != 0) {
             return;
         }
         var random = world.random;
-        for (int i = 0; i < 3; i++) {
-            world.addParticleClient(new DustColorTransitionParticleEffect(0xF7D45A, 0xFFF3B0, 0.45f),
-                    entity.getX() + (random.nextDouble() - 0.5) * 0.35,
-                    entity.getY() + (random.nextDouble() - 0.5) * 0.35,
-                    entity.getZ() + (random.nextDouble() - 0.5) * 0.35,
-                    0.0, -0.015, 0.0);
+        // Густая золотая пыль с мягким свечением.
+        for (int i = 0; i < 5; i++) {
+            world.addParticleClient(new DustColorTransitionParticleEffect(0xFFE066, 0xFFF7CC, 0.9f),
+                    entity.getX() + (random.nextDouble() - 0.5) * 0.6,
+                    entity.getY() + (random.nextDouble() - 0.5) * 0.6 + 0.3,
+                    entity.getZ() + (random.nextDouble() - 0.5) * 0.6,
+                    (random.nextDouble() - 0.5) * 0.02, -0.02, (random.nextDouble() - 0.5) * 0.02);
         }
+        // Яркие золотые искры.
+        if (random.nextInt(3) == 0) {
+            world.addParticleClient(ParticleTypes.END_ROD,
+                    entity.getX() + (random.nextDouble() - 0.5) * 0.4,
+                    entity.getY() + (random.nextDouble() - 0.5) * 0.4 + 0.3,
+                    entity.getZ() + (random.nextDouble() - 0.5) * 0.4,
+                    (random.nextDouble() - 0.5) * 0.03, 0.01, (random.nextDouble() - 0.5) * 0.03);
+        }
+        // Мягкое золотое свечение вокруг Паймон.
+        world.addParticleClient(ParticleTypes.GLOW,
+                entity.getX(), entity.getY() + 0.3, entity.getZ(),
+                0.0, 0.0, 0.0);
     }
 
     /** Направление «вперёд» при данном угле. Отрицательная дистанция — за спину. */

@@ -113,6 +113,9 @@ public class TravelerChoiceScreen extends Screen {
         closing = true;
         flash = 0f;
         // Паймон вылетает поприветствовать путешественника и знакомит его с миром.
+        // Сбрасываем старую Паймон (например, у вернувшегося игрока), чтобы
+        // сцена знакомства проигралась заново с начала.
+        PaimonManager.remove();
         PaimonManager.startIntro();
     }
 
