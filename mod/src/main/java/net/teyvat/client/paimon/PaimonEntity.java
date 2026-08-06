@@ -8,8 +8,11 @@ import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.UUID;
 
 /**
@@ -32,6 +35,9 @@ public class PaimonEntity extends Entity {
                     .maxTrackingRange(64)
                     .build(RegistryKey.of(RegistryKeys.ENTITY_TYPE, TYPE_ID)));
 
+    /** Сколько точек пути хранит шлейф за Паймон. */
+    private static final int TRAIL_LENGTH = 16;
+
     /** Дёргает статический инициализатор на обеих сторонах (сервер тоже регистрирует тип). */
     public static void register() {
         if (TYPE == null) {
@@ -43,6 +49,8 @@ public class PaimonEntity extends Entity {
     private boolean following;
     private int introTicks;
     private final int introTicksLimit;
+    /** Последние позиции Паймон — из них рендер рисует золотой шлейф. */
+    private final Deque<Vec3d> trail = new ArrayDeque<>();
 
     public PaimonEntity(EntityType<? extends PaimonEntity> type, World world) {
         super(type, world);
@@ -77,6 +85,19 @@ public class PaimonEntity extends Entity {
 
     public int getIntroTicksLimit() {
         return this.introTicksLimit;
+    }
+
+    /** Запоминает текущую позицию для шлейфа (клиентский тик). */
+    public void pushTrailPoint(Vec3d pos) {
+        this.trail.addLast(pos);
+        while (this.trail.size() > TRAIL_LENGTH) {
+            this.trail.removeFirst();
+        }
+    }
+
+    /** Точки пути шлейфа от старых к свежим. */
+    public Deque<Vec3d> getTrail() {
+        return this.trail;
     }
 
     @Override

@@ -41,10 +41,15 @@ public class TeyvatClient implements ClientModInitializer {
                     client.setScreen(new TravelerNotesScreen());
                 }
             }
-            if (choiceOpenDelay > 0) {
+            if (choiceOpenDelay >= 0) {
                 choiceOpenDelay--;
-                if (choiceOpenDelay == 0 && client.currentScreen == null && client.player != null && client.world != null) {
-                    client.setScreen(new TravelerChoiceScreen());
+                if (choiceOpenDelay <= 0) {
+                    if (client.currentScreen == null && client.player != null && client.world != null) {
+                        client.setScreen(new TravelerChoiceScreen());
+                        choiceOpenDelay = -1;
+                    } else {
+                        choiceOpenDelay = 0;   // мир ещё грузится — пробуем в следующем тике
+                    }
                 }
             }
             PaimonManager.tick();
@@ -61,7 +66,7 @@ public class TeyvatClient implements ClientModInitializer {
 
         // Первый вход: сервер просит открыть экран выбора путешественника.
         ClientPlayNetworking.registerGlobalReceiver(TravelerChoiceOpenPayload.ID, (payload, context) -> {
-            context.client().execute(() -> choiceOpenDelay = 25);
+            context.client().execute(() -> choiceOpenDelay = 5);
         });
 
         // Синхронизация выбора: применяем скин игрока через локальные текстуры мода.
@@ -82,7 +87,7 @@ public class TeyvatClient implements ClientModInitializer {
                     PaimonManager.startIntro();
                 }
                 client.player.sendMessage(Text.literal(
-                        "§e[Teyvat 0.8.67] §7Заметки путешественника: клавиша §bN§7 или §b/teyvat notes"), false);
+                        "§e[Teyvat 0.8.68] §7Заметки путешественника: клавиша §bN§7 или §b/teyvat notes"), false);
             }
         });
     }
