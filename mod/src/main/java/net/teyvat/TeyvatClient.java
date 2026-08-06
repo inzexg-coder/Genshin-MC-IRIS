@@ -82,7 +82,7 @@ public class TeyvatClient implements ClientModInitializer {
                     PaimonManager.startIntro();
                 }
                 client.player.sendMessage(Text.literal(
-                        "§e[Teyvat 0.8.62] §7Заметки путешественника: клавиша §bN§7 или §b/teyvat notes"), false);
+                        "§e[Teyvat 0.8.63] §7Заметки путешественника: клавиша §bN§7 или §b/teyvat notes"), false);
             }
         });
     }

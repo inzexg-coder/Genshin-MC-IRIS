@@ -45,9 +45,8 @@ public class PaimonEntityRenderer extends EntityRenderer<PaimonEntity, PaimonRen
                        OrderedRenderCommandQueue queue, CameraRenderState cameraState) {
         matrices.push();
         matrices.translate(0.0f, 1.0f, 0.0f);
-        if (!state.following) {
-            matrices.translate(0.0f, state.bob, 0.0f);
-        }
+        // Лёгкое парение в любом состоянии: Паймон не висит статично.
+        matrices.translate(0.0f, state.bob, 0.0f);
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0f - state.yaw));
         matrices.multiply(RotationAxis.POSITIVE_X.rotationDegrees(state.pitch));
         matrices.scale(-1.0f, -1.0f, 1.0f);
