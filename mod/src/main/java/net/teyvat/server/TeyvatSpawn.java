@@ -97,11 +97,13 @@ public final class TeyvatSpawn {
     /**
      * Поиск лучшей точки пляжа по спирали от origin:
      * биом пляжа, сухая земля выше уровня моря, над головой воздух.
-     * Оценка: предпочитаем песок под ногами и открытую ровную площадку.
+     * Спавн обязан быть у самой кромки воды (озеро рядом), площадка — ровная.
      */
     private static BlockPos findBeachSpawn(ServerWorld world, BlockPos origin, int radius) {
         BlockPos best = null;
         int bestScore = Integer.MIN_VALUE;
+        BlockPos bestAny = null;
+        int bestAnyScore = Integer.MIN_VALUE;
         for (int r = 0; r <= radius; r++) {
             for (int dx = -r; dx <= r; dx++) {
                 for (int dz = -r; dz <= r; dz++) {
@@ -130,7 +132,16 @@ public final class TeyvatSpawn {
                     if (!below.isFullCube(world, top.down())) {
                         continue;
                     }
-                    int score = beachScore(world, top);
+                    int dryScore = beachScore(world, top);
+                    if (dryScore > bestAnyScore) {
+                        bestAnyScore = dryScore;
+                        bestAny = top;
+                    }
+                    int water = waterAround(world, top);
+                    if (water <= 0) {
+                        continue; // спавн только рядом с водой
+                    }
+                    int score = dryScore + water * 30;
                     if (score > bestScore) {
                         bestScore = score;
                         best = top;
@@ -138,7 +149,7 @@ public final class TeyvatSpawn {
                 }
             }
         }
-        return best;
+        return best != null ? best : bestAny;
     }
 
     /** Оценка точки: песок под ногами + количество сухих твёрдых соседей в пределах 5x5. */
@@ -173,6 +184,29 @@ public final class TeyvatSpawn {
             }
         }
         return score;
+    }
+
+    /** Сколько направлений с водой вокруг точки (кольцо радиусом ~6). */
+    private static int waterAround(ServerWorld world, BlockPos top) {
+        int count = 0;
+        int[] dxs = {6, -6, 0, 0, 4, 4, -4, -4};
+        int[] dzs = {0, 0, 6, -6, 4, -4, 4, -4};
+        for (int i = 0; i < dxs.length; i++) {
+            int nx = top.getX() + dxs[i];
+            int nz = top.getZ() + dzs[i];
+            if (!world.isChunkLoaded(nx >> 4, nz >> 4)) {
+                continue;
+            }
+            int ny = world.getTopY(Heightmap.Type.MOTION_BLOCKING, nx, nz);
+            if (ny <= world.getSeaLevel()) {
+                count++;
+                continue;
+            }
+            if (!world.getFluidState(new BlockPos(nx, ny, nz)).isEmpty()) {
+                count++;
+            }
+        }
+        return count;
     }
 
     /** Автоповорот: сканируем по кругу, вода позади игрока, суша впереди. */

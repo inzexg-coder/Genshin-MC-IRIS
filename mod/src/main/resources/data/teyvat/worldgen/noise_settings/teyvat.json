@@ -50,7 +50,7 @@
   {
    "temperature": 0.0,
    "humidity": 0.0,
-   "continentalness": 0.5,
+   "continentalness": 0.05,
    "erosion": 0.0,
    "depth": 0.0,
    "weirdness": 0.0,
