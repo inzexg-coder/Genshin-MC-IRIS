@@ -3,9 +3,9 @@
  "argument1": {
   "type": "minecraft:y_clamped_gradient",
   "from_value": 1.0,
-  "from_y": 60,
+  "from_y": 58,
   "to_value": -1.0,
-  "to_y": 66
+  "to_y": 70
  },
  "argument2": "teyvat:teyvat_beach_height"
 }
