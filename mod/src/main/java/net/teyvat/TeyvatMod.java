@@ -8,6 +8,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.command.TeyvatCommand;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.TeyvatSpawn;
@@ -36,6 +37,7 @@ public class TeyvatMod implements ModInitializer {
     public void onInitialize() {
         TeyvatOceanEdge.register();
         TeyvatXEdge.register();
+        PaimonEntity.register();
         TeyvatBlocks.register();
         TeyvatBlocks.registerItemGroup();
         PayloadTypeRegistry.playS2C().register(NotesOpenPayload.ID, NotesOpenPayload.CODEC);
