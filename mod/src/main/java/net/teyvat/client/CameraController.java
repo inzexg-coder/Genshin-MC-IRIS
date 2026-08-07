@@ -39,8 +39,8 @@ public final class CameraController {
     private static double lastEyeZ;
     /** Текущая дистанция (меняется колесиком). <=0 = брать из конфига. */
     private static double currentDistance;
-    /** Кадры плавного выезда из первого лица: камера стартует с точки глаз и медленно отплывает. */
-    private static int blendFrames;
+    /** Оставшееся время плавного выезда из первого лица, секунды. */
+    private static float blendTime;
 
     private CameraController() {}
 
@@ -190,15 +190,16 @@ public final class CameraController {
             camY = eye.y;
             camZ = eye.z;
             initialized = true;
-            blendFrames = 30;
+            // Медленный «кинематографичный» выезд из первого лица: ~1.5 секунды.
+            blendTime = 1.5f;
         } else {
-            // Первые кадры после входа — более медленный «кинематографичный» выезд.
-            float r = blendFrames > 0 ? 1f - (float) Math.exp(-cfg.blend_smoothness * dt) : rate;
+            // Пока идёт выезд — камера отплывает заметно медленнее обычного догоняния.
+            float r = blendTime > 0 ? 1f - (float) Math.exp(-cfg.blend_smoothness * dt) : rate;
             camX += (target.x - camX) * r;
             camY += (target.y - camY) * r;
             camZ += (target.z - camZ) * r;
-            if (blendFrames > 0) {
-                blendFrames--;
+            if (blendTime > 0) {
+                blendTime -= dt;
             }
         }
         lastEyeX = eye.x;
