@@ -11,7 +11,8 @@ import net.minecraft.text.Text;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import net.teyvat.client.ChatFlash;
+import net.teyvat.client.DialogueState;
+import net.teyvat.client.QuestToast;
 import net.teyvat.client.TravelerChoiceClient;
 import net.teyvat.network.QuestEventPayload;
 import net.teyvat.quest.Quests;
@@ -118,6 +119,8 @@ public final class PaimonManager {
         entity.setYaw(client.player.getYaw());
         world.addEntity(entity);
         paimon = entity;
+        // Пока Паймон знакомится с героем, свёрнутый чат остаётся на экране.
+        DialogueState.start();
     }
 
     private static void updatePaimon(MinecraftClient client, PaimonEntity entity) {
@@ -152,6 +155,7 @@ public final class PaimonManager {
                 say(player, PHRASE_2);
             } else if (ticks >= entity.getIntroTicksLimit()) {
                 entity.setFollowing(true);
+                DialogueState.end();
                 say(player, PHRASE_3);
                 questReportTimer = 0;
             }
@@ -274,12 +278,13 @@ public final class PaimonManager {
     }
 
     /** Квест «Познакомиться с Паймон»: сообщаем серверу, что знакомство завершилось,
-     *  и зажигаем яркую вспышку в чате. */
+     *  и показываем всплывающее окно с золотым текстом и символом выполненного задания. */
     private static void reportQuestMeetPaimon() {
-        if (MinecraftClient.getInstance().getNetworkHandler() != null) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.getNetworkHandler() != null) {
             ClientPlayNetworking.send(new QuestEventPayload(Quests.MEET_PAIMON));
         }
-        ChatFlash.trigger();
+        client.getToastManager().add(new QuestToast("Задание выполнено", "«" + Quests.MEET_PAIMON_TITLE + "»"));
     }
 
     public static void remove() {

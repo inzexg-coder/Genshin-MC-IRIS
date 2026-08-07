@@ -5,7 +5,7 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.ChatHud;
 import net.minecraft.client.gui.hud.ChatHudLine;
-import net.teyvat.client.ChatFlash;
+import net.teyvat.client.DialogueState;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -21,8 +21,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Чат Тейвата: свернутый чат — золотисто-синяя панель заметок с последней смысловой
- *  фразой (целиком, без обрезания по строкам) и оранжевой вспышкой при выполнении квеста;
- *  полный чат — шире, по центру, с пробелами между сообщениями. */
+ *  фразой (целиком, без обрезания по строкам); во время диалога с НПС панель не
+ *  скрывается, после — плавно тает; полный чат — шире, по центру, с пробелами. */
 @Mixin(ChatHud.class)
 public abstract class ChatHudMixin {
     @Shadow @Final
@@ -39,6 +39,11 @@ public abstract class ChatHudMixin {
 
     @Invoker("isChatHidden")
     protected abstract boolean teyvat$isChatHidden();
+
+    /** Сколько тиков (1/20 сек) панель видна после последнего сообщения. */
+    private static final int HIDE_AFTER_TICKS = 60;
+    /** Длительность плавного затухания панели, тики. */
+    private static final int FADE_TICKS = 16;
 
     /** Дополнительный пробел между строками чата — сообщения больше не слипаются. */
     @Inject(method = "getLineHeight", at = @At("RETURN"), cancellable = true)
@@ -81,13 +86,20 @@ public abstract class ChatHudMixin {
         }
         // В списке чата новейшее сообщение стоит в начале (messages.add(0, ...)).
         ChatHudLine latest = this.messages.get(0);
-        // Свернутый чат исчезает через 3 секунды (60 тиков) после последнего сообщения.
-        if (this.client.inGameHud.getTicks() - latest.creationTick() > 60) {
+        // Пока идёт диалог с НПС, панель не скрывается по таймеру.
+        boolean dialogue = DialogueState.isActive();
+        int age = this.client.inGameHud.getTicks() - latest.creationTick();
+        if (!dialogue && age > HIDE_AFTER_TICKS + FADE_TICKS) {
             return;
         }
         String phrase = latest.content().getString().trim();
         if (phrase.isEmpty()) {
             return;
+        }
+        // Плавное затухание: после 3 секунд панель мягко тает, а не исчезает резко.
+        float alpha = 1.0f;
+        if (!dialogue && age > HIDE_AFTER_TICKS) {
+            alpha = Math.max(0.0f, 1.0f - (age - HIDE_AFTER_TICKS) / (float) FADE_TICKS);
         }
         int w = context.getScaledWindowWidth();
         int h = context.getScaledWindowHeight();
@@ -103,23 +115,25 @@ public abstract class ChatHudMixin {
         int y0 = y1 - panelH;
 
         // Панель в стиле заметок: тёмно-синяя, золотая рамка и акцентная полоска.
-        context.fill(x0, y0, x1, y1, 0xF21B2338);
+        context.fill(x0, y0, x1, y1, teyvat$withAlpha(0xF21B2338, alpha));
         // Тонкая золотая рамка (1px) и аккуратная акцентная линия сверху.
-        context.fill(x0, y0, x1, y0 + 1, 0xFFE8C86A);
-        context.fill(x0, y1 - 1, x1, y1, 0xFFE8C86A);
-        context.fill(x0, y0, x0 + 1, y1, 0xFFE8C86A);
-        context.fill(x1 - 1, y0, x1, y1, 0xFFE8C86A);
-        context.fill(x0 + 1, y0 + 1, x1 - 1, y0 + 2, 0xFFE8C86A);
+        context.fill(x0, y0, x1, y0 + 1, teyvat$withAlpha(0xFFE8C86A, alpha));
+        context.fill(x0, y1 - 1, x1, y1, teyvat$withAlpha(0xFFE8C86A, alpha));
+        context.fill(x0, y0, x0 + 1, y1, teyvat$withAlpha(0xFFE8C86A, alpha));
+        context.fill(x1 - 1, y0, x1, y1, teyvat$withAlpha(0xFFE8C86A, alpha));
+        context.fill(x0 + 1, y0 + 1, x1 - 1, y0 + 2, teyvat$withAlpha(0xFFE8C86A, alpha));
         int ty = y0 + 15;
         TextRenderer tr = this.client.textRenderer;
         for (String line : lines) {
-            context.drawText(tr, line, x0 + pad, ty, 0xFFD8D2C4, true);
+            context.drawText(tr, line, x0 + pad, ty, teyvat$withAlpha(0xFFD8D2C4, alpha), true);
             ty += lineH;
         }
+    }
 
-        // Выполнение задания: свёрнутый чат вспыхивает оранжевым как вспышка света
-        // (белое ядро, оранжевое сияние, расширяющийся ореол) и плавно гаснет.
-        ChatFlash.render(context, x0, y0, x1, y1);
+    /** ARGB-цвет с изменённой альфой — для плавного затухания панели. */
+    private static int teyvat$withAlpha(int argb, float alpha) {
+        int a = (int) ((argb >>> 24) * alpha);
+        return (a << 24) | (argb & 0x00FFFFFF);
     }
 
     /** Перенос строк по ширине панели (как в заметках). */
