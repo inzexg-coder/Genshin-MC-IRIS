@@ -12,6 +12,7 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.teyvat.client.CameraController;
 import net.teyvat.client.DialogueOverlay;
+import net.teyvat.client.QuestStateClient;
 import net.teyvat.client.QuestToast;
 import net.teyvat.client.TravelerChoiceClient;
 import net.teyvat.network.QuestEventPayload;
@@ -55,6 +56,17 @@ public final class PaimonManager {
     private static final int PHRASE_END_GAP = 30;
     /** Задержка отчёта о выполненном задании после последней фразы Паймон (тики). */
     private static final int QUEST_REPORT_TICKS = 80;
+    /** Фразы мини-урока: Паймон подсказывает про колесо мыши после знакомства. */
+    private static final String[] TUTOR_PHRASES = {
+        "Кстати! Камеру можно приближать и отдалять колесом мыши.",
+        "Покрути его — тебя уже ждёт новое задание!"
+    };
+    /** Пауза перед первой фразой урока после отчёта о первом задании (тики). */
+    private static final int TUTOR_START_TICK = 40;
+    /** Каждая фраза урока держится 4 секунды (80 тиков). */
+    private static final int TUTOR_GAP_TICKS = 80;
+    /** Пауза после последней фразы перед уведомлением о новом задании (тики). */
+    private static final int TUTOR_END_GAP = 30;
     /** Дистанция до игрока во время знакомства. */
     private static final double INTRO_DIST = 2.4;
     /** Высота над игроком во время знакомства (чуть выше линии взгляда). */
@@ -72,6 +84,10 @@ public final class PaimonManager {
     private static Vec3d introPos;
     /** Таймер отчёта о квесте: -1 = не идёт, 0..QUEST_REPORT_TICKS = отсчёт после фразы. */
     private static int questReportTimer = -1;
+    /** Таймер мини-урока про колесо мыши: -1 = не идёт, 0 = запущен после знакомства. */
+    private static int tutorTicks = -1;
+    /** Показано ли уведомление «есть новое задание» (чтобы не дублировалось). */
+    private static boolean tutorPromptShown;
 
     private PaimonManager() {}
 
@@ -127,6 +143,8 @@ public final class PaimonManager {
         refYaw = client.player.getYaw();
         refYawReady = true;
         questReportTimer = -1;
+        tutorTicks = -1;
+        tutorPromptShown = false;
         // Точка знакомства фиксируется абсолютно: Паймон стоит на месте, пока говорит.
         introPos = playerPos(client.player).add(forwardDeg(refYaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
         entity.setPosition(introPos.x, introPos.y, introPos.z);
@@ -182,6 +200,7 @@ public final class PaimonManager {
         } else {
             // Плавно доводим угол: быстрые повороты мыши почти не сдвигают позицию Паймон.
             refYaw = MathHelper.lerpAngleDegrees(REF_YAW_LERP, refYaw, player.getYaw());
+            tickScrollTutorial();
         }
 
         Vec3d target;
@@ -301,6 +320,35 @@ public final class PaimonManager {
             ClientPlayNetworking.send(new QuestEventPayload(Quests.MEET_PAIMON));
         }
         client.getToastManager().add(new QuestToast("Задание выполнено", "«" + Quests.MEET_PAIMON_TITLE + "»"));
+        // После первого задания — короткий урок про колесо мыши (пока не выполнен).
+        if (!QuestStateClient.isCompleted(Quests.TRY_SCROLL)) {
+            tutorTicks = 0;
+            tutorPromptShown = false;
+        }
+    }
+
+    /** Мини-урок про колесо мыши: Паймон рассказывает, как приблизить камеру,
+     *  затем всплывает уведомление о новом задании. Повторяется при перезаходе,
+     *  пока квест не выполнен. */
+    private static void tickScrollTutorial() {
+        if (tutorTicks < 0) {
+            return;
+        }
+        tutorTicks++;
+        MinecraftClient client = MinecraftClient.getInstance();
+        // Фразы урока, неспешно: каждая держится 4 секунды.
+        for (int i = 0; i < TUTOR_PHRASES.length; i++) {
+            if (tutorTicks == TUTOR_START_TICK + i * TUTOR_GAP_TICKS) {
+                DialogueOverlay.show("Паймон", TUTOR_PHRASES[i]);
+            }
+        }
+        int lastPhraseTick = TUTOR_START_TICK + (TUTOR_PHRASES.length - 1) * TUTOR_GAP_TICKS;
+        if (tutorTicks >= lastPhraseTick + TUTOR_END_GAP && !tutorPromptShown) {
+            tutorPromptShown = true;
+            DialogueOverlay.end();
+            // Уведомление о новом задании — золотой попап, как у выполненных квестов.
+            client.getToastManager().add(new QuestToast("Новое задание", "«" + Quests.TRY_SCROLL_TITLE + "»"));
+        }
     }
 
     public static void remove() {

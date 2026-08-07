@@ -5,8 +5,13 @@ import net.minecraft.client.Mouse;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.Perspective;
 import net.minecraft.client.render.Camera;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.teyvat.client.CameraController;
+import net.teyvat.client.QuestStateClient;
+import net.teyvat.client.QuestToast;
 import net.teyvat.config.TeyvatConfig;
+import net.teyvat.network.QuestEventPayload;
+import net.teyvat.quest.Quests;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -49,6 +54,14 @@ public abstract class MouseMixin {
             return;
         }
         CameraController.scroll((float) vertical);
+        // Первая прокрутка колеса в 3-м лице выполняет задание «Попробуй приблизить камеру».
+        if (!QuestStateClient.isCompleted(Quests.TRY_SCROLL)) {
+            QuestStateClient.markCompleted(Quests.TRY_SCROLL);
+            if (client.getNetworkHandler() != null) {
+                ClientPlayNetworking.send(new QuestEventPayload(Quests.TRY_SCROLL));
+            }
+            client.getToastManager().add(new QuestToast("Задание выполнено", "«" + Quests.TRY_SCROLL_TITLE + "»"));
+        }
         ci.cancel();
     }
 }

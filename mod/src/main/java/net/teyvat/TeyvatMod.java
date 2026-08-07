@@ -20,6 +20,8 @@ import net.teyvat.worldgen.TeyvatXEdge;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.network.TravelerChoicePayload;
 import net.teyvat.network.QuestEventPayload;
+import net.teyvat.network.QuestStatePayload;
+import net.teyvat.quest.Quests;
 import net.teyvat.network.TravelerChoiceSyncPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +53,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(TravelerChoicePayload.ID, TravelerChoicePayload.CODEC);
         PayloadTypeRegistry.playC2S().register(QuestEventPayload.ID, QuestEventPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceSyncPayload.ID, TravelerChoiceSyncPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(QuestStatePayload.ID, QuestStatePayload.CODEC);
         CommandRegistrationCallback.EVENT.register(TeyvatCommand::register);
         ServerLifecycleEvents.SERVER_STARTED.register(TeyvatSpawn::prepare);
         LOGGER.info("Teyvat mod initialized: {} blocks registered", TeyvatBlocks.ALL_BLOCKS.size());
@@ -108,6 +111,10 @@ public class TeyvatMod implements ModInitializer {
                     ServerPlayNetworking.send(player, new TravelerChoiceSyncPayload(entry.getKey(), entry.getValue()));
                 }
             }
+            // Состояние квестов: клиент не повторяет уроки, которые уже пройдены.
+            ServerPlayNetworking.send(player, new QuestStatePayload(
+                    TeyvatQuests.isCompleted(player, Quests.MEET_PAIMON),
+                    TeyvatQuests.isCompleted(player, Quests.TRY_SCROLL)));
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->

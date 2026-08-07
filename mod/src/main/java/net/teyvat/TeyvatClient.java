@@ -18,7 +18,9 @@ import net.teyvat.client.TravelerNotesScreen;
 import net.teyvat.client.paimon.PaimonEntityRenderer;
 import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.client.paimon.PaimonManager;
+import net.teyvat.client.QuestStateClient;
 import net.teyvat.network.NotesOpenPayload;
+import net.teyvat.network.QuestStatePayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.network.TravelerChoiceSyncPayload;
 import org.lwjgl.glfw.GLFW;
@@ -81,6 +83,11 @@ public class TeyvatClient implements ClientModInitializer {
         // Первый вход: сервер просит открыть экран выбора путешественника.
         ClientPlayNetworking.registerGlobalReceiver(TravelerChoiceOpenPayload.ID, (payload, context) -> {
             context.client().execute(() -> choiceOpenDelay = 5);
+        });
+
+        // Состояние квестов с сервера: какие задания уже выполнены (не повторяем уроки).
+        ClientPlayNetworking.registerGlobalReceiver(QuestStatePayload.ID, (payload, context) -> {
+            context.client().execute(() -> QuestStateClient.set(payload.meetPaimon(), payload.tryScroll()));
         });
 
         // Синхронизация выбора: применяем скин игрока через локальные текстуры мода.

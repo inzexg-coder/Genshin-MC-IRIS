@@ -20,7 +20,7 @@ public final class TeyvatQuests {
     /** Помечает квест выполненным. Уведомление игроку — только клиентский попап
      *  «Задание выполнено» (справа сверху), в чат ничего не пишется. */
     public static void complete(ServerPlayerEntity player, String questId) {
-        if (!Quests.MEET_PAIMON.equals(questId)) {
+        if (!Quests.MEET_PAIMON.equals(questId) && !Quests.TRY_SCROLL.equals(questId)) {
             return;
         }
         if (isCompleted(player, questId)) {

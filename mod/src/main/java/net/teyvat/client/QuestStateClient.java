@@ -1,0 +1,35 @@
+package net.teyvat.client;
+
+import net.teyvat.quest.Quests;
+
+/** Состояние квестов на клиенте: приходит с сервера при входе в мир,
+ *  чтобы мини-уроки и уведомления не повторялись после выполнения. */
+public final class QuestStateClient {
+    private static boolean meetPaimon;
+    private static boolean tryScroll;
+
+    private QuestStateClient() {}
+
+    public static void set(boolean meetPaimonCompleted, boolean tryScrollCompleted) {
+        meetPaimon = meetPaimonCompleted;
+        tryScroll = tryScrollCompleted;
+    }
+
+    public static boolean isCompleted(String questId) {
+        if (Quests.MEET_PAIMON.equals(questId)) {
+            return meetPaimon;
+        }
+        if (Quests.TRY_SCROLL.equals(questId)) {
+            return tryScroll;
+        }
+        return false;
+    }
+
+    public static void markCompleted(String questId) {
+        if (Quests.MEET_PAIMON.equals(questId)) {
+            meetPaimon = true;
+        } else if (Quests.TRY_SCROLL.equals(questId)) {
+            tryScroll = true;
+        }
+    }
+}
