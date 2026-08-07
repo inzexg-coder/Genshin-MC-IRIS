@@ -31,9 +31,9 @@ public final class TeyvatOceanEdge {
     public static final int SHORE_Z = -1565;
     /** Полуширина профиля: g = -1 на z = -2000 (дно моря), g = +1 на z = -1130 (край пляжа). */
     public static final int SEA_WIDTH = 435;
-    /** Номинальный урез воды: профиль пляжа пересекает уровень моря при g = 0.46
+    /** Номинальный урез воды: профиль пляжа пересекает уровень моря при g = 0.41
      *  (реально извивается шумом) — южнее линии обрывов, пляж не выдаётся в море. */
-    public static final int WATERLINE_Z = SHORE_Z + (int) Math.round(SEA_WIDTH * 0.46);
+    public static final int WATERLINE_Z = SHORE_Z + (int) Math.round(SEA_WIDTH * 0.41);
 
     private static final DensityFunction INSTANCE = new DensityFunction.Base() {
         @Override

@@ -27,7 +27,7 @@ public abstract class ChatScreenMixin {
         String title = "「Чат Тейвата」";
         context.drawText(client.textRenderer, title,
                 (w - client.textRenderer.getWidth(title)) / 2, (HEADER_H - 12) / 2, 0xFFE8C86A, true);
-        String ver = "Teyvat 0.8.88";
+        String ver = "Teyvat 0.8.89";
         context.drawText(client.textRenderer, ver, w - client.textRenderer.getWidth(ver) - 10,
                 (HEADER_H - 12) / 2, 0xFF9AA5B8, true);
     }

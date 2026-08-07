@@ -6,38 +6,21 @@
    "type": "minecraft:spline",
    "spline": {
     "coordinate": {
-     "type": "minecraft:mul",
+     "type": "minecraft:add",
      "argument1": {
       "type": "teyvat:x_edge"
      },
      "argument2": {
-      "type": "minecraft:spline",
-      "spline": {
-       "coordinate": {
-        "type": "teyvat:z_edge"
-       },
-       "points": [
-        {
-         "location": -1.0,
-         "value": 3.0,
-         "derivative": 0.0
-        },
-        {
-         "location": 0.3,
-         "value": 3.0,
-         "derivative": 0.0
-        },
-        {
-         "location": 0.52,
-         "value": 1.0,
-         "derivative": 0.0
-        },
-        {
-         "location": 1.0,
-         "value": 1.0,
-         "derivative": 0.0
-        }
-       ]
+      "type": "minecraft:mul",
+      "argument1": 0.07,
+      "argument2": {
+       "type": "minecraft:shifted_noise",
+       "noise": "minecraft:surface_secondary",
+       "shift_x": "minecraft:shift_x",
+       "shift_y": 0.0,
+       "shift_z": "minecraft:shift_z",
+       "xz_scale": 0.9,
+       "y_scale": 0.0
       }
      }
     },
@@ -48,39 +31,34 @@
       "derivative": 0.0
      },
      {
-      "location": -0.8,
+      "location": -0.95,
       "value": 0.0,
-      "derivative": 0.6
+      "derivative": 0.5
      },
      {
-      "location": -0.55,
-      "value": 0.95,
+      "location": -0.8,
+      "value": 1.0,
       "derivative": 1.0
      },
      {
-      "location": -0.3,
-      "value": 1.0,
-      "derivative": 0.1
-     },
-     {
-      "location": 0.0,
+      "location": -0.65,
       "value": 1.0,
       "derivative": 0.0
      },
      {
-      "location": 0.3,
+      "location": 0.65,
       "value": 1.0,
-      "derivative": -0.1
-     },
-     {
-      "location": 0.55,
-      "value": 0.95,
-      "derivative": -1.0
+      "derivative": 0.0
      },
      {
       "location": 0.8,
+      "value": 1.0,
+      "derivative": -1.0
+     },
+     {
+      "location": 0.95,
       "value": 0.0,
-      "derivative": -0.6
+      "derivative": -0.5
      },
      {
       "location": 1.0,
