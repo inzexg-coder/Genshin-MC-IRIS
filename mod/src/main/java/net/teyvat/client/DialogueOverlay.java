@@ -112,19 +112,17 @@ public final class DialogueOverlay {
         }
     }
 
-    /** Текст с контуром вокруг каждой буквы: 8 сдвигов тёмного цвета под основным текстом.
-     *  Буквы читаются на любом фоне, но подложки нет — выделяется именно текст. */
+    /** Мягкая обводка вокруг каждой буквы: тонкая (4 направления) и полупрозрачная,
+     *  плюс ванильная тень. Текст остаётся чётким на любом фоне без жирной чёрной рамки. */
     private static void drawOutlinedText(DrawContext context, TextRenderer tr, String text,
                                          int x, int y, int color) {
-        int outline = withAlpha(0xFF0E1118, Math.min(1.0f, (color >>> 24) / 255.0f));
-        for (int dx = -1; dx <= 1; dx++) {
-            for (int dy = -1; dy <= 1; dy++) {
-                if (dx != 0 || dy != 0) {
-                    context.drawText(tr, text, x + dx, y + dy, outline, false);
-                }
-            }
-        }
-        context.drawText(tr, text, x, y, color, false);
+        float a = Math.min(1.0f, (color >>> 24) / 255.0f);
+        int outline = withAlpha(0xFF141B28, a * 0.8f);
+        context.drawText(tr, text, x, y - 1, outline, false);
+        context.drawText(tr, text, x, y + 1, outline, false);
+        context.drawText(tr, text, x - 1, y, outline, false);
+        context.drawText(tr, text, x + 1, y, outline, false);
+        context.drawText(tr, text, x, y, color, true);
     }
 
     /** Маленький ромб из двух пересекающихся полос. */
