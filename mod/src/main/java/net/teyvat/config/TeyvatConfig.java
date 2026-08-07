@@ -39,6 +39,15 @@ public final class TeyvatConfig {
     /** Паймон-компаньон. */
     public Paimon paimon = new Paimon();
 
+    /** Зум по кнопке (клавиша C по умолчанию). */
+    public Zoom zoom = new Zoom();
+
+    /** Настройки зума. */
+    public static class Zoom {
+        /** Множитель FOV при полном зуме: меньше = сильнее (0.2 = пятикратный зум). */
+        public float fov = 0.2f;
+    }
+
     /** Настройки Паймон. */
     public static class Paimon {
         /** Показывать Паймон после выбора путешественника. */
@@ -69,6 +78,9 @@ public final class TeyvatConfig {
                     }
                     if (cfg.paimon == null) {
                         cfg.paimon = new Paimon();
+                    }
+                    if (cfg.zoom == null) {
+                        cfg.zoom = new Zoom();
                     }
                 }
             } catch (Exception ignored) {
