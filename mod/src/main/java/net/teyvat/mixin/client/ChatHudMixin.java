@@ -1,8 +1,10 @@
 package net.teyvat.mixin.client;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.ChatHud;
+import net.minecraft.client.gui.hud.ChatHudLine;
 import net.teyvat.client.ChatFlash;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -15,11 +17,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.gen.Invoker;
 
-/** Чат Тейвата: пробелы между сообщениями, чат снизу по центру и яркая вспышка при квестах. */
+import java.util.ArrayList;
+import java.util.List;
+
+/** Чат Тейвата: свернутый чат — золотисто-синяя панель заметок с последней смысловой
+ *  фразой (целиком, без обрезания по строкам) и оранжевой вспышкой при выполнении квеста;
+ *  полный чат — шире, по центру, с пробелами между сообщениями. */
 @Mixin(ChatHud.class)
 public abstract class ChatHudMixin {
     @Shadow @Final
     private MinecraftClient client;
+
+    @Shadow @Final
+    private List<ChatHudLine> messages;
 
     @Shadow
     public abstract int getWidth();
@@ -27,24 +37,13 @@ public abstract class ChatHudMixin {
     @Shadow
     public abstract double getChatScale();
 
-    @Shadow
-    public abstract boolean isChatFocused();
+    @Invoker("isChatHidden")
+    protected abstract boolean teyvat$isChatHidden();
 
     /** Дополнительный пробел между строками чата — сообщения больше не слипаются. */
     @Inject(method = "getLineHeight", at = @At("RETURN"), cancellable = true)
     private void teyvat$chatLineSpacing(CallbackInfoReturnable<Integer> cir) {
         cir.setReturnValue(cir.getReturnValue() + 5);
-    }
-
-    @Invoker("getLineHeight")
-    protected abstract int teyvat$getLineHeight();
-
-    /** В свёрнутом чате показываем только последнее сообщение. */
-    @Inject(method = "getHeight", at = @At("HEAD"), cancellable = true)
-    private void teyvat$collapsedChatHeight(CallbackInfoReturnable<Integer> cir) {
-        if (!this.isChatFocused()) {
-            cir.setReturnValue(this.teyvat$getLineHeight());
-        }
     }
 
     /** Чат шире: анимешный шрифт шире обычного, текст не должен обрезаться. */
@@ -68,27 +67,83 @@ public abstract class ChatHudMixin {
         return teyvat$chatLeft();
     }
 
-    /** Яркая золотая вспышка в чате (например, при выполнении квеста). */
-    @Inject(method = "render", at = @At("RETURN"))
-    private void teyvat$chatFlash(DrawContext context, int scaledHeight, int mouseX, int mouseY,
-                                  boolean captureMouse, CallbackInfo ci) {
-        if (!ChatFlash.isActive()) {
+    /** Свернутый чат: вместо списка строк рисуем панель в стиле заметок с последней
+     *  смысловой фразой (фраза НПС, выполненное задание и т.п.), целиком, без обрезки. */
+    @Inject(method = "render", at = @At("HEAD"), cancellable = true)
+    private void teyvat$collapsedChat(DrawContext context, int scaledHeight, int mouseX, int mouseY,
+                                      boolean captureMouse, CallbackInfo ci) {
+        if (captureMouse || this.teyvat$isChatHidden()) {
             return;
         }
-        ChatFlash.tick();
-        float t = ChatFlash.progress();
+        ci.cancel();
+        if (this.messages.isEmpty()) {
+            return;
+        }
+        String phrase = this.messages.get(this.messages.size() - 1).content().getString().trim();
+        if (phrase.isEmpty()) {
+            return;
+        }
         int w = context.getScaledWindowWidth();
-        int panel = (int) Math.ceil(this.getWidth() / this.getChatScale());
-        int left = (w - panel) / 2;
-        int right = left + panel;
-        int bottom = context.getScaledWindowHeight() - 26;
-        int top = bottom - (int) (120.0f * t + 30);
-        int alpha = (int) (200.0f * t);
-        // Белый центр → золотая кромка: яркая вспышка, плавно гаснущая.
-        context.fillGradient(left, top, right, bottom,
-                (alpha << 24) | 0xFFFFFF, (alpha << 24) | 0xFFD760);
-        context.fillGradient(left + 16, top + 16, right - 16, bottom - 16,
-                ((int) (alpha * 0.7f) << 24) | 0xFFF2C9, ((int) (alpha * 0.5f) << 24) | 0xFFE08A);
+        int h = context.getScaledWindowHeight();
+        int pad = 14;
+        int innerW = Math.max(120, Math.min(420, (int) (w * 0.6f) - pad * 2));
+        List<String> lines = teyvat$wrap(phrase, innerW);
+        int lineH = 12;
+        int panelW = innerW + pad * 2;
+        int panelH = lines.size() * lineH + pad * 2 + 10;
+        int x0 = (w - panelW) / 2;
+        int x1 = x0 + panelW;
+        int y1 = h - 38;
+        int y0 = y1 - panelH;
+
+        // Панель в стиле заметок: тёмно-синяя, золотая рамка и акцентная полоска.
+        context.fill(x0, y0, x1, y1, 0xF21B2338);
+        context.fill(x0, y0, x1, y0 + 2, 0xFFE8C86A);
+        context.fill(x0, y1 - 2, x1, y1, 0xFFE8C86A);
+        context.fill(x0, y0, x0 + 2, y1, 0xFFE8C86A);
+        context.fill(x1 - 2, y0, x1, y1, 0xFFE8C86A);
+        context.fill(x0 + 2, y0 + 2, x1 - 2, y0 + 5, 0xFFE8C86A);
+        int ty = y0 + 15;
+        TextRenderer tr = this.client.textRenderer;
+        for (String line : lines) {
+            context.drawText(tr, line, x0 + pad, ty, 0xFFD8D2C4, true);
+            ty += lineH;
+        }
+
+        // Выполнение задания: весь свернутый чат вспыхивает оранжевым и плавно гаснет.
+        if (ChatFlash.isActive()) {
+            ChatFlash.tick();
+            float t = ChatFlash.progress();
+            int alpha = (int) (190.0f * t);
+            context.fill(x0, y0, x1, y1, (alpha << 24) | 0xFFE87A1E);
+            context.fill(x0 + 6, y0 + 6, x1 - 6, y1 - 6, ((int) (alpha * 0.6f) << 24) | 0xFFFFA23E);
+        }
+    }
+
+    /** Перенос строк по ширине панели (как в заметках). */
+    private List<String> teyvat$wrap(String text, int maxWidth) {
+        List<String> out = new ArrayList<>();
+        TextRenderer tr = this.client.textRenderer;
+        if (tr.getWidth(text) <= maxWidth) {
+            out.add(text);
+            return out;
+        }
+        StringBuilder cur = new StringBuilder();
+        for (String word : text.split(" ")) {
+            if (cur.isEmpty()) {
+                cur.append(word);
+            } else if (tr.getWidth(cur + " " + word) <= maxWidth) {
+                cur.append(' ').append(word);
+            } else {
+                out.add(cur.toString());
+                cur.setLength(0);
+                cur.append(word);
+            }
+        }
+        if (cur.length() > 0) {
+            out.add(cur.toString());
+        }
+        return out;
     }
 
     /** Левый край чата при центрировании (в чат-координатах). */
