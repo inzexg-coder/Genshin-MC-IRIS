@@ -38,13 +38,19 @@ public final class PaimonManager {
     /** Если Паймон отстала дальше этого расстояния — телепорт к игроку. */
     private static final double TELEPORT_DIST = 16.0;
     /** Фразы Паймон: короткое введение в мир, представление Паймон и призыв в путь. */
-    private static final String PHRASE_1 = "Ты наконец очнулся, путешественник! Это берега Тейвата — отсюда начинается твоя история.";
-    private static final String PHRASE_2 = "Меня зовут Паймон! Лучший гид Тейвата... и теперь твой спутник.";
-    private static final String PHRASE_3 = "Ну что, давай в путь! Впереди Мондштадт и большие приключения.";
-    /** Тик первой фразы знакомства. */
-    private static final int PHRASE_1_TICK = 50;
-    /** Тик второй фразы знакомства. */
-    private static final int PHRASE_2_TICK = 200;
+    private static final String[] PHRASES = {
+        "Путешественник! Ты наконец-то открыл глаза!",
+        "Паймон ждала тебя!",
+        "Этот мир называется Тейват, но только не тот, который ты знаешь.",
+        "Здесь всё смешалось: и древние руины, и летающие острова, и подземные города...",
+        "Паймон сама иногда теряется!",
+        "Но не бойся — я буду твоим гидом!",
+        "Правда, если проголодаюсь, то буду требовать жареную птицу! Запомни это сразу!"
+    };
+    /** Тик первой фразы знакомства: игрок сперва приходит в себя. */
+    private static final int PHRASE_START_TICK = 40;
+    /** Пауза после последней фразы, перед тем как Паймон летит за спину героя. */
+    private static final int PHRASE_END_GAP = 30;
     /** Задержка отчёта о выполненном задании после последней фразы Паймон (тики). */
     private static final int QUEST_REPORT_TICKS = 80;
     /** Дистанция до игрока во время знакомства. */
@@ -153,14 +159,18 @@ public final class PaimonManager {
             int ticks = entity.getIntroTicks() + 1;
             entity.setIntroTicks(ticks);
             // Реплики в чат, неспешно: сначала игрок приходит в себя, потом Паймон говорит.
-            if (ticks == PHRASE_1_TICK) {
-                say(player, PHRASE_1);
-            } else if (ticks == PHRASE_2_TICK) {
-                say(player, PHRASE_2);
-            } else if (ticks >= entity.getIntroTicksLimit()) {
+            int introLimit = entity.getIntroTicksLimit();
+            int usableTicks = introLimit - PHRASE_START_TICK - PHRASE_END_GAP;
+            int phraseGap = Math.max(18, usableTicks / Math.max(1, PHRASES.length - 1));
+            for (int i = 0; i < PHRASES.length; i++) {
+                if (ticks == PHRASE_START_TICK + i * phraseGap) {
+                    say(player, PHRASES[i]);
+                }
+            }
+            if (ticks >= introLimit) {
+                // После последней фразы Паймон летит за спину героя.
                 entity.setFollowing(true);
                 DialogueState.end();
-                say(player, PHRASE_3);
                 questReportTimer = 0;
             }
         } else {
