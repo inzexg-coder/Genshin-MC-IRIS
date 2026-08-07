@@ -72,7 +72,10 @@ public class QuestToast implements Toast {
 
     @Override
     public void update(ToastManager manager, long showTime) {
-        this.showTime = showTime;
+        // На паузе мир стоит — уведомление о выполненном задании тоже замирает.
+        if (!MinecraftClient.getInstance().isPaused()) {
+            this.showTime = showTime;
+        }
     }
 
     @Override
@@ -82,14 +85,15 @@ public class QuestToast implements Toast {
 
     @Override
     public void draw(DrawContext context, TextRenderer textRenderer, long showTime) {
-        this.showTime = showTime;
+        // Замороженное на паузе время: анимации не идут, пока игрок в меню паузы.
+        long st = this.showTime;
         int w = getWidth();
         int h = getHeight();
 
         // Время идёт с момента полного появления окна; поп-анимации — в начале.
-        float popT = MathHelper.clamp((float) showTime / POP_MS, 0.0f, 1.0f);
-        float fadeIn = MathHelper.clamp((float) showTime / 180.0f, 0.0f, 1.0f);
-        float fadeOut = MathHelper.clamp((VISIBLE_MS + 600 - showTime) / 600.0f, 0.0f, 1.0f);
+        float popT = MathHelper.clamp((float) st / POP_MS, 0.0f, 1.0f);
+        float fadeIn = MathHelper.clamp((float) st / 180.0f, 0.0f, 1.0f);
+        float fadeOut = MathHelper.clamp((VISIBLE_MS + 600 - st) / 600.0f, 0.0f, 1.0f);
         float alpha = fadeIn * fadeOut;
         if (alpha <= 0.01f) {
             return;
@@ -108,7 +112,7 @@ public class QuestToast implements Toast {
         int badgeCx = 24;
         int badgeCy = h / 2;
         float badgeScale = easeOutBack(popT);
-        float pulse = 0.55f + 0.45f * (float) Math.sin(showTime / 150.0 * Math.PI * 2.0);
+        float pulse = 0.55f + 0.45f * (float) Math.sin(st / 150.0 * Math.PI * 2.0);
         Matrix3x2fStack m = context.getMatrices();
 
         // Мягкое золотое свечение позади ромба — пульсирует, пока окно видно.
