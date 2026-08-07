@@ -11,8 +11,8 @@ import net.teyvat.TeyvatMod;
 /**
  * Кастомная density-функция teyvat:x_edge — «удаление от центра пляжа по X».
  * Возвращает -1 у западного края пляжевой зоны и +1 у восточного.
- * Вместе с teyvat:z_edge задаёт форму пляжа: полоса ~300 блоков у моря,
- * с трёх сторон окружённая полями, которые обрываются в море.
+ * Вместе с teyvat:z_edge задаёт форму пляжа: широкая бухта у моря (полоса
+ * ~180 блоков), с трёх сторон окружённая полями с обрывами.
  *
  * Константы обязаны совпадать с data-паком:
  *  - teyvat_beach_weight.json (сплайн «веса пляжа» по x_edge)
@@ -20,8 +20,9 @@ import net.teyvat.TeyvatMod;
 public final class TeyvatXEdge {
     public static final Identifier TYPE_ID = Identifier.of(TeyvatMod.MOD_ID, "x_edge");
 
-    /** Полуширина зоны перехода пляж/поля: x_edge = ±1 на |x| = BEACH_HALF. Пляж короткий (вглубь ~80 блоков). */
-    public static final int BEACH_HALF = 70; // полуширина пляжа: ширина и длина уменьшены в 2 раза, форма полукруглая
+    /** Полуширина зоны перехода пляж/поля: x_edge = ±1 на |x| = BEACH_HALF.
+     *  У воды пляж сужается (вес умножается на z-фактор из teyvat_beach_weight.json). */
+    public static final int BEACH_HALF = 88; // пляж чуть шире прежнего, форма — бухта
 
     private static final DensityFunction INSTANCE = new DensityFunction.Base() {
         @Override

@@ -96,28 +96,28 @@ public class QuestToast implements Toast {
         m.translate(badgeCx, badgeCy);
         m.scale(badgeScale, badgeScale);
         int glowA = (int) (80.0f * alpha * pulse);
-        context.fill(-16, -16, 16, 16, (glowA << 24) | 0xFFFFD97A);
-        context.fill(-11, -11, 11, 11, ((int) (glowA * 1.5f) << 24) | 0xFFE8C86A);
+        context.fill(-18, -18, 18, 18, (glowA << 24) | 0xFFFFD97A);
+        context.fill(-13, -13, 13, 13, ((int) (glowA * 1.5f) << 24) | 0xFFE8C86A);
         // Золотой ромб с тёмной сердцевиной — символ выполненного задания.
         m.rotate((float) Math.PI / 4.0f);
-        context.fill(-11, -11, 11, 11, (goldA << 24) | 0xFFE8C86A);
-        context.fill(-9, -9, 9, 9, ((int) (0xF2 * alpha) << 24) | 0x1B2338);
+        context.fill(-13, -13, 13, 13, (goldA << 24) | 0xFFE8C86A);
+        context.fill(-11, -11, 11, 11, ((int) (0xF2 * alpha) << 24) | 0x1B2338);
         m.popMatrix();
 
-        // Галочка в центре ромба — рисуется своим масштабом, поверх ромба.
+        // Галочка в центре ромба — крупная, занимает почти весь ромб.
         m.pushMatrix();
         m.translate(badgeCx, badgeCy);
-        m.scale(badgeScale * 1.7f, badgeScale * 1.7f);
+        m.scale(badgeScale * 2.2f, badgeScale * 2.2f);
         String check = "✓";
         int cw = textRenderer.getWidth(check);
-        context.drawText(textRenderer, check, -cw / 2, -3, (goldA << 24) | 0xFFE8C86A, true);
+        context.drawText(textRenderer, check, -cw / 2, -4, (goldA << 24) | 0xFFE8C86A, true);
         m.popMatrix();
 
         // Золотой заголовок и имя задания мягко всплывают снизу.
         float slide = (1.0f - easeOutCubic(popT)) * 6.0f;
         int textA = (int) (255 * alpha);
-        context.drawText(textRenderer, this.title, 48, (int) (9 + slide), (textA << 24) | 0xFFE8C86A, true);
-        context.drawText(textRenderer, this.questName, 48, (int) (23 + slide), (textA << 24) | 0xFFD8D2C4, true);
+        context.drawText(textRenderer, this.title, 52, (int) (9 + slide), (textA << 24) | 0xFFE8C86A, true);
+        context.drawText(textRenderer, this.questName, 52, (int) (23 + slide), (textA << 24) | 0xFFD8D2C4, true);
     }
 
     /** Затухание с лёгким перелётом за 1.0 (пружинящее появление). */

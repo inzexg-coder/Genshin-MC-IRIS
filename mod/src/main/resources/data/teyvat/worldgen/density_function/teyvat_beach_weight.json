@@ -6,7 +6,40 @@
    "type": "minecraft:spline",
    "spline": {
     "coordinate": {
-     "type": "teyvat:x_edge"
+     "type": "minecraft:mul",
+     "argument1": {
+      "type": "teyvat:x_edge"
+     },
+     "argument2": {
+      "type": "minecraft:spline",
+      "spline": {
+       "coordinate": {
+        "type": "teyvat:z_edge"
+       },
+       "points": [
+        {
+         "location": -1.0,
+         "value": 3.0,
+         "derivative": 0.0
+        },
+        {
+         "location": 0.3,
+         "value": 3.0,
+         "derivative": 0.0
+        },
+        {
+         "location": 0.52,
+         "value": 1.0,
+         "derivative": 0.0
+        },
+        {
+         "location": 1.0,
+         "value": 1.0,
+         "derivative": 0.0
+        }
+       ]
+      }
+     }
     },
     "points": [
      {
