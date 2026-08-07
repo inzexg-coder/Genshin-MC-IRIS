@@ -7,12 +7,11 @@ import net.minecraft.client.world.ClientWorld;
 import net.minecraft.particle.DustColorTransitionParticleEffect;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.particle.TintedParticleEffect;
-import net.minecraft.text.Text;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.teyvat.client.CameraController;
-import net.teyvat.client.DialogueState;
+import net.teyvat.client.DialogueOverlay;
 import net.teyvat.client.QuestToast;
 import net.teyvat.client.TravelerChoiceClient;
 import net.teyvat.network.QuestEventPayload;
@@ -87,6 +86,8 @@ public final class PaimonManager {
         if (client.isPaused()) {
             return;
         }
+        // Оверлей диалога живёт тиками клиента (и замирает на паузе вместе с миром).
+        DialogueOverlay.tick();
         // Пока открыт экран выбора героя, Паймон не появляется: знакомство
         // начнётся заново после выбора, а не проиграется незаметно за меню.
         // Если экран уже закрывается вспышкой — Паймон остаётся: сцена идёт за ней.
@@ -132,8 +133,7 @@ public final class PaimonManager {
         entity.setYaw(client.player.getYaw());
         world.addEntity(entity);
         paimon = entity;
-        // Пока Паймон знакомится с героем, свёрнутый чат остаётся на экране.
-        DialogueState.start();
+        // Реплики Паймон рисуются оверлеем прямо на экране (не в чате).
     }
 
     private static void updatePaimon(MinecraftClient client, PaimonEntity entity) {
@@ -165,14 +165,14 @@ public final class PaimonManager {
             // сначала игрок приходит в себя, потом Паймон говорит.
             for (int i = 0; i < PHRASES.length; i++) {
                 if (ticks == PHRASE_START_TICK + i * PHRASE_GAP_TICKS) {
-                    say(player, PHRASES[i]);
+                    DialogueOverlay.show("Паймон", PHRASES[i]);
                 }
             }
             int lastPhraseTick = PHRASE_START_TICK + (PHRASES.length - 1) * PHRASE_GAP_TICKS;
             if (ticks >= Math.max(entity.getIntroTicksLimit(), lastPhraseTick + PHRASE_END_GAP)) {
                 // После последней фразы Паймон летит за спину героя.
                 entity.setFollowing(true);
-                DialogueState.end();
+                DialogueOverlay.end();
                 questReportTimer = 0;
                 // Плавный переход камеры из первого лица в третье (как в Genshin).
                 if (TeyvatConfig.get().paimon.third_person_after_intro) {
@@ -291,10 +291,6 @@ public final class PaimonManager {
         double dx = player.getX() - entity.getX();
         double dz = player.getZ() - entity.getZ();
         return (float) (MathHelper.atan2(dz, dx) * 180.0 / Math.PI) - 90.0f;
-    }
-
-    private static void say(AbstractClientPlayerEntity player, String text) {
-        player.sendMessage(Text.literal("§fПаймон§7: §f" + text), false);
     }
 
     /** Квест «Познакомиться с Паймон»: сообщаем серверу, что знакомство завершилось,

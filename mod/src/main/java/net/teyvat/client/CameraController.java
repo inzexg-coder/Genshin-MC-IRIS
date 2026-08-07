@@ -41,6 +41,9 @@ public final class CameraController {
     private static double currentDistance;
     /** Оставшееся время плавного выезда из первого лица, секунды. */
     private static float blendTime;
+    /** Сглаженная «безопасная» дистанция камеры (коллизия): не дёргается на стыках блоков. */
+    private static double safeDist;
+    private static boolean safeDistReady;
 
     private CameraController() {}
 
@@ -167,22 +170,57 @@ public final class CameraController {
         // Целевая позиция: глаза героя, назад вдоль луча камеры + плечевое смещение.
         Vec3d eye = entity.getCameraPosVec(tickDelta);
         Vec3d fwd = entity.getRotationVector(camPitch, camYaw);
+        // Прямой взгляд вверх/вниз: горизонталь почти нулевая — не даём NaN в боковом смещении.
+        Vec3d right;
+        if (fwd.x * fwd.x + fwd.z * fwd.z < 1.0E-8) {
+            right = new Vec3d(1, 0, 0);
+        } else {
+            right = new Vec3d(-fwd.z, 0, fwd.x).normalize();
+        }
         double min = Math.min(cfg.min_distance, cfg.max_distance);
         double max = Math.max(cfg.min_distance, cfg.max_distance);
         double dist = MathHelper.clamp(currentDistance > 0 ? currentDistance : cfg.distance, min, max);
-        Vec3d target = eye.subtract(fwd.multiply(dist));
-        Vec3d right = new Vec3d(-fwd.z, 0, fwd.x).normalize();
-        target = target.add(right.multiply(cfg.side)).add(0, cfg.up, 0);
+        Vec3d rawTarget = eye.subtract(fwd.multiply(dist)).add(right.multiply(cfg.side)).add(0, cfg.up, 0);
 
-        // Умная коллизия: камера не вжимается в блоки, а плавно останавливается перед ними.
-        if (cfg.collision) {
-            target = collide(area, entity, eye, target);
+        // Умная коллизия: дистанция до ближайшего блока сглаживается во времени,
+        // поэтому на стыках блоков камера не дёргается, а мягко останавливается.
+        Vec3d dir = rawTarget.subtract(eye);
+        double full = dir.length();
+        double safe = -1.0;
+        if (cfg.collision && full > 1.0E-4) {
+            Vec3d start = eye.add(0, 0.1, 0);
+            RaycastContext context = new RaycastContext(start, rawTarget, RaycastContext.ShapeType.VISUAL,
+                    RaycastContext.FluidHandling.NONE, entity);
+            BlockHitResult hit = area.raycast(context);
+            if (hit.getType() != HitResult.Type.MISS) {
+                safe = Math.max(0.2, start.distanceTo(hit.getPos()) - 0.25);
+                if (safe > full) {
+                    safe = full;
+                }
+            }
+        }
+        // Ограничиваем шаг сглаживания: скачок FPS не дёргает камеру.
+        float dt = Math.min(Math.max(tickDelta, 0.0001f) * 0.05f, 0.1f);
+        double eyeJump = eye.squaredDistanceTo(lastEyeX, lastEyeY, lastEyeZ);
+        double useSafe = full;
+        if (safe >= 0) {
+            if (!safeDistReady || !initialized || eyeJump > 30.0 * 30.0) {
+                safeDist = safe;
+                safeDistReady = true;
+                useSafe = safe;
+            } else {
+                float collideRate = 1f - (float) Math.exp(-cfg.collision_smoothness * dt);
+                safeDist += (safe - safeDist) * collideRate;
+                useSafe = safeDist;
+            }
+        }
+        Vec3d target = rawTarget;
+        if (useSafe < full && full > 1.0E-4) {
+            target = eye.add(dir.multiply(useSafe / full));
         }
 
         // Плавное догоняние позиции (экспоненциальное сглаживание по времени кадра).
-        float dt = Math.max(tickDelta, 0.0001f) * 0.05f;
         float rate = 1f - (float) Math.exp(-cfg.smoothness * dt);
-        double eyeJump = eye.squaredDistanceTo(lastEyeX, lastEyeY, lastEyeZ);
         if (!initialized || eyeJump > 30.0 * 30.0) {
             // Вход в 3-е лицо (или телепорт): камера стартует с точки глаз и плавно
             // отплывает назад — переход от первого лица к третьему без рывка.
@@ -208,29 +246,6 @@ public final class CameraController {
 
         ((CameraAccessor) camera).teyvatSetRotation(camYaw, camPitch);
         ((CameraAccessor) camera).teyvatSetPos(camX, camY, camZ);
-    }
-
-    /** Луч от глаз героя к цели: при попадании в блок камера встаёт перед ним с запасом. */
-    private static Vec3d collide(BlockView area, Entity entity, Vec3d eye, Vec3d target) {
-        Vec3d dir = target.subtract(eye);
-        double dist = dir.length();
-        if (dist < 1.0E-4) {
-            return target;
-        }
-        Vec3d norm = dir.multiply(1.0 / dist);
-        Vec3d start = eye.add(0, 0.1, 0);
-        RaycastContext context = new RaycastContext(start, target, RaycastContext.ShapeType.VISUAL,
-                RaycastContext.FluidHandling.NONE, entity);
-        BlockHitResult hit = area.raycast(context);
-        if (hit.getType() == HitResult.Type.MISS) {
-            return target;
-        }
-        double hitDist = start.distanceTo(hit.getPos());
-        if (hitDist >= dist) {
-            return target;
-        }
-        double margin = 0.25;
-        return start.add(norm.multiply(Math.max(0.2, hitDist - margin)));
     }
 
     /** Свободная камера: герой плавно поворачивается к направлению движения относительно камеры. */
@@ -260,7 +275,7 @@ public final class CameraController {
 
     /** Коэффициент сглаживания для данного кадра (rate в секунду, delta — время кадра). */
     private static float smoothRate(float perSecond, float tickDelta) {
-        float dt = Math.max(tickDelta, 0.0001f) * 0.05f;
+        float dt = Math.min(Math.max(tickDelta, 0.0001f) * 0.05f, 0.1f);
         return 1f - (float) Math.exp(-perSecond * dt);
     }
 }

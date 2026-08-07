@@ -70,6 +70,8 @@ public final class TeyvatConfig {
         public float return_smoothness = 10.0f;
         /** Умная коллизия: камера не вжимается в блоки. */
         public boolean collision = true;
+        /** Плавность подъезда камеры к стене при коллизии (1–30, больше = быстрее). */
+        public float collision_smoothness = 6.0f;
         /** Колесико мыши меняет дистанцию камеры в 3-м лице. */
         public boolean scroll_controls_distance = true;
         /** Чувствительность колесика (блоки за один щелчок). */
