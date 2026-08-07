@@ -60,9 +60,6 @@ public class TravelerChoiceScreen extends Screen {
     private final TravelerPreviewPlayer[] previews = new TravelerPreviewPlayer[2];
     private final float[] hover = new float[2];   // 0..1, плавно к цели
     private final float[] yaw = new float[2];     // текущий угол поворота модели
-    private final float[] bowTime = new float[2]; // тики текущего поклона
-    private final float[] blend = new float[2];   // 0..1, плавное включение позы поклона
-    private final boolean[] wasHovered = new boolean[2];
     private long age = 0;
     private boolean closing = false;              // выбран персонаж, идёт вспышка
     private boolean dissolving = false;           // вспышка достигла пика и растворяется в мир
@@ -180,25 +177,14 @@ public class TravelerChoiceScreen extends Screen {
         float frameSec = delta * 0.05f;
         int[] box = cardBox();
 
-        // Плавная анимация наведения: подсветка и лёгкий поворот включаются/гаснут плавно.
+        // Плавная анимация наведения: медленный шаг, лёгкий поворот и подсветка
+        // включаются/гаснут плавно.
         for (int i = 0; i < cards.size(); i++) {
             boolean over = !closing && isOver(i, mouseX, mouseY);
             float target = over ? 1f : 0f;
             hover[i] += (target - hover[i]) * Math.min(1f, frameSec * 7f);
             float targetYaw = over ? (float) Math.sin(time * 1.1f) * 0.45f : 0f;
             yaw[i] += (targetYaw - yaw[i]) * Math.min(1f, frameSec * 7f);
-            // Вежливый поклон: при входе курсора анимация начинается с начала и идёт
-            // один раз, а поза плавно включается/выключается (вместо шага и покачивания).
-            if (over && !wasHovered[i]) {
-                bowTime[i] = 0f;
-            }
-            wasHovered[i] = over;
-            if (over) {
-                bowTime[i] += delta;
-            }
-            float bowTarget = over ? 1f : 0f;
-            blend[i] += (bowTarget - blend[i]) * Math.min(1f, frameSec * 10f);
-            TravelerPose.update(i, bowTime[i], blend[i]);
         }
 
         // Вспышка: растёт, удерживается в полном белом (даёт Паймон время появиться
@@ -294,7 +280,9 @@ public class TravelerChoiceScreen extends Screen {
         TravelerPreviewPlayer player = preview(card, i);
         if (player != null) {
             player.age = (int) this.age;
-            drawPlayerModel(context, player, mx1, my1, mx2, my2, delta, hoverAmount, yaw[i]);
+            // Фаза шага крутится медленнее прежнего (1.4 вместо 3.0): походка спокойнее.
+            drawPlayerModel(context, player, mx1, my1, mx2, my2, delta, hoverAmount, yaw[i],
+                    time * 1.4f);
         }
 
         // Текстовая колонка, выровненная по вертикали относительно карточки.
@@ -323,21 +311,21 @@ public class TravelerChoiceScreen extends Screen {
                 tx + (TEXT_W - this.textRenderer.getWidth(card.button())) / 2, by + 11, bh ? C_GOLD : C_HINT, true);
     }
 
-    /** Рендер модели в GUI: в покое лицом к зрителю, при наведении герой кланяется. */
+    /** Рендер модели в GUI: в покое лицом к зрителю, при наведении — шаг и покачивание. */
     private void drawPlayerModel(DrawContext context, AbstractClientPlayerEntity player,
                                  int x1, int y1, int x2, int y2, float tickDelta,
-                                 float hoverAmount, float yawAmount) {
+                                 float hoverAmount, float yawAmount, float walkPhase) {
         MinecraftClient client = MinecraftClient.getInstance();
         drawPlayerModel(context, client.getEntityRenderDispatcher().getRenderer(player),
-                player, x1, y1, x2, y2, tickDelta, hoverAmount, yawAmount);
+                player, x1, y1, x2, y2, tickDelta, hoverAmount, yawAmount, walkPhase);
     }
 
     private static <T extends Entity, S extends EntityRenderState> void drawPlayerModel(
             DrawContext context, EntityRenderer<? super T, S> renderer, T entity,
             int x1, int y1, int x2, int y2, float tickDelta,
-            float hoverAmount, float yawAmount) {
+            float hoverAmount, float yawAmount, float walkPhase) {
         S state = renderer.getAndUpdateRenderState(entity, tickDelta);
-        prepareState(state);
+        prepareState(state, hoverAmount, walkPhase);
 
         float entityH = entity.getHeight();
         float visualW = entity.getWidth() * 1.35f; // фигура с руками
@@ -351,7 +339,7 @@ public class TravelerChoiceScreen extends Screen {
         context.disableScissor();
     }
 
-    private static <S extends EntityRenderState> void prepareState(S state) {
+    private static <S extends EntityRenderState> void prepareState(S state, float hoverAmount, float walkPhase) {
         state.light = 0xF000F0;
         state.hitbox = null;
         state.shadowPieces.clear();
@@ -368,11 +356,12 @@ public class TravelerChoiceScreen extends Screen {
             player.rightPantsLegVisible = true;
             player.capeVisible = true;
         }
-        // Поклоны героев задаёт миксин PlayerEntityModelMixin поверх ванильной позы,
-        // поэтому шаг и покачивание превью выключены: в покое модели стоят неподвижно.
+        // Медленный и плавный шаг при наведении: амплитуда сглаживается smoothstep'ом
+        // и слегка уменьшена, частота ниже прежней — походка спокойная, без рывков.
         if (state instanceof LivingEntityRenderState living) {
-            living.limbSwingAmplitude = 0f;
-            living.limbSwingAnimationProgress = 0f;
+            float ease = hoverAmount * hoverAmount * (3f - 2f * hoverAmount);
+            living.limbSwingAmplitude = ease * 0.8f;
+            living.limbSwingAnimationProgress = walkPhase;
         }
     }
 
