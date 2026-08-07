@@ -26,11 +26,11 @@ public final class StaminaController {
     private static final float REGEN_RATE = 30f / 20f;
     /** Пауза перед восстановлением после траты (1 сек). */
     private static final int REGEN_DELAY = 20;
-    /** Длительность рывка: 0.2 сек. */
-    private static final int DASH_TICKS = 4;
-    /** Пик скорости рывка: синусоида разгоняет и тормозит плавно,
-     *  ~0.3 блока за рывок — короткий бросок, как в Genshin. */
-    private static final double DASH_PEAK_SPEED = 3.5;
+    /** Длительность рывка: 0.35 сек — достаточно шагов, чтобы не было рывков. */
+    private static final int DASH_TICKS = 7;
+    /** Пик скорости рывка: мягкая синусоида без мёртвого старта и резкого стопа,
+     *  ~0.45 блока за рывок. */
+    private static final double DASH_PEAK_SPEED = 2.0;
     /** Окно двойного нажатия W, чтобы побежать (0.5 сек). */
     private static final int DOUBLE_TAP_WINDOW = 10;
 
@@ -172,24 +172,15 @@ public final class StaminaController {
         return dir.normalize();
     }
 
-    /** Профиль рывка 0..1: синусоида — мягкий разгон, пик в середине, торможение
-     *  к нулю в конце. Используется для скорости, FOV-кика и наклона камеры. */
+    /** Профиль рывка 0..1: синусоида со сдвигом — движение начинается с первого же
+     *  тика (без «мёртвой» паузы), плавно разгоняется, идёт на пик и так же плавно
+     *  тормозит к нулю. Единый профиль для скорости, FOV-кика и наклона камеры. */
     public static float dashFactor() {
         if (!dashing) {
             return 0f;
         }
-        float progress = (float) (DASH_TICKS - dashTicksLeft) / (DASH_TICKS - 1);
-        return Math.max(0f, (float) Math.sin(Math.PI * progress));
-    }
-
-    /** Наклон тела вперёд при рывке 0..1: стартует почти сразу после нажатия
-     *  (первый тик уже наклонён), возвращается плавно к концу рывка. */
-    public static float dashLean() {
-        if (!dashing) {
-            return 0f;
-        }
-        float progress = (float) (DASH_TICKS - dashTicksLeft + 1) / DASH_TICKS;
-        return Math.max(0f, (float) Math.sin(Math.PI * Math.min(1f, progress)));
+        float progress = (float) (DASH_TICKS - dashTicksLeft + 0.5f) / DASH_TICKS;
+        return Math.max(0f, Math.min(1f, (float) Math.sin(Math.PI * progress)));
     }
 
     /** Скорость рывка по профилю. Вертикаль сохраняется. */

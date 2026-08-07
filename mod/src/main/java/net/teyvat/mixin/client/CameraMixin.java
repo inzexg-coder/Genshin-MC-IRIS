@@ -21,7 +21,7 @@ public abstract class CameraMixin {
         CameraController.apply((Camera) (Object) this, area, entity, thirdPerson, behindView, tickDelta);
         // В первом лице наклон рывка тоже работает: камера плавно опускается вниз.
         if (!thirdPerson && !behindView) {
-            float lean = 4.0f * StaminaController.dashLean();
+            float lean = 2.5f * StaminaController.dashFactor();
             if (lean > 0.01f) {
                 Camera cam = (Camera) (Object) this;
                 ((CameraAccessor) cam).teyvatSetRotation(cam.getYaw(), cam.getPitch() + lean);

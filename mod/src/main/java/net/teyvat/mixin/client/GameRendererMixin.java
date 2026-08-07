@@ -21,6 +21,6 @@ public abstract class GameRendererMixin {
         }
         float fov = cir.getReturnValue();
         // Рывок слегка расширяет обзор — ощущение ускорения, как в Genshin.
-        cir.setReturnValue(fov * ZoomController.fovFactor() * (1f + 0.05f * StaminaController.dashFactor()));
+        cir.setReturnValue(fov * ZoomController.fovFactor() * (1f + 0.03f * StaminaController.dashFactor()));
     }
 }
