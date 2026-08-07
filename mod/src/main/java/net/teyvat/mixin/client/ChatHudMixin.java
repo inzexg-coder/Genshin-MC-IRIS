@@ -80,7 +80,12 @@ public abstract class ChatHudMixin {
             return;
         }
         // В списке чата новейшее сообщение стоит в начале (messages.add(0, ...)).
-        String phrase = this.messages.get(0).content().getString().trim();
+        ChatHudLine latest = this.messages.get(0);
+        // Свернутый чат исчезает через 3 секунды (60 тиков) после последнего сообщения.
+        if (this.client.inGameHud.getTicks() - latest.creationTick() > 60) {
+            return;
+        }
+        String phrase = latest.content().getString().trim();
         if (phrase.isEmpty()) {
             return;
         }
@@ -112,14 +117,9 @@ public abstract class ChatHudMixin {
             ty += lineH;
         }
 
-        // Выполнение задания: весь свернутый чат вспыхивает оранжевым и плавно гаснет.
-        if (ChatFlash.isActive()) {
-            ChatFlash.tick();
-            float t = ChatFlash.progress();
-            int alpha = (int) (190.0f * t);
-            context.fill(x0, y0, x1, y1, (alpha << 24) | 0xFFE87A1E);
-            context.fill(x0 + 6, y0 + 6, x1 - 6, y1 - 6, ((int) (alpha * 0.6f) << 24) | 0xFFFFA23E);
-        }
+        // Выполнение задания: свёрнутый чат вспыхивает оранжевым как вспышка света
+        // (белое ядро, оранжевое сияние, расширяющийся ореол) и плавно гаснет.
+        ChatFlash.render(context, x0, y0, x1, y1);
     }
 
     /** Перенос строк по ширине панели (как в заметках). */

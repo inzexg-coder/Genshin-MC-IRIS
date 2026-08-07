@@ -44,6 +44,8 @@ public final class PaimonManager {
     private static final int PHRASE_1_TICK = 50;
     /** Тик второй фразы знакомства. */
     private static final int PHRASE_2_TICK = 200;
+    /** Задержка отчёта о выполненном задании после последней фразы Паймон (тики). */
+    private static final int QUEST_REPORT_TICKS = 80;
     /** Дистанция до игрока во время знакомства. */
     private static final double INTRO_DIST = 2.4;
     /** Высота над игроком во время знакомства (чуть выше линии взгляда). */
@@ -59,6 +61,8 @@ public final class PaimonManager {
     private static final double TRAIL_UP = 0.45;
     /** Абсолютная точка знакомства: Паймон не сдвигается с неё, пока говорит. */
     private static Vec3d introPos;
+    /** Таймер отчёта о квесте: -1 = не идёт, 0..QUEST_REPORT_TICKS = отсчёт после фразы. */
+    private static int questReportTimer = -1;
 
     private PaimonManager() {}
 
@@ -107,6 +111,7 @@ public final class PaimonManager {
         entity.setOwner(client.player.getUuid());
         refYaw = client.player.getYaw();
         refYawReady = true;
+        questReportTimer = -1;
         // Точка знакомства фиксируется абсолютно: Паймон стоит на месте, пока говорит.
         introPos = playerPos(client.player).add(forwardDeg(refYaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
         entity.setPosition(introPos.x, introPos.y, introPos.z);
@@ -120,6 +125,16 @@ public final class PaimonManager {
         if (player == null || !player.getUuid().equals(entity.getOwnerUuid())) {
             remove();
             return;
+        }
+
+        // Отчёт о выполненном задании приходит через несколько секунд
+        // после последней фразы Паймон, а не сразу.
+        if (questReportTimer >= 0) {
+            questReportTimer++;
+            if (questReportTimer >= QUEST_REPORT_TICKS) {
+                questReportTimer = -1;
+                reportQuestMeetPaimon();
+            }
         }
 
         if (!refYawReady) {
@@ -138,7 +153,7 @@ public final class PaimonManager {
             } else if (ticks >= entity.getIntroTicksLimit()) {
                 entity.setFollowing(true);
                 say(player, PHRASE_3);
-                reportQuestMeetPaimon();
+                questReportTimer = 0;
             }
         } else {
             // Плавно доводим угол: быстрые повороты мыши почти не сдвигают позицию Паймон.
