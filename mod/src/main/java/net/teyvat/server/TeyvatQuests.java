@@ -21,7 +21,8 @@ public final class TeyvatQuests {
      *  «Задание выполнено» (справа сверху), в чат ничего не пишется. */
     public static void complete(ServerPlayerEntity player, String questId) {
         if (!Quests.MEET_PAIMON.equals(questId) && !Quests.TRY_SCROLL.equals(questId)
-                && !Quests.TRY_ZOOM.equals(questId)) {
+                && !Quests.TRY_ZOOM.equals(questId) && !Quests.TRY_SPRINT.equals(questId)
+                && !Quests.TRY_DASH.equals(questId)) {
             return;
         }
         if (isCompleted(player, questId)) {

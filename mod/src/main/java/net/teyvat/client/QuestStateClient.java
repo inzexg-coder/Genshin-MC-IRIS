@@ -8,13 +8,18 @@ public final class QuestStateClient {
     private static boolean meetPaimon;
     private static boolean tryScroll;
     private static boolean tryZoom;
+    private static boolean trySprint;
+    private static boolean tryDash;
 
     private QuestStateClient() {}
 
-    public static void set(boolean meetPaimonCompleted, boolean tryScrollCompleted, boolean tryZoomCompleted) {
+    public static void set(boolean meetPaimonCompleted, boolean tryScrollCompleted, boolean tryZoomCompleted,
+            boolean trySprintCompleted, boolean tryDashCompleted) {
         meetPaimon = meetPaimonCompleted;
         tryScroll = tryScrollCompleted;
         tryZoom = tryZoomCompleted;
+        trySprint = trySprintCompleted;
+        tryDash = tryDashCompleted;
     }
 
     public static boolean isCompleted(String questId) {
@@ -27,6 +32,12 @@ public final class QuestStateClient {
         if (Quests.TRY_ZOOM.equals(questId)) {
             return tryZoom;
         }
+        if (Quests.TRY_SPRINT.equals(questId)) {
+            return trySprint;
+        }
+        if (Quests.TRY_DASH.equals(questId)) {
+            return tryDash;
+        }
         return false;
     }
 
@@ -37,6 +48,10 @@ public final class QuestStateClient {
             tryScroll = true;
         } else if (Quests.TRY_ZOOM.equals(questId)) {
             tryZoom = true;
+        } else if (Quests.TRY_SPRINT.equals(questId)) {
+            trySprint = true;
+        } else if (Quests.TRY_DASH.equals(questId)) {
+            tryDash = true;
         }
     }
 }

@@ -11,6 +11,12 @@ public final class Quests {
     /** «Попробуй приблизить мир» — зажать C и осмотреться вокруг. */
     public static final String TRY_ZOOM = "try_zoom";
     public static final String TRY_ZOOM_TITLE = "Попробуй приблизить мир";
+    /** «Попробуй побежать» — первое двойное нажатие W (бег с выносливостью). */
+    public static final String TRY_SPRINT = "try_sprint";
+    public static final String TRY_SPRINT_TITLE = "Попробуй побежать";
+    /** «Попробуй сделать рывок» — первый рывок вперёд по Ctrl. */
+    public static final String TRY_DASH = "try_dash";
+    public static final String TRY_DASH_TITLE = "Попробуй сделать рывок";
 
     private Quests() {}
 }

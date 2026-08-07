@@ -29,8 +29,8 @@ public final class StaminaController {
     /** Длительность рывка: 0.35 сек — достаточно шагов, чтобы не было рывков. */
     private static final int DASH_TICKS = 7;
     /** Пик скорости рывка: мягкая синусоида без мёртвого старта и резкого стопа,
-     *  ~0.45 блока за рывок. */
-    private static final double DASH_PEAK_SPEED = 2.0;
+     *  ~0.38 блока за рывок — бросок стал слабее, не уносит игрока. */
+    private static final double DASH_PEAK_SPEED = 1.7;
     /** Окно двойного нажатия W, чтобы побежать (0.5 сек). */
     private static final int DOUBLE_TAP_WINDOW = 10;
 
@@ -49,6 +49,10 @@ public final class StaminaController {
     private static long lastForwardPressTick = -1000;
     /** Ввод, сохранённый на время рывка (рывок «залочен», ввод движения выключен). */
     private static Input savedInput;
+    /** События для квестов Паймон: побежал двойным W / сделал рывок по Ctrl.
+     *  Съедаются клиентом раз за тик (см. consumeSprintEvent/consumeDashEvent). */
+    private static boolean sprintEvent;
+    private static boolean dashEvent;
 
     private StaminaController() {}
 
@@ -115,6 +119,9 @@ public final class StaminaController {
         boolean wantSprint = (pressed || doubleTapHeld) && stamina > 0f;
         if (wantSprint) {
             player.setSprinting(true);
+            if (doubleTapHeld) {
+                sprintEvent = true;
+            }
             stamina = Math.max(0f, stamina - SPRINT_DRAIN);
             if (stamina <= 0f) {
                 // Стамина кончилась: двойной клик W «забывается» — держим W,
@@ -147,6 +154,7 @@ public final class StaminaController {
     private static void startDash(ClientPlayerEntity player) {
         dashing = true;
         dashTicksLeft = DASH_TICKS;
+        dashEvent = true;
         stamina = Math.max(0f, stamina - DASH_COST);
         regenDelay = REGEN_DELAY;
         dashDir = dashDirection(player);
@@ -209,6 +217,20 @@ public final class StaminaController {
     /** Текущая выносливость (для дуги на экране). */
     public static float getStamina() {
         return stamina;
+    }
+
+    /** Съесть событие бега (для квеста Паймон): true один раз после двойного W. */
+    public static boolean consumeSprintEvent() {
+        boolean event = sprintEvent;
+        sprintEvent = false;
+        return event;
+    }
+
+    /** Съесть событие рывка (для квеста Паймон): true один раз после тапа Ctrl. */
+    public static boolean consumeDashEvent() {
+        boolean event = dashEvent;
+        dashEvent = false;
+        return event;
     }
 
     /** Идёт ли сейчас рывок. */

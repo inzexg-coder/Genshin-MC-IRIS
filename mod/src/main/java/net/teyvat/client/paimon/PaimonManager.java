@@ -12,8 +12,10 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.teyvat.client.CameraController;
 import net.teyvat.client.DialogueOverlay;
+import net.teyvat.client.QuestClient;
 import net.teyvat.client.QuestStateClient;
 import net.teyvat.client.QuestToast;
+import net.teyvat.client.StaminaController;
 import net.teyvat.client.TravelerChoiceClient;
 import net.teyvat.network.QuestEventPayload;
 import net.teyvat.quest.Quests;
@@ -78,6 +80,30 @@ public final class PaimonManager {
     private static final int ZOOM_TUTOR_GAP_TICKS = 80;
     /** Пауза после последней фразы перед уведомлением о новом задании (тики). */
     private static final int ZOOM_TUTOR_END_GAP = 30;
+    /** Фразы мини-урока про бег: Паймон учит двойному W и объясняет выносливость. */
+    private static final String[] SPRINT_PHRASES = {
+        "А ещё путешественник умеет бегать! Два раза нажми вперёд (W).",
+        "Смотри в левый нижний угол: дуга — твоя выносливость. Бег тратит её.",
+        "Передохнёшь — она снова наполнится. Попробуй!"
+    };
+    /** Пауза перед первой фразой урока про бег (тики). */
+    private static final int SPRINT_TUTOR_START_TICK = 40;
+    /** Каждая фраза урока про бег держится 4 секунды (80 тиков). */
+    private static final int SPRINT_TUTOR_GAP_TICKS = 80;
+    /** Пауза после последней фразы перед уведомлением о новом задании (тики). */
+    private static final int SPRINT_TUTOR_END_GAP = 30;
+    /** Фразы мини-урока про рывок: Паймон учит кнопке Ctrl. */
+    private static final String[] DASH_PHRASES = {
+        "А теперь — рывок! Короткий бросок вперёд на Ctrl.",
+        "Он тратит больше выносливости, зато мгновенно уводит из-под удара.",
+        "Попробуй — тебя уже ждёт новое задание!"
+    };
+    /** Пауза перед первой фразой урока про рывок (тики). */
+    private static final int DASH_TUTOR_START_TICK = 40;
+    /** Каждая фраза урока про рывок держится 4 секунды (80 тиков). */
+    private static final int DASH_TUTOR_GAP_TICKS = 80;
+    /** Пауза после последней фразы перед уведомлением о новом задании (тики). */
+    private static final int DASH_TUTOR_END_GAP = 30;
     /** Дистанция до игрока во время знакомства. */
     private static final double INTRO_DIST = 2.4;
     /** Высота над игроком во время знакомства (чуть выше линии взгляда). */
@@ -103,6 +129,14 @@ public final class PaimonManager {
     private static int zoomTutorTicks = -1;
     /** Показано ли уведомление «есть новое задание» урока про C. */
     private static boolean zoomPromptShown;
+    /** Таймер мини-урока про бег: -1 = не идёт, 0 = запущен после задания с кнопкой C. */
+    private static int sprintTutorTicks = -1;
+    /** Показано ли уведомление «есть новое задание» урока про бег. */
+    private static boolean sprintPromptShown;
+    /** Таймер мини-урока про рывок: -1 = не идёт, 0 = запущен после задания с бегом. */
+    private static int dashTutorTicks = -1;
+    /** Показано ли уведомление «есть новое задание» урока про рывок. */
+    private static boolean dashPromptShown;
 
     private PaimonManager() {}
 
@@ -125,6 +159,20 @@ public final class PaimonManager {
         if (client.currentScreen instanceof TravelerChoiceScreen screen && !screen.isClosing()) {
             remove();
             return;
+        }
+        // События стамины для квестов Паймон: побежал двойным W — задание с бегом,
+        // сделал рывок по Ctrl — задание с рывком.
+        if (QuestStateClient.isCompleted(Quests.TRY_ZOOM)
+                && !QuestStateClient.isCompleted(Quests.TRY_SPRINT)
+                && StaminaController.consumeSprintEvent()) {
+            QuestClient.complete(Quests.TRY_SPRINT, Quests.TRY_SPRINT_TITLE);
+            onSprintQuestCompleted();
+        }
+        if (QuestStateClient.isCompleted(Quests.TRY_SPRINT)
+                && !QuestStateClient.isCompleted(Quests.TRY_DASH)
+                && StaminaController.consumeDashEvent()) {
+            QuestClient.complete(Quests.TRY_DASH, Quests.TRY_DASH_TITLE);
+            onDashQuestCompleted();
         }
         if (paimon != null && !paimon.isRemoved()) {
             if (paimon.getEntityWorld() != client.world) {
@@ -229,6 +277,25 @@ public final class PaimonManager {
                 zoomPromptShown = false;
             }
             tickZoomTutorial();
+            // Урок про бег идёт после задания с кнопкой C (при перезаходе
+            // запускается снова, пока квест не выполнен).
+            if (sprintTutorTicks < 0 && dashTutorTicks < 0 && zoomTutorTicks < 0
+                    && tutorTicks < 0 && questReportTimer < 0
+                    && QuestStateClient.isCompleted(Quests.TRY_ZOOM)
+                    && !QuestStateClient.isCompleted(Quests.TRY_SPRINT)) {
+                sprintTutorTicks = 0;
+                sprintPromptShown = false;
+            }
+            tickSprintTutorial();
+            // Урок про рывок идёт после задания с бегом.
+            if (dashTutorTicks < 0 && sprintTutorTicks < 0 && zoomTutorTicks < 0
+                    && tutorTicks < 0 && questReportTimer < 0
+                    && QuestStateClient.isCompleted(Quests.TRY_SPRINT)
+                    && !QuestStateClient.isCompleted(Quests.TRY_DASH)) {
+                dashTutorTicks = 0;
+                dashPromptShown = false;
+            }
+            tickDashTutorial();
         }
 
         Vec3d target;
@@ -362,11 +429,16 @@ public final class PaimonManager {
         zoomPromptShown = false;
     }
 
-    /** Квест про кнопку C выполнен: урок завершается, диалог плавно гаснет. */
+    /** Квест про кнопку C выполнен: урок завершается, запускаем урок про бег. */
     public static void onZoomQuestCompleted() {
         zoomTutorTicks = -1;
         zoomPromptShown = false;
         DialogueOverlay.end();
+        // Сразу после задания с кнопкой C — урок про бег (пока не выполнен).
+        if (!QuestStateClient.isCompleted(Quests.TRY_SPRINT)) {
+            sprintTutorTicks = 0;
+            sprintPromptShown = false;
+        }
     }
 
     /** Мини-урок про колесо мыши: Паймон рассказывает, как приблизить камеру,
@@ -417,6 +489,74 @@ public final class PaimonManager {
         }
     }
 
+    /** Квест про бег выполнен: урок завершается, запускаем урок про рывок. */
+    private static void onSprintQuestCompleted() {
+        sprintTutorTicks = -1;
+        sprintPromptShown = false;
+        DialogueOverlay.end();
+        // Сразу после задания с бегом — урок про рывок (пока не выполнен).
+        if (!QuestStateClient.isCompleted(Quests.TRY_DASH)) {
+            dashTutorTicks = 0;
+            dashPromptShown = false;
+        }
+    }
+
+    /** Квест про рывок выполнен: урок завершается, диалог плавно гаснет. */
+    private static void onDashQuestCompleted() {
+        dashTutorTicks = -1;
+        dashPromptShown = false;
+        DialogueOverlay.end();
+    }
+
+    /** Мини-урок про бег: Паймон рассказывает про двойной W и выносливость,
+     *  затем всплывает уведомление о новом задании. Повторяется при перезаходе,
+     *  пока квест не выполнен. */
+    private static void tickSprintTutorial() {
+        if (sprintTutorTicks < 0) {
+            return;
+        }
+        sprintTutorTicks++;
+        MinecraftClient client = MinecraftClient.getInstance();
+        // Фразы урока про бег, неспешно: каждая держится 4 секунды.
+        for (int i = 0; i < SPRINT_PHRASES.length; i++) {
+            if (sprintTutorTicks == SPRINT_TUTOR_START_TICK + i * SPRINT_TUTOR_GAP_TICKS) {
+                DialogueOverlay.show("Паймон", SPRINT_PHRASES[i]);
+            }
+        }
+        int lastPhraseTick = SPRINT_TUTOR_START_TICK + (SPRINT_PHRASES.length - 1) * SPRINT_TUTOR_GAP_TICKS;
+        if (sprintTutorTicks >= lastPhraseTick + SPRINT_TUTOR_END_GAP && !sprintPromptShown
+                && !QuestStateClient.isCompleted(Quests.TRY_SPRINT)) {
+            sprintPromptShown = true;
+            DialogueOverlay.end();
+            // Уведомление о новом задании — небесно-голубой попап с пустым ромбом.
+            client.getToastManager().add(new QuestToast("Новое задание", "«" + Quests.TRY_SPRINT_TITLE + "»", true));
+        }
+    }
+
+    /** Мини-урок про рывок: Паймон рассказывает про Ctrl, затем всплывает
+     *  уведомление о новом задании. Повторяется при перезаходе, пока квест не выполнен. */
+    private static void tickDashTutorial() {
+        if (dashTutorTicks < 0) {
+            return;
+        }
+        dashTutorTicks++;
+        MinecraftClient client = MinecraftClient.getInstance();
+        // Фразы урока про рывок, неспешно: каждая держится 4 секунды.
+        for (int i = 0; i < DASH_PHRASES.length; i++) {
+            if (dashTutorTicks == DASH_TUTOR_START_TICK + i * DASH_TUTOR_GAP_TICKS) {
+                DialogueOverlay.show("Паймон", DASH_PHRASES[i]);
+            }
+        }
+        int lastPhraseTick = DASH_TUTOR_START_TICK + (DASH_PHRASES.length - 1) * DASH_TUTOR_GAP_TICKS;
+        if (dashTutorTicks >= lastPhraseTick + DASH_TUTOR_END_GAP && !dashPromptShown
+                && !QuestStateClient.isCompleted(Quests.TRY_DASH)) {
+            dashPromptShown = true;
+            DialogueOverlay.end();
+            // Уведомление о новом задании — небесно-голубой попап с пустым ромбом.
+            client.getToastManager().add(new QuestToast("Новое задание", "«" + Quests.TRY_DASH_TITLE + "»", true));
+        }
+    }
+
     public static void remove() {
         if (paimon != null && !paimon.isRemoved()) {
             paimon.discard();
@@ -433,8 +573,12 @@ public final class PaimonManager {
         return paimon != null && !paimon.isRemoved() && !paimon.isFollowing();
     }
 
-    /** Идёт ли сейчас мини-урок про колесо мыши: HUD скрыт, пока Паймон учит. */
+    /** Идёт ли сейчас один из мини-уроков Паймон (колесо мыши, C, бег, рывок):
+     *  HUD скрыт, пока Паймон учит. */
     public static boolean isTutorialActive() {
-        return tutorTicks >= 0 && !tutorPromptShown;
+        return (tutorTicks >= 0 && !tutorPromptShown)
+                || (zoomTutorTicks >= 0 && !zoomPromptShown)
+                || (sprintTutorTicks >= 0 && !sprintPromptShown)
+                || (dashTutorTicks >= 0 && !dashPromptShown);
     }
 }

@@ -115,7 +115,9 @@ public class TeyvatMod implements ModInitializer {
             ServerPlayNetworking.send(player, new QuestStatePayload(
                     TeyvatQuests.isCompleted(player, Quests.MEET_PAIMON),
                     TeyvatQuests.isCompleted(player, Quests.TRY_SCROLL),
-                    TeyvatQuests.isCompleted(player, Quests.TRY_ZOOM)));
+                    TeyvatQuests.isCompleted(player, Quests.TRY_ZOOM),
+                    TeyvatQuests.isCompleted(player, Quests.TRY_SPRINT),
+                    TeyvatQuests.isCompleted(player, Quests.TRY_DASH)));
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->

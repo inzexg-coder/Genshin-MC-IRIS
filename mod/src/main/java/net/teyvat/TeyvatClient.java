@@ -93,7 +93,8 @@ public class TeyvatClient implements ClientModInitializer {
         // Состояние квестов с сервера: какие задания уже выполнены (не повторяем уроки).
         ClientPlayNetworking.registerGlobalReceiver(QuestStatePayload.ID, (payload, context) -> {
             context.client().execute(() ->
-                    QuestStateClient.set(payload.meetPaimon(), payload.tryScroll(), payload.tryZoom()));
+                    QuestStateClient.set(payload.meetPaimon(), payload.tryScroll(), payload.tryZoom(),
+                            payload.trySprint(), payload.tryDash()));
         });
 
         // Синхронизация выбора: применяем скин игрока через локальные текстуры мода.
