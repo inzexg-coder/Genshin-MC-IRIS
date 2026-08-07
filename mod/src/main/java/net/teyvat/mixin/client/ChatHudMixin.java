@@ -45,6 +45,17 @@ public abstract class ChatHudMixin {
     private static final int HIDE_AFTER_TICKS = 100;
     /** Длительность плавного затухания панели, тики. */
     private static final int FADE_TICKS = 16;
+    /** Тик, когда панель появилась в текущей сессии — появление играется один раз,
+     *  а не пересоздаётся при каждой новой фразе (иначе окно моргает). */
+    private int teyvat$panelStartTick;
+    /** creationTick последней показанной фразы. */
+    private int teyvat$lastPhraseTick = -1;
+    /** Тик, когда сменился текст фразы — новый текст мягко проявляется. */
+    private int teyvat$textSwapTick;
+    /** Была ли панель видна в прошлом кадре. */
+    private boolean teyvat$wasVisible;
+    /** Сглаженная высота панели: смена фразы не дёргает окно по вертикали. */
+    private float teyvat$smoothPanelH = -1;
 
     /** Дополнительный пробел между строками чата — сообщения больше не слипаются. */
     @Inject(method = "getLineHeight", at = @At("RETURN"), cancellable = true)
@@ -79,10 +90,12 @@ public abstract class ChatHudMixin {
     private void teyvat$collapsedChat(DrawContext context, int scaledHeight, int mouseX, int mouseY,
                                       boolean captureMouse, CallbackInfo ci) {
         if (captureMouse || this.teyvat$isChatHidden()) {
+            teyvat$wasVisible = false;
             return;
         }
         ci.cancel();
         if (this.messages.isEmpty()) {
+            teyvat$wasVisible = false;
             return;
         }
         // В списке чата новейшее сообщение стоит в начале (messages.add(0, ...)).
@@ -91,7 +104,20 @@ public abstract class ChatHudMixin {
         boolean dialogue = DialogueState.isActive();
         int now = this.client.inGameHud.getTicks();
         int age = now - latest.creationTick();
-        if (!dialogue && age > HIDE_AFTER_TICKS + FADE_TICKS) {
+        boolean visible = dialogue || age <= HIDE_AFTER_TICKS + FADE_TICKS;
+
+        // Новая фраза — панель не пересоздаётся: меняется только текст.
+        if (teyvat$lastPhraseTick != latest.creationTick()) {
+            teyvat$lastPhraseTick = latest.creationTick();
+            teyvat$textSwapTick = now;
+        }
+        // Панель только что появилась (новая сессия) — появление играется один раз.
+        if (visible && !teyvat$wasVisible) {
+            teyvat$panelStartTick = now;
+            teyvat$smoothPanelH = -1;
+        }
+        teyvat$wasVisible = visible;
+        if (!visible) {
             return;
         }
         String phrase = latest.content().getString().trim();
@@ -103,8 +129,8 @@ public abstract class ChatHudMixin {
         if (!dialogue && age > HIDE_AFTER_TICKS) {
             fadeAlpha = Math.max(0.0f, 1.0f - (age - HIDE_AFTER_TICKS) / (float) FADE_TICKS);
         }
-        // Появление: панель мягко всплывает снизу и проявляется за первые ~8 тиков.
-        float entrance = Math.min(1.0f, age / 8.0f);
+        // Появление: один раз за сессию панель всплывает снизу и проявляется за ~8 тиков.
+        float entrance = Math.min(1.0f, (now - teyvat$panelStartTick) / 8.0f);
         float alpha = fadeAlpha * teyvat$easeOutCubic(entrance);
         float lift = (1.0f - entrance) * 8.0f;
         int w = context.getScaledWindowWidth();
@@ -114,7 +140,13 @@ public abstract class ChatHudMixin {
         List<String> lines = teyvat$wrap(phrase, innerW);
         int lineH = 12;
         int panelW = innerW + pad * 2;
-        int panelH = lines.size() * lineH + pad * 2 + 10;
+        // Высота плавно догоняет целевую: новая фраза не дёргает окно.
+        int targetH = lines.size() * lineH + pad * 2 + 10;
+        if (teyvat$smoothPanelH < 0) {
+            teyvat$smoothPanelH = targetH;
+        }
+        teyvat$smoothPanelH += (targetH - teyvat$smoothPanelH) * 0.18f;
+        int panelH = Math.round(teyvat$smoothPanelH);
         int x0 = (w - panelW) / 2;
         int x1 = x0 + panelW;
         int y1 = h - 38;
@@ -137,8 +169,10 @@ public abstract class ChatHudMixin {
                 teyvat$withAlpha(0xFFFFFFFF, alpha));
         int ty = y0 + 15;
         TextRenderer tr = this.client.textRenderer;
+        // Текст новой фразы мягко проявляется за ~6 тиков, панель при этом не мигает.
+        float textAlpha = Math.min(1.0f, (now - teyvat$textSwapTick) / 6.0f);
         for (String line : lines) {
-            context.drawText(tr, line, x0 + pad, ty, teyvat$withAlpha(0xFFD8D2C4, alpha), true);
+            context.drawText(tr, line, x0 + pad, ty, teyvat$withAlpha(0xFFD8D2C4, alpha * textAlpha), true);
             ty += lineH;
         }
     }
