@@ -61,7 +61,7 @@ public final class PaimonManager {
     /** Фразы мини-урока: Паймон подсказывает про колесо мыши после знакомства. */
     private static final String[] TUTOR_PHRASES = {
         "Кстати! Камеру можно приближать и отдалять колесом мыши.",
-        "Покрути его — задание в углу ждёт!"
+        "Покрути его — тебя уже ждёт новое задание!"
     };
     /** Пауза перед первой фразой урока после отчёта о первом задании (тики). */
     private static final int TUTOR_START_TICK = 40;
@@ -72,7 +72,7 @@ public final class PaimonManager {
     /** Фразы урока про кнопку C: Паймон учит приближать мир и осматриваться. */
     private static final String[] ZOOM_PHRASES = {
         "А ещё зажми кнопку C — и мир приблизится к тебе!",
-        "Попробуй! Осмотрись вокруг — задание в углу ждёт."
+        "Попробуй! Осмотрись вокруг — тебя уже ждёт новое задание!"
     };
     /** Пауза перед первой фразой урока про C (тики). */
     private static final int ZOOM_TUTOR_START_TICK = 40;
@@ -84,7 +84,7 @@ public final class PaimonManager {
     private static final String[] SPRINT_PHRASES = {
         "А ещё путешественник умеет бегать! Два раза нажми вперёд (W).",
         "Смотри в левый нижний угол: дуга — твоя выносливость. Бег тратит её.",
-        "Передохнёшь — она снова наполнится. Попробуй!"
+        "Передохнёшь — она снова наполнится. Попробуй — тебя уже ждёт новое задание!"
     };
     /** Пауза перед первой фразой урока про бег (тики). */
     private static final int SPRINT_TUTOR_START_TICK = 40;
@@ -96,7 +96,7 @@ public final class PaimonManager {
     private static final String[] DASH_PHRASES = {
         "А теперь — рывок! Тапни Ctrl для короткого броска вперёд.",
         "Он тратит больше выносливости, зато мгновенно уводит из-под удара.",
-        "Попробуй!"
+        "Попробуй — тебя уже ждёт новое задание!"
     };
     /** Пауза перед первой фразой урока про рывок (тики). */
     private static final int DASH_TUTOR_START_TICK = 40;
@@ -462,12 +462,6 @@ public final class PaimonManager {
         if (tutorTicks < 0) {
             return;
         }
-        // Объявление задания: окно «Новое задание» появляется в углу и висит,
-        // пока квест не выполнится. До объявления действие не засчитывается.
-        if (!tutorPromptShown) {
-            tutorPromptShown = true;
-            announceNewQuest("«" + Quests.TRY_SCROLL_TITLE + "»");
-        }
         tutorTicks++;
         // Фразы урока, неспешно: каждая держится 4 секунды.
         for (int i = 0; i < TUTOR_PHRASES.length; i++) {
@@ -476,7 +470,12 @@ public final class PaimonManager {
             }
         }
         int lastPhraseTick = TUTOR_START_TICK + (TUTOR_PHRASES.length - 1) * TUTOR_GAP_TICKS;
-        if (tutorTicks >= lastPhraseTick + TUTOR_END_GAP) {
+        // Объявление задания — только после последней фразы Паймон: окно появляется
+        // в углу и висит, пока квест не выполнится. До объявления действие не засчитывается.
+        if (tutorTicks >= lastPhraseTick + TUTOR_END_GAP && !tutorPromptShown
+                && !QuestStateClient.isCompleted(Quests.TRY_SCROLL)) {
+            tutorPromptShown = true;
+            announceNewQuest("«" + Quests.TRY_SCROLL_TITLE + "»");
             DialogueOverlay.end();
         }
     }
@@ -488,12 +487,6 @@ public final class PaimonManager {
         if (zoomTutorTicks < 0) {
             return;
         }
-        // Объявление задания: окно «Новое задание» появляется в углу и висит,
-        // пока квест не выполнится. До объявления действие не засчитывается.
-        if (!zoomPromptShown) {
-            zoomPromptShown = true;
-            announceNewQuest("«" + Quests.TRY_ZOOM_TITLE + "»");
-        }
         zoomTutorTicks++;
         // Фразы урока про C, неспешно: каждая держится 4 секунды.
         for (int i = 0; i < ZOOM_PHRASES.length; i++) {
@@ -502,7 +495,12 @@ public final class PaimonManager {
             }
         }
         int lastPhraseTick = ZOOM_TUTOR_START_TICK + (ZOOM_PHRASES.length - 1) * ZOOM_TUTOR_GAP_TICKS;
-        if (zoomTutorTicks >= lastPhraseTick + ZOOM_TUTOR_END_GAP) {
+        // Объявление задания — только после последней фразы Паймон: окно появляется
+        // в углу и висит, пока квест не выполнится. До объявления действие не засчитывается.
+        if (zoomTutorTicks >= lastPhraseTick + ZOOM_TUTOR_END_GAP && !zoomPromptShown
+                && !QuestStateClient.isCompleted(Quests.TRY_ZOOM)) {
+            zoomPromptShown = true;
+            announceNewQuest("«" + Quests.TRY_ZOOM_TITLE + "»");
             DialogueOverlay.end();
         }
     }
@@ -533,12 +531,6 @@ public final class PaimonManager {
         if (sprintTutorTicks < 0) {
             return;
         }
-        // Объявление задания: окно «Новое задание» появляется в углу и висит,
-        // пока квест не выполнится. До объявления бег не засчитывается.
-        if (!sprintPromptShown) {
-            sprintPromptShown = true;
-            announceNewQuest("«" + Quests.TRY_SPRINT_TITLE + "»");
-        }
         sprintTutorTicks++;
         // Фразы урока про бег, неспешно: каждая держится 4 секунды.
         for (int i = 0; i < SPRINT_PHRASES.length; i++) {
@@ -547,7 +539,12 @@ public final class PaimonManager {
             }
         }
         int lastPhraseTick = SPRINT_TUTOR_START_TICK + (SPRINT_PHRASES.length - 1) * SPRINT_TUTOR_GAP_TICKS;
-        if (sprintTutorTicks >= lastPhraseTick + SPRINT_TUTOR_END_GAP) {
+        // Объявление задания — только после последней фразы Паймон: окно появляется
+        // в углу и висит, пока квест не выполнится. До объявления бег не засчитывается.
+        if (sprintTutorTicks >= lastPhraseTick + SPRINT_TUTOR_END_GAP && !sprintPromptShown
+                && !QuestStateClient.isCompleted(Quests.TRY_SPRINT)) {
+            sprintPromptShown = true;
+            announceNewQuest("«" + Quests.TRY_SPRINT_TITLE + "»");
             DialogueOverlay.end();
         }
     }
@@ -558,12 +555,6 @@ public final class PaimonManager {
         if (dashTutorTicks < 0) {
             return;
         }
-        // Объявление задания: окно «Новое задание» появляется в углу и висит,
-        // пока квест не выполнится. До объявления рывок не засчитывается.
-        if (!dashPromptShown) {
-            dashPromptShown = true;
-            announceNewQuest("«" + Quests.TRY_DASH_TITLE + "»");
-        }
         dashTutorTicks++;
         // Фразы урока про рывок, неспешно: каждая держится 4 секунды.
         for (int i = 0; i < DASH_PHRASES.length; i++) {
@@ -572,7 +563,12 @@ public final class PaimonManager {
             }
         }
         int lastPhraseTick = DASH_TUTOR_START_TICK + (DASH_PHRASES.length - 1) * DASH_TUTOR_GAP_TICKS;
-        if (dashTutorTicks >= lastPhraseTick + DASH_TUTOR_END_GAP) {
+        // Объявление задания — только после последней фразы Паймон: окно появляется
+        // в углу и висит, пока квест не выполнится. До объявления рывок не засчитывается.
+        if (dashTutorTicks >= lastPhraseTick + DASH_TUTOR_END_GAP && !dashPromptShown
+                && !QuestStateClient.isCompleted(Quests.TRY_DASH)) {
+            dashPromptShown = true;
+            announceNewQuest("«" + Quests.TRY_DASH_TITLE + "»");
             DialogueOverlay.end();
         }
     }
