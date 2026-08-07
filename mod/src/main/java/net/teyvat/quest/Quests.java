@@ -8,6 +8,9 @@ public final class Quests {
     /** «Попробуй приблизить камеру» — выполняется первой прокруткой колеса мыши в 3-м лице. */
     public static final String TRY_SCROLL = "try_scroll";
     public static final String TRY_SCROLL_TITLE = "Попробуй приблизить камеру";
+    /** «Попробуй приблизить мир» — зажать C и осмотреться вокруг. */
+    public static final String TRY_ZOOM = "try_zoom";
+    public static final String TRY_ZOOM_TITLE = "Попробуй приблизить мир";
 
     private Quests() {}
 }

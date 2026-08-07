@@ -67,6 +67,17 @@ public final class PaimonManager {
     private static final int TUTOR_GAP_TICKS = 80;
     /** Пауза после последней фразы перед уведомлением о новом задании (тики). */
     private static final int TUTOR_END_GAP = 30;
+    /** Фразы урока про кнопку C: Паймон учит приближать мир и осматриваться. */
+    private static final String[] ZOOM_PHRASES = {
+        "А ещё зажми кнопку C — и мир приблизится к тебе!",
+        "Попробуй! Осмотрись вокруг — вблизи видно даже самое далёкое."
+    };
+    /** Пауза перед первой фразой урока про C (тики). */
+    private static final int ZOOM_TUTOR_START_TICK = 40;
+    /** Каждая фраза урока про C держится 4 секунды (80 тиков). */
+    private static final int ZOOM_TUTOR_GAP_TICKS = 80;
+    /** Пауза после последней фразы перед уведомлением о новом задании (тики). */
+    private static final int ZOOM_TUTOR_END_GAP = 30;
     /** Дистанция до игрока во время знакомства. */
     private static final double INTRO_DIST = 2.4;
     /** Высота над игроком во время знакомства (чуть выше линии взгляда). */
@@ -88,6 +99,10 @@ public final class PaimonManager {
     private static int tutorTicks = -1;
     /** Показано ли уведомление «есть новое задание» (чтобы не дублировалось). */
     private static boolean tutorPromptShown;
+    /** Таймер мини-урока про кнопку C: -1 = не идёт, 0 = запущен после задания с колесом. */
+    private static int zoomTutorTicks = -1;
+    /** Показано ли уведомление «есть новое задание» урока про C. */
+    private static boolean zoomPromptShown;
 
     private PaimonManager() {}
 
@@ -145,6 +160,8 @@ public final class PaimonManager {
         questReportTimer = -1;
         tutorTicks = -1;
         tutorPromptShown = false;
+        zoomTutorTicks = -1;
+        zoomPromptShown = false;
         // Точка знакомства фиксируется абсолютно: Паймон стоит на месте, пока говорит.
         introPos = playerPos(client.player).add(forwardDeg(refYaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
         entity.setPosition(introPos.x, introPos.y, introPos.z);
@@ -201,6 +218,17 @@ public final class PaimonManager {
             // Плавно доводим угол: быстрые повороты мыши почти не сдвигают позицию Паймон.
             refYaw = MathHelper.lerpAngleDegrees(REF_YAW_LERP, refYaw, player.getYaw());
             tickScrollTutorial();
+            // Урок про кнопку C идёт после задания с колесом мыши (не повторяется,
+            // если квест уже выполнен; при перезаходе запускается снова до выполнения).
+            if (zoomTutorTicks < 0
+                    && tutorTicks < 0
+                    && questReportTimer < 0
+                    && QuestStateClient.isCompleted(Quests.TRY_SCROLL)
+                    && !QuestStateClient.isCompleted(Quests.TRY_ZOOM)) {
+                zoomTutorTicks = 0;
+                zoomPromptShown = false;
+            }
+            tickZoomTutorial();
         }
 
         Vec3d target;
@@ -327,6 +355,20 @@ public final class PaimonManager {
         }
     }
 
+    /** Начать мини-урок про кнопку C: сразу после выполнения задания с колесом мыши. */
+    public static void startZoomTutorial() {
+        tutorTicks = -1;
+        zoomTutorTicks = 0;
+        zoomPromptShown = false;
+    }
+
+    /** Квест про кнопку C выполнен: урок завершается, диалог плавно гаснет. */
+    public static void onZoomQuestCompleted() {
+        zoomTutorTicks = -1;
+        zoomPromptShown = false;
+        DialogueOverlay.end();
+    }
+
     /** Мини-урок про колесо мыши: Паймон рассказывает, как приблизить камеру,
      *  затем всплывает уведомление о новом задании. Повторяется при перезаходе,
      *  пока квест не выполнен. */
@@ -346,8 +388,32 @@ public final class PaimonManager {
         if (tutorTicks >= lastPhraseTick + TUTOR_END_GAP && !tutorPromptShown) {
             tutorPromptShown = true;
             DialogueOverlay.end();
-            // Уведомление о новом задании — золотой попап, как у выполненных квестов.
+            // Уведомление о новом задании — небесно-голубой попап с пустым ромбом.
             client.getToastManager().add(new QuestToast("Новое задание", "«" + Quests.TRY_SCROLL_TITLE + "»", true));
+        }
+    }
+
+    /** Мини-урок про кнопку C: Паймон рассказывает, как приблизить мир,
+     *  затем всплывает уведомление о новом задании. Повторяется при перезаходе,
+     *  пока квест не выполнен. */
+    private static void tickZoomTutorial() {
+        if (zoomTutorTicks < 0) {
+            return;
+        }
+        zoomTutorTicks++;
+        MinecraftClient client = MinecraftClient.getInstance();
+        // Фразы урока про C, неспешно: каждая держится 4 секунды.
+        for (int i = 0; i < ZOOM_PHRASES.length; i++) {
+            if (zoomTutorTicks == ZOOM_TUTOR_START_TICK + i * ZOOM_TUTOR_GAP_TICKS) {
+                DialogueOverlay.show("Паймон", ZOOM_PHRASES[i]);
+            }
+        }
+        int lastPhraseTick = ZOOM_TUTOR_START_TICK + (ZOOM_PHRASES.length - 1) * ZOOM_TUTOR_GAP_TICKS;
+        if (zoomTutorTicks >= lastPhraseTick + ZOOM_TUTOR_END_GAP && !zoomPromptShown) {
+            zoomPromptShown = true;
+            DialogueOverlay.end();
+            // Уведомление о новом задании — небесно-голубой попап с пустым ромбом.
+            client.getToastManager().add(new QuestToast("Новое задание", "«" + Quests.TRY_ZOOM_TITLE + "»", true));
         }
     }
 

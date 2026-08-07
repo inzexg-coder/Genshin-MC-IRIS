@@ -7,12 +7,14 @@ import net.teyvat.quest.Quests;
 public final class QuestStateClient {
     private static boolean meetPaimon;
     private static boolean tryScroll;
+    private static boolean tryZoom;
 
     private QuestStateClient() {}
 
-    public static void set(boolean meetPaimonCompleted, boolean tryScrollCompleted) {
+    public static void set(boolean meetPaimonCompleted, boolean tryScrollCompleted, boolean tryZoomCompleted) {
         meetPaimon = meetPaimonCompleted;
         tryScroll = tryScrollCompleted;
+        tryZoom = tryZoomCompleted;
     }
 
     public static boolean isCompleted(String questId) {
@@ -22,6 +24,9 @@ public final class QuestStateClient {
         if (Quests.TRY_SCROLL.equals(questId)) {
             return tryScroll;
         }
+        if (Quests.TRY_ZOOM.equals(questId)) {
+            return tryZoom;
+        }
         return false;
     }
 
@@ -30,6 +35,8 @@ public final class QuestStateClient {
             meetPaimon = true;
         } else if (Quests.TRY_SCROLL.equals(questId)) {
             tryScroll = true;
+        } else if (Quests.TRY_ZOOM.equals(questId)) {
+            tryZoom = true;
         }
     }
 }

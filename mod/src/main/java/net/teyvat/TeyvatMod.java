@@ -114,7 +114,8 @@ public class TeyvatMod implements ModInitializer {
             // Состояние квестов: клиент не повторяет уроки, которые уже пройдены.
             ServerPlayNetworking.send(player, new QuestStatePayload(
                     TeyvatQuests.isCompleted(player, Quests.MEET_PAIMON),
-                    TeyvatQuests.isCompleted(player, Quests.TRY_SCROLL)));
+                    TeyvatQuests.isCompleted(player, Quests.TRY_SCROLL),
+                    TeyvatQuests.isCompleted(player, Quests.TRY_ZOOM)));
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
