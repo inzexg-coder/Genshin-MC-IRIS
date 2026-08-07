@@ -169,18 +169,20 @@ public final class PaimonManager {
             return;
         }
         // События стамины для квестов Паймон: побежал двойным W — задание с бегом,
-        // сделал рывок по Ctrl — задание с рывком.
-        if (QuestStateClient.isCompleted(Quests.TRY_ZOOM)
+        // сделал рывок по Ctrl — задание с рывком. Событие съедается ВСЕГДА:
+        // действия до объявления задания (окно в углу) не засчитываются
+        // и не «запоминаются» до появления объявления.
+        if (StaminaController.consumeSprintEvent()
                 && !QuestStateClient.isCompleted(Quests.TRY_SPRINT)
-                && sprintPromptShown
-                && StaminaController.consumeSprintEvent()) {
+                && QuestStateClient.isCompleted(Quests.TRY_ZOOM)
+                && sprintPromptShown) {
             QuestClient.complete(Quests.TRY_SPRINT, Quests.TRY_SPRINT_TITLE);
             onSprintQuestCompleted();
         }
-        if (QuestStateClient.isCompleted(Quests.TRY_SPRINT)
+        if (StaminaController.consumeDashEvent()
                 && !QuestStateClient.isCompleted(Quests.TRY_DASH)
-                && dashPromptShown
-                && StaminaController.consumeDashEvent()) {
+                && QuestStateClient.isCompleted(Quests.TRY_SPRINT)
+                && dashPromptShown) {
             QuestClient.complete(Quests.TRY_DASH, Quests.TRY_DASH_TITLE);
             onDashQuestCompleted();
         }
