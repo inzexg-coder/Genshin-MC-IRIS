@@ -40,8 +40,9 @@ public abstract class ChatHudMixin {
     @Invoker("isChatHidden")
     protected abstract boolean teyvat$isChatHidden();
 
-    /** Сколько тиков (1/20 сек) панель видна после последнего сообщения. */
-    private static final int HIDE_AFTER_TICKS = 60;
+    /** Сколько тиков (1/20 сек) панель видна после последнего сообщения
+     *  (5 секунд — длиннее паузы между репликами Паймон, чтобы чат не мигал). */
+    private static final int HIDE_AFTER_TICKS = 100;
     /** Длительность плавного затухания панели, тики. */
     private static final int FADE_TICKS = 16;
 
@@ -97,7 +98,7 @@ public abstract class ChatHudMixin {
         if (phrase.isEmpty()) {
             return;
         }
-        // Плавное затухание: после 3 секунд панель мягко тает, а не исчезает резко.
+        // Плавное затухание: после 5 секунд панель мягко тает, а не исчезает резко.
         float fadeAlpha = 1.0f;
         if (!dialogue && age > HIDE_AFTER_TICKS) {
             fadeAlpha = Math.max(0.0f, 1.0f - (age - HIDE_AFTER_TICKS) / (float) FADE_TICKS);
