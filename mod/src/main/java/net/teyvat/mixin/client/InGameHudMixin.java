@@ -4,6 +4,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.render.RenderTickCounter;
 import net.teyvat.client.DialogueOverlay;
+import net.teyvat.client.StaminaOverlay;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,5 +18,6 @@ public abstract class InGameHudMixin {
     private void teyvat$hideHud(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
         ci.cancel();
         DialogueOverlay.render(context);
+        StaminaOverlay.render(context);
     }
 }

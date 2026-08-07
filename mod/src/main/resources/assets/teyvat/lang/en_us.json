@@ -35,5 +35,6 @@
   "block.teyvat.marble_lamp": "Marble Lamp",
   "key.category.teyvat.main": "Teyvat",
   "generator.teyvat.teyvat": "Teyvat — Beach",
-  "generator.teyvat.teyvat.info": "A single biome: white sand at the sea's edge, gently rising into green fields."
+  "generator.teyvat.teyvat.info": "A single biome: white sand at the sea's edge, gently rising into green fields.",
+  "key.teyvat.sprint_dash": "Sprint / Dash"
 }

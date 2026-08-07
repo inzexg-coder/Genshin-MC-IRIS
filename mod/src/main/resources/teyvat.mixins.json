@@ -11,9 +11,13 @@
     "client.GameRendererMixin",
     "client.CameraMixin",
     "client.CameraAccessor",
-    "client.MouseMixin"
+    "client.MouseMixin",
+    "client.ClientPlayerEntityMixin"
   ],
   "injectors": {
     "defaultRequire": 1
-  }
+  },
+  "common": [
+    "common.HungerManagerMixin"
+  ]
 }

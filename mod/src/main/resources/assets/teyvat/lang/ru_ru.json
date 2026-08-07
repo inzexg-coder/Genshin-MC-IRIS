@@ -35,5 +35,6 @@
   "key.teyvat.camera": "Свободная камера",
   "key.category.teyvat.main": "Teyvat",
   "generator.teyvat.teyvat": "Тейват — Пляж",
-  "generator.teyvat.teyvat.info": "Один биом: белый песок у кромки моря, полого переходящий в зелёные поля."
+  "generator.teyvat.teyvat.info": "Один биом: белый песок у кромки моря, полого переходящий в зелёные поля.",
+  "key.teyvat.sprint_dash": "Бег / Рывок"
 }

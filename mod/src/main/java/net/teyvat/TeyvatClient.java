@@ -15,6 +15,7 @@ import net.teyvat.client.TravelerChoiceScreen;
 import net.teyvat.client.CameraController;
 import net.teyvat.client.ZoomController;
 import net.teyvat.client.TravelerNotesScreen;
+import net.teyvat.client.StaminaController;
 import net.teyvat.client.paimon.PaimonEntityRenderer;
 import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.client.paimon.PaimonManager;
@@ -36,6 +37,9 @@ public class TeyvatClient implements ClientModInitializer {
     /** Зум по кнопке: удержание клавиши плавно приближает камеру (вместо подзорной трубы). */
     public static final KeyBinding ZOOM = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, CATEGORY));
+    /** Бег и рывок как в Genshin: тап = рывок вперёд, удержание = бег с выносливостью. */
+    public static final KeyBinding SPRINT_DASH = KeyBindingHelper.registerKeyBinding(
+            new KeyBinding("key.teyvat.sprint_dash", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_CONTROL, CATEGORY));
     /** Свободная камера (удержание или переключатель — режим в config/teyvat.json → camera.free_look_mode). */
     public static final KeyBinding FREE_CAM = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.camera", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY));
@@ -52,6 +56,7 @@ public class TeyvatClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ZoomController.tick();
             CameraController.tick();
+            StaminaController.tick();
             while (OPEN_NOTES.wasPressed()) {
                 if (client.currentScreen == null) {
                     client.setScreen(new TravelerNotesScreen());
