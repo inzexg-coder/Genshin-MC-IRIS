@@ -42,11 +42,11 @@ public class TravelerChoiceScreen extends Screen {
     private static final int CARD_GAP = 26;
     private static final int CARD_PAD = 6;         // внутренний отступ карточки
     private static final int MODEL_TEXT_GAP = 8;   // зазор между моделью и текстом
-    private static final int TEXT_W = 96;          // узкая текстовая колонка справа
-    private static final int NAME_H = 9;
-    private static final int DESC_LINE_H = 10;
-    private static final int BTN_H = 26;
-    private static final int GAP = 12;             // одинаковый отступ между элементами текста
+    private static final int TEXT_W = 128;         // текстовая колонка справа (анимешный шрифт шире)
+    private static final int NAME_H = 13;
+    private static final int DESC_LINE_H = 13;
+    private static final int BTN_H = 32;
+    private static final int GAP = 14;             // одинаковый отступ между элементами текста
 
 
     private record Card(String name, String desc, String button, String choice) {}
@@ -306,7 +306,7 @@ public class TravelerChoiceScreen extends Screen {
         context.fill(tx, by, tx + TEXT_W, by + 1, 0xFFE8C86A);
         context.fill(tx, by + BTN_H - 1, tx + TEXT_W, by + BTN_H, 0xFFE8C86A);
         context.drawText(this.textRenderer, card.button(),
-                tx + (TEXT_W - this.textRenderer.getWidth(card.button())) / 2, by + 8, bh ? C_GOLD : C_HINT, true);
+                tx + (TEXT_W - this.textRenderer.getWidth(card.button())) / 2, by + 11, bh ? C_GOLD : C_HINT, true);
     }
 
     /** Рендер модели в GUI: в покое лицом к зрителю, при наведении — шаг и покачивание. */

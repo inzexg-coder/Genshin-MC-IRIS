@@ -86,8 +86,6 @@ public class TeyvatClient implements ClientModInitializer {
                 if (TravelerChoiceClient.get(client.player.getUuid()) != null) {
                     PaimonManager.startIntro();
                 }
-                client.player.sendMessage(Text.literal(
-                        "§e[Teyvat 0.8.77] §7Заметки путешественника: клавиша §bN§7 или §b/teyvat notes"), false);
             }
         });
     }

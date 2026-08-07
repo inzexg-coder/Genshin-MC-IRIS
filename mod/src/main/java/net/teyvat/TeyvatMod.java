@@ -77,8 +77,7 @@ public class TeyvatMod implements ModInitializer {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity player = handler.getPlayer();
             player.sendMessage(Text.literal(
-                    "§b[Teyvat] §fМод загружен. Заметки путешественника: клавиша §eN§f или §e/teyvat notes§f. "
-                    + "Блоки: вкладка §e«Блоки Тейвата»§f в креативе."), false);
+                    "§b[Teyvat] §fМод загружен. Блоки: вкладка §e«Блоки Тейвата»§f в креативе."), false);
 
             String existing = null;
             for (String tag : player.getCommandTags()) {
