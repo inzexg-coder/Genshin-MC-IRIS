@@ -24,10 +24,10 @@ public final class StaminaController {
     private static final float REGEN_RATE = 30f / 20f;
     /** Пауза перед восстановлением после траты (1 сек). */
     private static final int REGEN_DELAY = 20;
-    /** Длительность рывка: 0.3 сек. */
-    private static final int DASH_TICKS = 6;
-    /** Скорость рывка: 7.5 блока/сек → ~2.2 блока за рывок. */
-    private static final double DASH_SPEED = 7.5;
+    /** Длительность рывка: 0.2 сек. */
+    private static final int DASH_TICKS = 4;
+    /** Скорость рывка: 4.5 блока/сек → ~0.9 блока за рывок. */
+    private static final double DASH_SPEED = 4.5;
     /** Окно двойного нажатия W, чтобы побежать (0.5 сек). */
     private static final int DOUBLE_TAP_WINDOW = 10;
 
@@ -39,7 +39,9 @@ public final class StaminaController {
     private static int dashTicksLeft;
     private static Vec3d dashDir = Vec3d.ZERO;
     private static boolean doubleTapForward;
-    private static long lastForwardPressTick = Long.MIN_VALUE;
+    /** Тик последнего нажатия W. Не MIN_VALUE: вычитание дало бы переполнение
+     *  и первое нажатие W считалось бы двойным (бег с первого раза). */
+    private static long lastForwardPressTick = -1000;
 
     private StaminaController() {}
 
@@ -59,7 +61,8 @@ public final class StaminaController {
         // Двойное W — бег, как в майне.
         KeyBinding forward = client.options.forwardKey;
         if (forward.wasPressed()) {
-            if (client.world.getTime() - lastForwardPressTick <= DOUBLE_TAP_WINDOW) {
+            long dt = client.world.getTime() - lastForwardPressTick;
+            if (dt >= 0 && dt <= DOUBLE_TAP_WINDOW) {
                 doubleTapForward = true;
             }
             lastForwardPressTick = client.world.getTime();

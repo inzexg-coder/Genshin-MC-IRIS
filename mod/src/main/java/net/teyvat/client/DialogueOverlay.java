@@ -36,6 +36,30 @@ public final class DialogueOverlay {
         }
     }
 
+    /** Верхняя граница окна диалога для других оверлеев (дуга стамины),
+     *  или -1, если диалога сейчас нет. */
+    public static int getBoxTop() {
+        if (line == null || line.isEmpty()) {
+            return -1;
+        }
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.textRenderer == null) {
+            return -1;
+        }
+        TextRenderer tr = client.textRenderer;
+        int w = client.getWindow().getScaledWidth();
+        int h = client.getWindow().getScaledHeight();
+        int pad = 22;
+        int innerW = Math.max(160, Math.min(440, (int) (w * 0.62f) - pad * 2));
+        List<String> lines = wrap(line, innerW);
+        int textH = lines.size() * LINE_H;
+        int textY1 = h - 24;
+        int textY0 = textY1 - textH;
+        int nickY = textY0 - 16;
+        int lineY = nickY - 8;
+        return lineY - 12;
+    }
+
     /** Плавно скрыть оверлей (диалог закончился). */
     public static void end() {
         if (fadeOutTicks < 0) {

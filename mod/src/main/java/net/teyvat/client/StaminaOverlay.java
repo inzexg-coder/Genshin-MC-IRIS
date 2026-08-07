@@ -14,8 +14,10 @@ public final class StaminaOverlay {
     private static final double RADIUS = 30;
     /** Толщина дуги. */
     private static final int THICKNESS = 5;
-    /** Смещение от нижнего края экрана. */
-    private static final int BOTTOM_OFFSET = 46;
+    /** Нижний край дуги над нижним краем экрана (когда диалога нет). */
+    private static final int BOTTOM_MARGIN = 16;
+    /** Отступ дуги от верхней границы окна диалога. */
+    private static final int DIALOGUE_GAP = 12;
     /** Плавность появления/таяния. */
     private static final float FADE_SPEED = 0.08f;
     /** Порог низкой стамины. */
@@ -45,7 +47,13 @@ public final class StaminaOverlay {
         int w = context.getScaledWindowWidth();
         int h = context.getScaledWindowHeight();
         int cx = w / 2;
-        int cy = h - BOTTOM_OFFSET;
+        // Дуга не перекрывает диалог: если Паймон говорит, опускаемся под его окно.
+        int arcBottom = h - BOTTOM_MARGIN;
+        int dialogueTop = DialogueOverlay.getBoxTop();
+        if (dialogueTop >= 0) {
+            arcBottom = dialogueTop - DIALOGUE_GAP;
+        }
+        int cy = arcBottom - (int) RADIUS;
         boolean low = stamina < LOW_THRESHOLD;
         // Низкая стамина: дуга мигает и становится тёплой.
         float pulse = low ? 0.6f + 0.4f * (float) Math.sin(pulseTicks / 90.0 * Math.PI * 2.0) : 1f;
