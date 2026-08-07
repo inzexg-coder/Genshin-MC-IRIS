@@ -16,8 +16,8 @@ import net.teyvat.TeyvatClient;
  * только этот класс. Двойное W тоже включает бег, как в майне.
  */
 public final class StaminaController {
-    /** Полная шкала выносливости. */
-    public static final float MAX_STAMINA = 100f;
+    /** Полная шкала выносливости: ~10 секунд бега при трате 15/сек. */
+    public static final float MAX_STAMINA = 150f;
     /** Трата бега: 15 ед/сек (0.75 за тик при 20 tps). */
     private static final float SPRINT_DRAIN = 15f / 20f;
     /** Стоимость рывка. */
@@ -116,7 +116,16 @@ public final class StaminaController {
         if (wantSprint) {
             player.setSprinting(true);
             stamina = Math.max(0f, stamina - SPRINT_DRAIN);
-            regenDelay = REGEN_DELAY;
+            if (stamina <= 0f) {
+                // Стамина кончилась: двойной клик W «забывается» — держим W,
+                // идём обычным шагом, и стамина спокойно восстанавливается.
+                if (doubleTapHeld) {
+                    doubleTapForward = false;
+                }
+                player.setSprinting(false);
+            } else {
+                regenDelay = REGEN_DELAY;
+            }
         } else {
             player.setSprinting(false);
         }
@@ -171,6 +180,16 @@ public final class StaminaController {
         }
         float progress = (float) (DASH_TICKS - dashTicksLeft) / (DASH_TICKS - 1);
         return Math.max(0f, (float) Math.sin(Math.PI * progress));
+    }
+
+    /** Наклон тела вперёд при рывке 0..1: стартует почти сразу после нажатия
+     *  (первый тик уже наклонён), возвращается плавно к концу рывка. */
+    public static float dashLean() {
+        if (!dashing) {
+            return 0f;
+        }
+        float progress = (float) (DASH_TICKS - dashTicksLeft + 1) / DASH_TICKS;
+        return Math.max(0f, (float) Math.sin(Math.PI * Math.min(1f, progress)));
     }
 
     /** Скорость рывка по профилю. Вертикаль сохраняется. */

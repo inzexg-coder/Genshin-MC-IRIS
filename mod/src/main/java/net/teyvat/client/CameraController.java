@@ -247,12 +247,9 @@ public final class CameraController {
         lastEyeY = eye.y;
         lastEyeZ = eye.z;
 
-        // Рывок: камера слегка «вжимается» к герою вдоль взгляда — ощущение
-        // резкого ускорения вперёд, плавно по профилю рывка (как в Genshin).
-        double dashPush = 0.25 * StaminaController.dashFactor();
-        camX += fwd.x * dashPush;
-        camY += fwd.y * dashPush;
-        camZ += fwd.z * dashPush;
+        // Рывок: лёгкий наклон камеры вниз — тело «заваливается» вперёд,
+        // как в Genshin. Стартует мгновенно после нажатия, возвращается плавно.
+        camPitch += 4.0f * StaminaController.dashLean();
 
         ((CameraAccessor) camera).teyvatSetRotation(camYaw, camPitch);
         ((CameraAccessor) camera).teyvatSetPos(camX, camY, camZ);
