@@ -24,17 +24,19 @@ import net.teyvat.network.TravelerChoiceSyncPayload;
 import org.lwjgl.glfw.GLFW;
 
 public class TeyvatClient implements ClientModInitializer {
+    /** Общая категория всех клавиш мода. В 1.21.10 Category.create() сам регистрирует категорию
+     *  и бросает исключение при повторном вызове — поэтому создаём её один раз. */
+    private static final KeyBinding.Category CATEGORY =
+            KeyBinding.Category.create(Identifier.of(TeyvatMod.MOD_ID, "main"));
+
     public static final KeyBinding OPEN_NOTES = KeyBindingHelper.registerKeyBinding(
-            new KeyBinding("key.teyvat.notes", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N,
-                    KeyBinding.Category.create(Identifier.of(TeyvatMod.MOD_ID, "main"))));
+            new KeyBinding("key.teyvat.notes", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N, CATEGORY));
     /** Зум по кнопке: удержание клавиши плавно приближает камеру (вместо подзорной трубы). */
     public static final KeyBinding ZOOM = KeyBindingHelper.registerKeyBinding(
-            new KeyBinding("key.teyvat.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C,
-                    KeyBinding.Category.create(Identifier.of(TeyvatMod.MOD_ID, "main"))));
+            new KeyBinding("key.teyvat.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, CATEGORY));
     /** Свободная камера (удержание или переключатель — режим в config/teyvat.json → camera.free_look_mode). */
     public static final KeyBinding FREE_CAM = KeyBindingHelper.registerKeyBinding(
-            new KeyBinding("key.teyvat.camera", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V,
-                    KeyBinding.Category.create(Identifier.of(TeyvatMod.MOD_ID, "main"))));
+            new KeyBinding("key.teyvat.camera", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY));
 
     /** Тики до открытия экрана выбора (ждём, пока мир догрузится). -1 = не запрошено. */
     private static int choiceOpenDelay = -1;
