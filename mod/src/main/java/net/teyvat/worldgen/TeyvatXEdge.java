@@ -22,7 +22,7 @@ public final class TeyvatXEdge {
 
     /** Полуширина зоны перехода пляж/поля: x_edge = ±1 на |x| = BEACH_HALF.
      *  У воды пляж сужается (вес умножается на z-фактор из teyvat_beach_weight.json). */
-    public static final int BEACH_HALF = 88; // пляж чуть шире прежнего, форма — бухта
+    public static final int BEACH_HALF = 115; // пляж широкий, форма — бухта, не выдается в море
 
     private static final DensityFunction INSTANCE = new DensityFunction.Base() {
         @Override

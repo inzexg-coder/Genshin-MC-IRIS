@@ -56,7 +56,7 @@
      },
      "argument2": {
       "type": "minecraft:mul",
-      "argument1": 0.35,
+      "argument1": 0.3,
       "argument2": {
        "type": "minecraft:mul",
        "argument1": "teyvat:teyvat_beach_weight",
