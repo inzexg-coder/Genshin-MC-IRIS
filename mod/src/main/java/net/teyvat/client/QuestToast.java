@@ -11,10 +11,11 @@ import net.minecraft.util.math.MathHelper;
 import org.joml.Matrix3x2fStack;
 
 /**
- * Всплывающее окно «Задание выполнено» в стиле заметок Тейвата:
- * золотой текст, символ выполненного задания в золотом ромбе и
- * анимации появления — ромб «выпрыгивает» с перелётом, светится и
- * пульсирует, текст мягко всплывает, затем окно плавно уезжает.
+ * Всплывающее окно квестов в стиле заметок Тейвата: золотой текст и
+ * символ задания в золотом ромбе. Выполненное задание — ромб с искрой
+ * и ярким свечением; новое задание — пустой ромб (только окантовка,
+ * без искры) и более мягкое свечение. Анимации появления — ромб
+ * «выпрыгивает» с перелётом, текст мягко всплывает, окно плавно уезжает.
  * Окно компактное: ширина подстраивается под текст, справа отступ
  * от края экрана, чтобы ничего не обрезалось.
  */
@@ -32,12 +33,19 @@ public class QuestToast implements Toast {
 
     private final String title;
     private final String questName;
+    /** true = «новое задание»: пустой ромб без искры, мягче свечение. */
+    private final boolean newQuest;
     private final int width;
     private long showTime;
 
     public QuestToast(String title, String questName) {
+        this(title, questName, false);
+    }
+
+    public QuestToast(String title, String questName, boolean newQuest) {
         this.title = title;
         this.questName = questName;
+        this.newQuest = newQuest;
         TextRenderer tr = MinecraftClient.getInstance().textRenderer;
         int textW = Math.max(tr.getWidth(title), tr.getWidth(questName));
         this.width = Math.max(MIN_WIDTH, 46 + textW + 10);
@@ -119,43 +127,54 @@ public class QuestToast implements Toast {
         m.pushMatrix();
         m.translate(badgeCx, badgeCy);
         m.scale(badgeScale, badgeScale);
-        int glowA = (int) (80.0f * alpha * pulse);
-        context.fill(-17, -17, 17, 17, (glowA << 24) | 0xFFFFD97A);
-        context.fill(-12, -12, 12, 12, ((int) (glowA * 1.5f) << 24) | 0xFFE8C86A);
-        // Золотой ромб с тёмной сердцевиной — символ выполненного задания.
-        m.rotate((float) Math.PI / 4.0f);
-        context.fill(-12, -12, 12, 12, (goldA << 24) | 0xFFE8C86A);
-        context.fill(-10, -10, 10, 10, ((int) (0xF2 * alpha) << 24) | 0x1B2338);
+        if (newQuest) {
+            // Новое задание: пустой ромб — только золотая окантовка, внутри панель.
+            int softGlowA = (int) (45.0f * alpha * pulse);
+            context.fill(-17, -17, 17, 17, (softGlowA << 24) | 0xFFFFD97A);
+            m.rotate((float) Math.PI / 4.0f);
+            context.fill(-12, -12, 12, 12, (goldA << 24) | 0xFFE8C86A);
+            context.fill(-10, -10, 10, 10, (panelA << 24) | 0x1B2338);
+        } else {
+            int glowA = (int) (80.0f * alpha * pulse);
+            context.fill(-17, -17, 17, 17, (glowA << 24) | 0xFFFFD97A);
+            context.fill(-12, -12, 12, 12, ((int) (glowA * 1.5f) << 24) | 0xFFE8C86A);
+            // Золотой ромб с тёмной сердцевиной — символ выполненного задания.
+            m.rotate((float) Math.PI / 4.0f);
+            context.fill(-12, -12, 12, 12, (goldA << 24) | 0xFFE8C86A);
+            context.fill(-10, -10, 10, 10, ((int) (0xF2 * alpha) << 24) | 0x1B2338);
+        }
         m.popMatrix();
 
-        // Блик в центре ромба — четырёхлучевая искра, как отблеск грани алмаза.
-        // Искра пульсирует медленно и плавно: лучи мягко раздуваются,
-        // сердцевина вспыхивает в такт (период ~1 с).
-        float starPulse = 0.8f + 0.2f * (float) Math.sin(st / 1040.0 * Math.PI * 2.0 + 0.7);
-        m.pushMatrix();
-        m.translate(badgeCx, badgeCy);
-        m.scale(badgeScale * starPulse, badgeScale * starPulse);
-        int starA = (int) (255 * alpha);
-        int starCol = (starA << 24) | 0xFFFFE9A0;
-        // Вертикальный луч (ромб, вытянутый вверх-вниз)
-        m.pushMatrix();
-        m.scale(0.55f, 1.8f);
-        m.rotate((float) Math.PI / 4.0f);
-        context.fill(-5, -5, 5, 5, starCol);
-        m.popMatrix();
-        // Горизонтальный луч (ромб, вытянутый влево-вправо)
-        m.pushMatrix();
-        m.scale(1.8f, 0.55f);
-        m.rotate((float) Math.PI / 4.0f);
-        context.fill(-5, -5, 5, 5, starCol);
-        m.popMatrix();
-        // Яркая сердцевина искры — вспыхивает в такт пульсу
-        m.pushMatrix();
-        m.rotate((float) Math.PI / 4.0f);
-        int coreA = (int) (255 * alpha * starPulse);
-        context.fill(-2, -2, 2, 2, (coreA << 24) | 0xFFFFFFFF);
-        m.popMatrix();
-        m.popMatrix();
+        // Блик в центре ромба — только для выполненного задания.
+        // Четырёхлучевая искра, как отблеск грани алмаза: лучи мягко
+        // раздуваются, сердцевина вспыхивает в такт (период ~1 с).
+        if (!newQuest) {
+            float starPulse = 0.8f + 0.2f * (float) Math.sin(st / 1040.0 * Math.PI * 2.0 + 0.7);
+            m.pushMatrix();
+            m.translate(badgeCx, badgeCy);
+            m.scale(badgeScale * starPulse, badgeScale * starPulse);
+            int starA = (int) (255 * alpha);
+            int starCol = (starA << 24) | 0xFFFFE9A0;
+            // Вертикальный луч (ромб, вытянутый вверх-вниз)
+            m.pushMatrix();
+            m.scale(0.55f, 1.8f);
+            m.rotate((float) Math.PI / 4.0f);
+            context.fill(-5, -5, 5, 5, starCol);
+            m.popMatrix();
+            // Горизонтальный луч (ромб, вытянутый влево-вправо)
+            m.pushMatrix();
+            m.scale(1.8f, 0.55f);
+            m.rotate((float) Math.PI / 4.0f);
+            context.fill(-5, -5, 5, 5, starCol);
+            m.popMatrix();
+            // Яркая сердцевина искры — вспыхивает в такт пульсу
+            m.pushMatrix();
+            m.rotate((float) Math.PI / 4.0f);
+            int coreA = (int) (255 * alpha * starPulse);
+            context.fill(-2, -2, 2, 2, (coreA << 24) | 0xFFFFFFFF);
+            m.popMatrix();
+            m.popMatrix();
+        }
 
         // Золотой заголовок и имя задания мягко всплывают снизу.
         float slide = (1.0f - easeOutCubic(popT)) * 5.0f;

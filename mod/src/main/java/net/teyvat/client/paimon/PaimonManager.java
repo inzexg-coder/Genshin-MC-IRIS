@@ -347,7 +347,7 @@ public final class PaimonManager {
             tutorPromptShown = true;
             DialogueOverlay.end();
             // Уведомление о новом задании — золотой попап, как у выполненных квестов.
-            client.getToastManager().add(new QuestToast("Новое задание", "«" + Quests.TRY_SCROLL_TITLE + "»"));
+            client.getToastManager().add(new QuestToast("Новое задание", "«" + Quests.TRY_SCROLL_TITLE + "»", true));
         }
     }
 
@@ -365,5 +365,10 @@ public final class PaimonManager {
     /** Идёт ли сейчас знакомство с Паймон: HUD скрыт, пока она представляется. */
     public static boolean isIntroActive() {
         return paimon != null && !paimon.isRemoved() && !paimon.isFollowing();
+    }
+
+    /** Идёт ли сейчас мини-урок про колесо мыши: HUD скрыт, пока Паймон учит. */
+    public static boolean isTutorialActive() {
+        return tutorTicks >= 0 && !tutorPromptShown;
     }
 }

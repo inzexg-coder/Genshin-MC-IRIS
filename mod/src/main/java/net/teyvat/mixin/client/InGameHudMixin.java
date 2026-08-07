@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class InGameHudMixin {
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void teyvat$hideHudDuringPaimonIntro(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
-        if (PaimonManager.isIntroActive()) {
+        if (PaimonManager.isIntroActive() || PaimonManager.isTutorialActive()) {
             ci.cancel();
             DialogueOverlay.render(context);
         }
