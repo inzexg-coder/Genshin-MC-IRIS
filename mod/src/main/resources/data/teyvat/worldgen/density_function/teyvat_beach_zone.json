@@ -9,7 +9,7 @@
     "argument1": 0.0,
     "argument2": {
      "type": "minecraft:add",
-     "argument1": "teyvat:teyvat_beach_radius",
+     "argument1": {"type": "teyvat:beach_radius"},
      "argument2": {
       "type": "minecraft:mul",
       "argument1": 0.08,
@@ -35,7 +35,7 @@
      "argument1": 0.0,
      "argument2": {
       "type": "minecraft:add",
-      "argument1": "teyvat:teyvat_beach_radius",
+      "argument1": {"type": "teyvat:beach_radius"},
       "argument2": {
        "type": "minecraft:mul",
        "argument1": 0.08,
