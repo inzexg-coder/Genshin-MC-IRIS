@@ -60,7 +60,10 @@ public abstract class MouseMixin {
             if (client.getNetworkHandler() != null) {
                 ClientPlayNetworking.send(new QuestEventPayload(Quests.TRY_SCROLL));
             }
-            client.getToastManager().add(new QuestToast("Задание выполнено", "«" + Quests.TRY_SCROLL_TITLE + "»"));
+            // Окно «Новое задание» превращается в «Задание выполнено» на том же месте.
+            if (!QuestToast.replaceActiveNewQuest("Задание выполнено")) {
+                client.getToastManager().add(new QuestToast("Задание выполнено", "«" + Quests.TRY_SCROLL_TITLE + "»"));
+            }
         }
         ci.cancel();
     }

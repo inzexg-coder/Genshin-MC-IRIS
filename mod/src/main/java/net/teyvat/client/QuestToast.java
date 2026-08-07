@@ -11,13 +11,12 @@ import net.minecraft.util.math.MathHelper;
 import org.joml.Matrix3x2fStack;
 
 /**
- * Всплывающее окно квестов в стиле заметок Тейвата: золотой текст и
- * символ задания в золотом ромбе. Выполненное задание — ромб с искрой
- * и ярким свечением; новое задание — пустой ромб (только окантовка,
- * без искры) и более мягкое свечение. Анимации появления — ромб
- * «выпрыгивает» с перелётом, текст мягко всплывает, окно плавно уезжает.
- * Окно компактное: ширина подстраивается под текст, справа отступ
- * от края экрана, чтобы ничего не обрезалось.
+ * Всплывающее окно квестов в стиле заметок Тейвата. Выполненное задание —
+ * золотая тема с заполненным ромбом и искрой; новое задание — небесно-голубая
+ * тема с пустым ромбом (только окантовка, без искры). Если новое задание
+ * выполнено сразу, окно превращается в «Задание выполнено» на том же месте,
+ * а не появляется новым снизу. Окно компактное: ширина подстраивается под
+ * текст, справа отступ от края экрана, чтобы ничего не обрезалось.
  */
 public class QuestToast implements Toast {
     /** Сколько миллисекунд окно полностью видно до начала скрытия. */
@@ -25,17 +24,21 @@ public class QuestToast implements Toast {
     /** Длительность анимации появления внутренних элементов. */
     private static final long POP_MS = 520;
     /** Минимальная ширина окна (под компактный текст). */
-    private static final int MIN_WIDTH = 184;
+    private static final int MIN_WIDTH = 150;
     /** Высота окна. */
-    private static final int HEIGHT = 40;
+    private static final int HEIGHT = 30;
     /** Отступ от правого края экрана, чтобы окно не прилипало к границе. */
     private static final int RIGHT_MARGIN = 8;
 
-    private final String title;
+    /** Текущее видимое окно «Новое задание»: при выполнении превращается
+     *  в «Задание выполнено» на том же месте, а не добавляется снизу. */
+    private static QuestToast activeNewQuest;
+
+    private String title;
     private final String questName;
-    /** true = «новое задание»: пустой ромб без искры, мягче свечение. */
-    private final boolean newQuest;
-    private final int width;
+    /** true = «новое задание»: пустой ромб без искры, небесная тема. */
+    private boolean newQuest;
+    private int width;
     private long showTime;
 
     public QuestToast(String title, String questName) {
@@ -46,9 +49,31 @@ public class QuestToast implements Toast {
         this.title = title;
         this.questName = questName;
         this.newQuest = newQuest;
+        if (newQuest) {
+            activeNewQuest = this;
+        }
+        recomputeWidth();
+    }
+
+    /** Превращает видимое окно «Новое задание» в «Задание выполнено».
+     *  Возвращает true, если замена произошла (новое окно добавлять не нужно). */
+    public static boolean replaceActiveNewQuest(String title) {
+        QuestToast t = activeNewQuest;
+        if (t == null) {
+            return false;
+        }
+        activeNewQuest = null;
+        t.title = title;
+        t.newQuest = false;
+        t.recomputeWidth();
+        t.showTime = 0;
+        return true;
+    }
+
+    private void recomputeWidth() {
         TextRenderer tr = MinecraftClient.getInstance().textRenderer;
         int textW = Math.max(tr.getWidth(title), tr.getWidth(questName));
-        this.width = Math.max(MIN_WIDTH, 46 + textW + 10);
+        this.width = Math.max(MIN_WIDTH, 38 + textW + 8);
     }
 
     @Override
@@ -80,9 +105,13 @@ public class QuestToast implements Toast {
 
     @Override
     public void update(ToastManager manager, long showTime) {
-        // На паузе мир стоит — уведомление о выполненном задании тоже замирает.
+        // На паузе мир стоит — уведомление о квесте тоже замирает.
         if (!MinecraftClient.getInstance().isPaused()) {
             this.showTime = showTime;
+        }
+        // Окно «Новое задание» отслужило — больше некому превращаться в «выполнено».
+        if (newQuest && activeNewQuest == this && this.showTime >= VISIBLE_MS) {
+            activeNewQuest = null;
         }
     }
 
@@ -107,41 +136,49 @@ public class QuestToast implements Toast {
             return;
         }
 
-        // Панель в стиле заметок: тёмно-синяя, золотая рамка и акцентная линия.
-        int panelA = (int) (0xF2 * alpha);
-        int goldA = (int) (255 * alpha);
-        context.fill(0, 0, w, h, (panelA << 24) | 0x1B2338);
-        context.fill(0, 0, w, 1, (goldA << 24) | 0xE8C86A);
-        context.fill(0, h - 1, w, h, (goldA << 24) | 0xE8C86A);
-        context.fill(0, 0, 1, h, (goldA << 24) | 0xE8C86A);
-        context.fill(w - 1, 0, w, h, (goldA << 24) | 0xE8C86A);
-        context.fill(1, 1, w - 1, 2, (goldA << 24) | 0xE8C86A);
+        // Темы: выполнено — золото, новое задание — небесная лазурь.
+        int panel = newQuest ? 0x14202E : 0x1B2338;
+        int border = newQuest ? 0xFF8EC8F0 : 0xFFE8C86A;
+        int titleCol = newQuest ? 0xFFD3EAFF : 0xFFE8C86A;
+        int nameCol = newQuest ? 0xFFB8CCDA : 0xFFD8D2C4;
+        int glowCol = newQuest ? 0xFF8FC0E8 : 0xFFFFD97A;
+        int diamondCol = newQuest ? 0xFFB8DCFF : 0xFFE8C86A;
 
-        int badgeCx = 24;
+        int panelA = (int) (0xF2 * alpha);
+        int accentA = (int) (255 * alpha);
+        // Панель в стиле заметок: тёмно-синяя, цветная рамка и акцентная линия.
+        context.fill(0, 0, w, h, (panelA << 24) | panel);
+        context.fill(0, 0, w, 1, (accentA << 24) | border);
+        context.fill(0, h - 1, w, h, (accentA << 24) | border);
+        context.fill(0, 0, 1, h, (accentA << 24) | border);
+        context.fill(w - 1, 0, w, h, (accentA << 24) | border);
+        context.fill(1, 1, w - 1, 2, (accentA << 24) | border);
+
+        int badgeCx = 20;
         int badgeCy = h / 2;
         float badgeScale = easeOutBack(popT);
         float pulse = 0.55f + 0.45f * (float) Math.sin(st / 150.0 * Math.PI * 2.0);
         Matrix3x2fStack m = context.getMatrices();
 
-        // Мягкое золотое свечение позади ромба — пульсирует, пока окно видно.
+        // Мягкое свечение позади ромба — пульсирует, пока окно видно.
         m.pushMatrix();
         m.translate(badgeCx, badgeCy);
         m.scale(badgeScale, badgeScale);
         if (newQuest) {
-            // Новое задание: пустой ромб — только золотая окантовка, внутри панель.
-            int softGlowA = (int) (45.0f * alpha * pulse);
-            context.fill(-17, -17, 17, 17, (softGlowA << 24) | 0xFFFFD97A);
+            // Новое задание: пустой ромб — только окантовка, внутри панель.
+            int softGlowA = (int) (40.0f * alpha * pulse);
+            context.fill(-14, -14, 14, 14, (softGlowA << 24) | glowCol);
             m.rotate((float) Math.PI / 4.0f);
-            context.fill(-12, -12, 12, 12, (goldA << 24) | 0xFFE8C86A);
-            context.fill(-10, -10, 10, 10, (panelA << 24) | 0x1B2338);
+            context.fill(-10, -10, 10, 10, (accentA << 24) | diamondCol);
+            context.fill(-8, -8, 8, 8, (panelA << 24) | panel);
         } else {
-            int glowA = (int) (80.0f * alpha * pulse);
-            context.fill(-17, -17, 17, 17, (glowA << 24) | 0xFFFFD97A);
-            context.fill(-12, -12, 12, 12, ((int) (glowA * 1.5f) << 24) | 0xFFE8C86A);
+            int glowA = (int) (70.0f * alpha * pulse);
+            context.fill(-14, -14, 14, 14, (glowA << 24) | glowCol);
+            context.fill(-10, -10, 10, 10, ((int) (glowA * 1.5f) << 24) | diamondCol);
             // Золотой ромб с тёмной сердцевиной — символ выполненного задания.
             m.rotate((float) Math.PI / 4.0f);
-            context.fill(-12, -12, 12, 12, (goldA << 24) | 0xFFE8C86A);
-            context.fill(-10, -10, 10, 10, ((int) (0xF2 * alpha) << 24) | 0x1B2338);
+            context.fill(-10, -10, 10, 10, (accentA << 24) | diamondCol);
+            context.fill(-8, -8, 8, 8, (panelA << 24) | panel);
         }
         m.popMatrix();
 
@@ -159,13 +196,13 @@ public class QuestToast implements Toast {
             m.pushMatrix();
             m.scale(0.55f, 1.8f);
             m.rotate((float) Math.PI / 4.0f);
-            context.fill(-5, -5, 5, 5, starCol);
+            context.fill(-4, -4, 4, 4, starCol);
             m.popMatrix();
             // Горизонтальный луч (ромб, вытянутый влево-вправо)
             m.pushMatrix();
             m.scale(1.8f, 0.55f);
             m.rotate((float) Math.PI / 4.0f);
-            context.fill(-5, -5, 5, 5, starCol);
+            context.fill(-4, -4, 4, 4, starCol);
             m.popMatrix();
             // Яркая сердцевина искры — вспыхивает в такт пульсу
             m.pushMatrix();
@@ -176,11 +213,11 @@ public class QuestToast implements Toast {
             m.popMatrix();
         }
 
-        // Золотой заголовок и имя задания мягко всплывают снизу.
-        float slide = (1.0f - easeOutCubic(popT)) * 5.0f;
+        // Заголовок и имя задания мягко всплывают снизу.
+        float slide = (1.0f - easeOutCubic(popT)) * 4.0f;
         int textA = (int) (255 * alpha);
-        context.drawText(textRenderer, this.title, 46, (int) (8 + slide), (textA << 24) | 0xFFE8C86A, true);
-        context.drawText(textRenderer, this.questName, 46, (int) (21 + slide), (textA << 24) | 0xFFD8D2C4, true);
+        context.drawText(textRenderer, this.title, 38, (int) (6 + slide), (textA << 24) | titleCol, true);
+        context.drawText(textRenderer, this.questName, 38, (int) (16 + slide), (textA << 24) | nameCol, true);
     }
 
     /** Затухание с лёгким перелётом за 1.0 (пружинящее появление). */
