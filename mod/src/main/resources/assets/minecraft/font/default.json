@@ -2,7 +2,7 @@
     "providers": [
         {
             "type": "ttf",
-            "file": "teyvat:font/comfortaa.ttf",
+            "file": "teyvat:comfortaa.ttf",
             "shift": [0, 1],
             "size": 11,
             "oversample": 8
