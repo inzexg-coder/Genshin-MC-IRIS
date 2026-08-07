@@ -12,6 +12,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.teyvat.client.TravelerChoiceClient;
 import net.teyvat.client.TravelerChoiceScreen;
+import net.teyvat.client.CameraController;
 import net.teyvat.client.ZoomController;
 import net.teyvat.client.TravelerNotesScreen;
 import net.teyvat.client.paimon.PaimonEntityRenderer;
@@ -30,6 +31,10 @@ public class TeyvatClient implements ClientModInitializer {
     public static final KeyBinding ZOOM = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C,
                     KeyBinding.Category.create(Identifier.of(TeyvatMod.MOD_ID, "main"))));
+    /** Свободная камера (удержание или переключатель — режим в config/teyvat.json → camera.free_look_mode). */
+    public static final KeyBinding FREE_CAM = KeyBindingHelper.registerKeyBinding(
+            new KeyBinding("key.teyvat.camera", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V,
+                    KeyBinding.Category.create(Identifier.of(TeyvatMod.MOD_ID, "main"))));
 
     /** Тики до открытия экрана выбора (ждём, пока мир догрузится). -1 = не запрошено. */
     private static int choiceOpenDelay = -1;
@@ -42,6 +47,7 @@ public class TeyvatClient implements ClientModInitializer {
         // Клавиша открывает заметки в любом режиме игры (клиентская сторона).
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ZoomController.tick();
+            CameraController.tick();
             while (OPEN_NOTES.wasPressed()) {
                 if (client.currentScreen == null) {
                     client.setScreen(new TravelerNotesScreen());

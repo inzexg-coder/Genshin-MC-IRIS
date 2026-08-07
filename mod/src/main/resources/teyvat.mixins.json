@@ -8,7 +8,10 @@
     "client.InGameHudMixin",
     "client.ChatHudMixin",
     "client.ChatScreenMixin",
-    "client.GameRendererMixin"
+    "client.GameRendererMixin",
+    "client.CameraMixin",
+    "client.CameraAccessor",
+    "client.MouseMixin"
   ],
   "injectors": {
     "defaultRequire": 1

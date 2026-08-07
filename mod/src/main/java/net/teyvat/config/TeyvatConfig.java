@@ -42,10 +42,38 @@ public final class TeyvatConfig {
     /** Зум по кнопке (клавиша C по умолчанию). */
     public Zoom zoom = new Zoom();
 
+    /** Teyvat Camera — кастомная камера от 3-го лица в стиле Genshin. */
+    public Camera camera = new Camera();
+
     /** Настройки зума. */
     public static class Zoom {
         /** Множитель FOV при полном зуме: меньше = сильнее (0.2 = пятикратный зум). */
         public float fov = 0.2f;
+    }
+
+    /** Настройки Teyvat Camera. */
+    public static class Camera {
+        /** Включить кастомную камеру в 3-м лице (вид сзади). */
+        public boolean enabled = true;
+        /** Базовая дистанция камеры от героя (блоки). */
+        public float distance = 4.0f;
+        public float min_distance = 1.5f;
+        public float max_distance = 10.0f;
+        /** Плечевое смещение: вбок (положительное — направо от героя) и вверх. */
+        public float side = 0.6f;
+        public float up = 0.3f;
+        /** Плавность догоняния позиции (1–30, больше = плавнее). */
+        public float smoothness = 8.0f;
+        /** Плавность возврата орбиты к герою после свободной камеры (1–30). */
+        public float return_smoothness = 10.0f;
+        /** Умная коллизия: камера не вжимается в блоки. */
+        public boolean collision = true;
+        /** Колесико мыши меняет дистанцию камеры в 3-м лице. */
+        public boolean scroll_controls_distance = true;
+        /** Чувствительность колесика (блоки за один щелчок). */
+        public float scroll_sensitivity = 0.8f;
+        /** Режим свободной камеры: disabled / hold (удержание) / toggle (переключатель). */
+        public String free_look_mode = "hold";
     }
 
     /** Настройки Паймон. */
@@ -81,6 +109,9 @@ public final class TeyvatConfig {
                     }
                     if (cfg.zoom == null) {
                         cfg.zoom = new Zoom();
+                    }
+                    if (cfg.camera == null) {
+                        cfg.camera = new Camera();
                     }
                 }
             } catch (Exception ignored) {
