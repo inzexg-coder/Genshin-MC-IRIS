@@ -22,7 +22,7 @@
      "type": "minecraft:range_choice",
      "input": {
       "type": "minecraft:add",
-      "argument1": 0.68,
+      "argument1": 0.56,
       "argument2": {
        "type": "minecraft:mul",
        "argument1": -1.0,

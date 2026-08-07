@@ -128,13 +128,29 @@ public class QuestToast implements Toast {
         context.fill(-10, -10, 10, 10, ((int) (0xF2 * alpha) << 24) | 0x1B2338);
         m.popMatrix();
 
-        // Галочка в центре ромба — крупная, занимает почти весь ромб.
+        // Блик в центре ромба — четырёхлучевая искра, как отблеск грани алмаза.
         m.pushMatrix();
         m.translate(badgeCx, badgeCy);
-        m.scale(badgeScale * 2.1f, badgeScale * 2.1f);
-        String check = "✓";
-        int cw = textRenderer.getWidth(check);
-        context.drawText(textRenderer, check, -cw / 2, -4, (goldA << 24) | 0xFFE8C86A, true);
+        m.scale(badgeScale, badgeScale);
+        int starA = (int) (255 * alpha);
+        int starCol = (starA << 24) | 0xFFFFE9A0;
+        // Вертикальный луч (ромб, вытянутый вверх-вниз)
+        m.pushMatrix();
+        m.scale(0.55f, 1.8f);
+        m.rotate((float) Math.PI / 4.0f);
+        context.fill(-5, -5, 5, 5, starCol);
+        m.popMatrix();
+        // Горизонтальный луч (ромб, вытянутый влево-вправо)
+        m.pushMatrix();
+        m.scale(1.8f, 0.55f);
+        m.rotate((float) Math.PI / 4.0f);
+        context.fill(-5, -5, 5, 5, starCol);
+        m.popMatrix();
+        // Яркая сердцевина искры
+        m.pushMatrix();
+        m.rotate((float) Math.PI / 4.0f);
+        context.fill(-2, -2, 2, 2, (starA << 24) | 0xFFFFFFFF);
+        m.popMatrix();
         m.popMatrix();
 
         // Золотой заголовок и имя задания мягко всплывают снизу.
