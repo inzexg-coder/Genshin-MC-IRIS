@@ -130,8 +130,8 @@ public class QuestToast implements Toast {
 
         // Блик в центре ромба — четырёхлучевая искра, как отблеск грани алмаза.
         // Искра пульсирует медленно и плавно: лучи мягко раздуваются,
-        // сердцевина вспыхивает в такт (период ~0.5 с).
-        float starPulse = 0.8f + 0.2f * (float) Math.sin(st / 520.0 * Math.PI * 2.0 + 0.7);
+        // сердцевина вспыхивает в такт (период ~1 с).
+        float starPulse = 0.8f + 0.2f * (float) Math.sin(st / 1040.0 * Math.PI * 2.0 + 0.7);
         m.pushMatrix();
         m.translate(badgeCx, badgeCy);
         m.scale(badgeScale * starPulse, badgeScale * starPulse);

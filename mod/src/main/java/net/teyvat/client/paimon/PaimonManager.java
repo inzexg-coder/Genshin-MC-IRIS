@@ -49,6 +49,8 @@ public final class PaimonManager {
     };
     /** Тик первой фразы знакомства: игрок сперва приходит в себя. */
     private static final int PHRASE_START_TICK = 40;
+    /** Каждая реплика держится 3 секунды (60 тиков). */
+    private static final int PHRASE_GAP_TICKS = 60;
     /** Пауза после последней фразы, перед тем как Паймон летит за спину героя. */
     private static final int PHRASE_END_GAP = 30;
     /** Задержка отчёта о выполненном задании после последней фразы Паймон (тики). */
@@ -158,16 +160,15 @@ public final class PaimonManager {
         if (!entity.isFollowing()) {
             int ticks = entity.getIntroTicks() + 1;
             entity.setIntroTicks(ticks);
-            // Реплики в чат, неспешно: сначала игрок приходит в себя, потом Паймон говорит.
-            int introLimit = entity.getIntroTicksLimit();
-            int usableTicks = introLimit - PHRASE_START_TICK - PHRASE_END_GAP;
-            int phraseGap = Math.max(18, usableTicks / Math.max(1, PHRASES.length - 1));
+            // Реплики в чат, неспешно: каждая держится 3 секунды,
+            // сначала игрок приходит в себя, потом Паймон говорит.
             for (int i = 0; i < PHRASES.length; i++) {
-                if (ticks == PHRASE_START_TICK + i * phraseGap) {
+                if (ticks == PHRASE_START_TICK + i * PHRASE_GAP_TICKS) {
                     say(player, PHRASES[i]);
                 }
             }
-            if (ticks >= introLimit) {
+            int lastPhraseTick = PHRASE_START_TICK + (PHRASES.length - 1) * PHRASE_GAP_TICKS;
+            if (ticks >= Math.max(entity.getIntroTicksLimit(), lastPhraseTick + PHRASE_END_GAP)) {
                 // После последней фразы Паймон летит за спину героя.
                 entity.setFollowing(true);
                 DialogueState.end();

@@ -44,7 +44,7 @@ public final class TeyvatConfig {
         /** Показывать Паймон после выбора путешественника. */
         public boolean enabled = true;
         /** Длительность знакомства после появления, тики. */
-        public int intro_ticks = 300;
+        public int intro_ticks = 460;
     }
 
     private static TeyvatConfig instance;
