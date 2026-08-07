@@ -137,6 +137,14 @@ public final class PaimonManager {
     private static int dashTutorTicks = -1;
     /** Показано ли уведомление «есть новое задание» урока про рывок. */
     private static boolean dashPromptShown;
+    /** Номера уроков для очереди: следующий урок ждёт, пока уведомление
+     *  о выполненном задании не исчезнет с экрана. */
+    private static final int TUTORIAL_SCROLL = 0;
+    private static final int TUTORIAL_ZOOM = 1;
+    private static final int TUTORIAL_SPRINT = 2;
+    private static final int TUTORIAL_DASH = 3;
+    /** Очередь следующего урока: -1 = нет. */
+    private static int queuedTutorial = -1;
 
     private PaimonManager() {}
 
@@ -176,6 +184,9 @@ public final class PaimonManager {
             QuestClient.complete(Quests.TRY_DASH, Quests.TRY_DASH_TITLE);
             onDashQuestCompleted();
         }
+        // Очередь следующего урока: ждём, пока уведомление о выполненном
+        // задании не исчезнет с экрана, и только потом объявляем новое.
+        tickQueuedTutorial();
         if (paimon != null && !paimon.isRemoved()) {
             if (paimon.getEntityWorld() != client.world) {
                 remove();
@@ -275,8 +286,7 @@ public final class PaimonManager {
                     && questReportTimer < 0
                     && QuestStateClient.isCompleted(Quests.TRY_SCROLL)
                     && !QuestStateClient.isCompleted(Quests.TRY_ZOOM)) {
-                zoomTutorTicks = 0;
-                zoomPromptShown = false;
+                queueTutorial(TUTORIAL_ZOOM);
             }
             tickZoomTutorial();
             // Урок про бег идёт после задания с кнопкой C (при перезаходе
@@ -285,8 +295,7 @@ public final class PaimonManager {
                     && tutorTicks < 0 && questReportTimer < 0
                     && QuestStateClient.isCompleted(Quests.TRY_ZOOM)
                     && !QuestStateClient.isCompleted(Quests.TRY_SPRINT)) {
-                sprintTutorTicks = 0;
-                sprintPromptShown = false;
+                queueTutorial(TUTORIAL_SPRINT);
             }
             tickSprintTutorial();
             // Урок про рывок идёт после задания с бегом.
@@ -294,8 +303,7 @@ public final class PaimonManager {
                     && tutorTicks < 0 && questReportTimer < 0
                     && QuestStateClient.isCompleted(Quests.TRY_SPRINT)
                     && !QuestStateClient.isCompleted(Quests.TRY_DASH)) {
-                dashTutorTicks = 0;
-                dashPromptShown = false;
+                queueTutorial(TUTORIAL_DASH);
             }
             tickDashTutorial();
         }
@@ -418,17 +426,19 @@ public final class PaimonManager {
         }
         client.getToastManager().add(new QuestToast("Задание выполнено", "«" + Quests.MEET_PAIMON_TITLE + "»"));
         // После первого задания — короткий урок про колесо мыши (пока не выполнен).
+        // Начнётся, когда уведомление о выполненном задании исчезнет с экрана.
         if (!QuestStateClient.isCompleted(Quests.TRY_SCROLL)) {
-            tutorTicks = 0;
-            tutorPromptShown = false;
+            queueTutorial(TUTORIAL_SCROLL);
         }
     }
 
-    /** Начать мини-урок про кнопку C: сразу после выполнения задания с колесом мыши. */
+    /** Поставить мини-урок про кнопку C в очередь: начнётся, когда уведомление
+     *  о выполненном задании с колесом мыши исчезнет с экрана. */
     public static void startZoomTutorial() {
         tutorTicks = -1;
-        zoomTutorTicks = 0;
+        tutorPromptShown = false;
         zoomPromptShown = false;
+        queueTutorial(TUTORIAL_ZOOM);
     }
 
     /** Квест про кнопку C выполнен: урок завершается, запускаем урок про бег. */
@@ -436,10 +446,10 @@ public final class PaimonManager {
         zoomTutorTicks = -1;
         zoomPromptShown = false;
         DialogueOverlay.end();
-        // Сразу после задания с кнопкой C — урок про бег (пока не выполнен).
+        // После задания с кнопкой C — урок про бег (пока не выполнен).
+        // Начнётся, когда уведомление о выполненном задании исчезнет с экрана.
         if (!QuestStateClient.isCompleted(Quests.TRY_SPRINT)) {
-            sprintTutorTicks = 0;
-            sprintPromptShown = false;
+            queueTutorial(TUTORIAL_SPRINT);
         }
     }
 
@@ -500,10 +510,10 @@ public final class PaimonManager {
         sprintTutorTicks = -1;
         sprintPromptShown = false;
         DialogueOverlay.end();
-        // Сразу после задания с бегом — урок про рывок (пока не выполнен).
+        // После задания с бегом — урок про рывок (пока не выполнен).
+        // Начнётся, когда уведомление о выполненном задании исчезнет с экрана.
         if (!QuestStateClient.isCompleted(Quests.TRY_DASH)) {
-            dashTutorTicks = 0;
-            dashPromptShown = false;
+            queueTutorial(TUTORIAL_DASH);
         }
     }
 
@@ -568,6 +578,44 @@ public final class PaimonManager {
     /** Объявить новое задание: окно «Новое задание» в углу висит, пока не выполнится. */
     private static void announceNewQuest(String questName) {
         MinecraftClient.getInstance().getToastManager().add(new QuestToast("Новое задание", questName, true));
+    }
+
+    /** Поставить следующий урок в очередь: он начнётся, когда уведомление
+     *  о выполненном задании исчезнет с экрана (плюс затухание). */
+    private static void queueTutorial(int tutorial) {
+        queuedTutorial = tutorial;
+    }
+
+    /** Каждый тик: очередь ждёт, пока уведомление о выполненном задании
+     *  не исчезнет, и только потом запускает следующий урок. */
+    private static void tickQueuedTutorial() {
+        if (queuedTutorial < 0) {
+            return;
+        }
+        if (QuestToast.isLastCompletionVisible()) {
+            return;
+        }
+        int tutorial = queuedTutorial;
+        queuedTutorial = -1;
+        switch (tutorial) {
+            case TUTORIAL_SCROLL -> {
+                tutorTicks = 0;
+                tutorPromptShown = false;
+            }
+            case TUTORIAL_ZOOM -> {
+                zoomTutorTicks = 0;
+                zoomPromptShown = false;
+            }
+            case TUTORIAL_SPRINT -> {
+                sprintTutorTicks = 0;
+                sprintPromptShown = false;
+            }
+            case TUTORIAL_DASH -> {
+                dashTutorTicks = 0;
+                dashPromptShown = false;
+            }
+            default -> { }
+        }
     }
 
     /** Объявлено ли задание (окно «Новое задание» показано): действие засчитывается

@@ -33,6 +33,9 @@ public class QuestToast implements Toast {
     /** Текущее видимое окно «Новое задание»: при выполнении превращается
      *  в «Задание выполнено» на том же месте, а не добавляется снизу. */
     private static QuestToast activeNewQuest;
+    /** Последнее окно «Задание выполнено»: следующее задание в очереди ждёт,
+     *  пока оно не исчезнет с экрана. */
+    private static QuestToast lastCompletedToast;
 
     private String title;
     private final String questName;
@@ -55,8 +58,16 @@ public class QuestToast implements Toast {
         this.persistent = newQuest;
         if (newQuest) {
             activeNewQuest = this;
+        } else {
+            lastCompletedToast = this;
         }
         recomputeWidth();
+    }
+
+    /** Висит ли на экране уведомление о последнем выполненном задании
+     *  (с учётом затухания). Следующий урок ждёт, пока оно не исчезнет. */
+    public static boolean isLastCompletionVisible() {
+        return lastCompletedToast != null && lastCompletedToast.showTime < VISIBLE_MS + 600;
     }
 
     /** Превращает видимое окно «Новое задание» в «Задание выполнено».
@@ -67,6 +78,7 @@ public class QuestToast implements Toast {
             return false;
         }
         activeNewQuest = null;
+        lastCompletedToast = t;
         t.title = title;
         t.newQuest = false;
         t.persistent = false;
