@@ -26,29 +26,49 @@
     "argument2": {
      "type": "minecraft:add",
      "argument1": {
-      "type": "minecraft:mul",
-      "argument1": 0.25,
+      "type": "minecraft:add",
+      "argument1": {
+       "type": "minecraft:mul",
+       "argument1": 0.25,
+       "argument2": {
+        "type": "minecraft:shifted_noise",
+        "noise": "minecraft:erosion",
+        "shift_x": "minecraft:shift_x",
+        "shift_y": 0.0,
+        "shift_z": "minecraft:shift_z",
+        "xz_scale": 0.5,
+        "y_scale": 0.0
+       }
+      },
       "argument2": {
-       "type": "minecraft:shifted_noise",
-       "noise": "minecraft:erosion",
-       "shift_x": "minecraft:shift_x",
-       "shift_y": 0.0,
-       "shift_z": "minecraft:shift_z",
-       "xz_scale": 0.5,
-       "y_scale": 0.0
+       "type": "minecraft:mul",
+       "argument1": 0.75,
+       "argument2": {
+        "type": "minecraft:shifted_noise",
+        "noise": "minecraft:erosion_large",
+        "shift_x": "minecraft:shift_x",
+        "shift_y": 0.0,
+        "shift_z": "minecraft:shift_z",
+        "xz_scale": 0.06,
+        "y_scale": 0.0
+       }
       }
      },
      "argument2": {
       "type": "minecraft:mul",
-      "argument1": 0.75,
+      "argument1": 0.35,
       "argument2": {
-       "type": "minecraft:shifted_noise",
-       "noise": "minecraft:erosion_large",
-       "shift_x": "minecraft:shift_x",
-       "shift_y": 0.0,
-       "shift_z": "minecraft:shift_z",
-       "xz_scale": 0.06,
-       "y_scale": 0.0
+       "type": "minecraft:mul",
+       "argument1": "teyvat:teyvat_beach_weight",
+       "argument2": {
+        "type": "minecraft:shifted_noise",
+        "noise": "minecraft:surface_secondary",
+        "shift_x": "minecraft:shift_x",
+        "shift_y": 0.0,
+        "shift_z": "minecraft:shift_z",
+        "xz_scale": 1.4,
+        "y_scale": 0.0
+       }
       }
      }
     }

@@ -1,5 +1,6 @@
 package net.teyvat.client;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.toast.Toast;
@@ -14,20 +15,32 @@ import org.joml.Matrix3x2fStack;
  * золотой текст, символ выполненного задания в золотом ромбе и
  * анимации появления — ромб «выпрыгивает» с перелётом, светится и
  * пульсирует, текст мягко всплывает, затем окно плавно уезжает.
+ * Окно компактное: ширина подстраивается под текст, справа отступ
+ * от края экрана, чтобы ничего не обрезалось.
  */
 public class QuestToast implements Toast {
     /** Сколько миллисекунд окно полностью видно до начала скрытия. */
     private static final long VISIBLE_MS = 3600;
     /** Длительность анимации появления внутренних элементов. */
     private static final long POP_MS = 520;
+    /** Минимальная ширина окна (под компактный текст). */
+    private static final int MIN_WIDTH = 184;
+    /** Высота окна. */
+    private static final int HEIGHT = 40;
+    /** Отступ от правого края экрана, чтобы окно не прилипало к границе. */
+    private static final int RIGHT_MARGIN = 8;
 
     private final String title;
     private final String questName;
+    private final int width;
     private long showTime;
 
     public QuestToast(String title, String questName) {
         this.title = title;
         this.questName = questName;
+        TextRenderer tr = MinecraftClient.getInstance().textRenderer;
+        int textW = Math.max(tr.getWidth(title), tr.getWidth(questName));
+        this.width = Math.max(MIN_WIDTH, 46 + textW + 10);
     }
 
     @Override
@@ -37,12 +50,19 @@ public class QuestToast implements Toast {
 
     @Override
     public int getWidth() {
-        return 210;
+        return this.width;
     }
 
     @Override
     public int getHeight() {
-        return 44;
+        return HEIGHT;
+    }
+
+    /** Позиция справа сверху: при въезде окно скользит от края и останавливается
+     *  с отступом RIGHT_MARGIN, поэтому никогда не обрезается краем экрана. */
+    @Override
+    public float getXPos(int screenWidth, float portion) {
+        return screenWidth - this.width * portion - RIGHT_MARGIN * portion;
     }
 
     @Override
@@ -85,7 +105,7 @@ public class QuestToast implements Toast {
         context.fill(w - 1, 0, w, h, (goldA << 24) | 0xE8C86A);
         context.fill(1, 1, w - 1, 2, (goldA << 24) | 0xE8C86A);
 
-        int badgeCx = 26;
+        int badgeCx = 24;
         int badgeCy = h / 2;
         float badgeScale = easeOutBack(popT);
         float pulse = 0.55f + 0.45f * (float) Math.sin(showTime / 150.0 * Math.PI * 2.0);
@@ -96,28 +116,28 @@ public class QuestToast implements Toast {
         m.translate(badgeCx, badgeCy);
         m.scale(badgeScale, badgeScale);
         int glowA = (int) (80.0f * alpha * pulse);
-        context.fill(-18, -18, 18, 18, (glowA << 24) | 0xFFFFD97A);
-        context.fill(-13, -13, 13, 13, ((int) (glowA * 1.5f) << 24) | 0xFFE8C86A);
+        context.fill(-17, -17, 17, 17, (glowA << 24) | 0xFFFFD97A);
+        context.fill(-12, -12, 12, 12, ((int) (glowA * 1.5f) << 24) | 0xFFE8C86A);
         // Золотой ромб с тёмной сердцевиной — символ выполненного задания.
         m.rotate((float) Math.PI / 4.0f);
-        context.fill(-13, -13, 13, 13, (goldA << 24) | 0xFFE8C86A);
-        context.fill(-11, -11, 11, 11, ((int) (0xF2 * alpha) << 24) | 0x1B2338);
+        context.fill(-12, -12, 12, 12, (goldA << 24) | 0xFFE8C86A);
+        context.fill(-10, -10, 10, 10, ((int) (0xF2 * alpha) << 24) | 0x1B2338);
         m.popMatrix();
 
         // Галочка в центре ромба — крупная, занимает почти весь ромб.
         m.pushMatrix();
         m.translate(badgeCx, badgeCy);
-        m.scale(badgeScale * 2.2f, badgeScale * 2.2f);
+        m.scale(badgeScale * 2.1f, badgeScale * 2.1f);
         String check = "✓";
         int cw = textRenderer.getWidth(check);
         context.drawText(textRenderer, check, -cw / 2, -4, (goldA << 24) | 0xFFE8C86A, true);
         m.popMatrix();
 
         // Золотой заголовок и имя задания мягко всплывают снизу.
-        float slide = (1.0f - easeOutCubic(popT)) * 6.0f;
+        float slide = (1.0f - easeOutCubic(popT)) * 5.0f;
         int textA = (int) (255 * alpha);
-        context.drawText(textRenderer, this.title, 52, (int) (9 + slide), (textA << 24) | 0xFFE8C86A, true);
-        context.drawText(textRenderer, this.questName, 52, (int) (23 + slide), (textA << 24) | 0xFFD8D2C4, true);
+        context.drawText(textRenderer, this.title, 46, (int) (8 + slide), (textA << 24) | 0xFFE8C86A, true);
+        context.drawText(textRenderer, this.questName, 46, (int) (21 + slide), (textA << 24) | 0xFFD8D2C4, true);
     }
 
     /** Затухание с лёгким перелётом за 1.0 (пружинящее появление). */
