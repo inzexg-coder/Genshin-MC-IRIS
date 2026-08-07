@@ -1,6 +1,7 @@
 package net.teyvat.client;
 
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.input.Input;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.util.PlayerInput;
@@ -24,10 +25,11 @@ public final class StaminaController {
     private static final float REGEN_RATE = 30f / 20f;
     /** Пауза перед восстановлением после траты (1 сек). */
     private static final int REGEN_DELAY = 20;
-    /** Длительность рывка: 0.1 сек. */
-    private static final int DASH_TICKS = 2;
-    /** Скорость рывка: 2 блока/сек → ~0.6 блока за рывок вместе с шагом. */
-    private static final double DASH_SPEED = 2.0;
+    /** Длительность рывка: 0.3 сек. */
+    private static final int DASH_TICKS = 6;
+    /** Пик скорости рывка: синусоида разгоняет и тормозит плавно,
+     *  ~0.55 блока за рывок, как короткий бросок в Genshin. */
+    private static final double DASH_PEAK_SPEED = 3.4;
     /** Окно двойного нажатия W, чтобы побежать (0.5 сек). */
     private static final int DOUBLE_TAP_WINDOW = 10;
 
@@ -39,9 +41,13 @@ public final class StaminaController {
     private static int dashTicksLeft;
     private static Vec3d dashDir = Vec3d.ZERO;
     private static boolean doubleTapForward;
+    /** Был ли W зажат в прошлом тике (для фронта нажатия). */
+    private static boolean wasForwardDown;
     /** Тик последнего нажатия W. Не MIN_VALUE: вычитание дало бы переполнение
      *  и первое нажатие W считалось бы двойным (бег с первого раза). */
     private static long lastForwardPressTick = -1000;
+    /** Ввод, сохранённый на время рывка (рывок «залочен», ввод движения выключен). */
+    private static Input savedInput;
 
     private StaminaController() {}
 
@@ -58,19 +64,23 @@ public final class StaminaController {
         boolean freshPress = pressed && !keyHeld;
         keyHeld = pressed;
 
-        // Двойное W — бег, как в майне.
+        // Двойное W — бег, как в майне. Считаем по фронту нажатия (isPressed),
+        // а не по wasPressed: автоповтор клавиши (GLFW_REPEAT) ложно срабатывал
+        // как второе нажатие при простом удержании W.
         KeyBinding forward = client.options.forwardKey;
-        if (forward.wasPressed()) {
+        boolean forwardDown = forward.isPressed();
+        if (forwardDown && !wasForwardDown) {
             long dt = client.world.getTime() - lastForwardPressTick;
             if (dt >= 0 && dt <= DOUBLE_TAP_WINDOW) {
                 doubleTapForward = true;
             }
             lastForwardPressTick = client.world.getTime();
         }
-        if (!forward.isPressed()) {
+        wasForwardDown = forwardDown;
+        if (!forwardDown) {
             doubleTapForward = false;
         }
-        boolean doubleTapHeld = doubleTapForward && forward.isPressed();
+        boolean doubleTapHeld = doubleTapForward && forwardDown;
 
         // На транспорте, крадучись или с предметом в руке бег не работает.
         if (player.hasVehicle() || player.isSneaking() || player.isUsingItem()) {
@@ -89,10 +99,10 @@ public final class StaminaController {
             dashTicksLeft--;
             if (dashTicksLeft <= 0) {
                 dashing = false;
-                // Гасим остаточную скорость, чтобы рывок не растягивался по инерции.
-                Vec3d v = player.getVelocity();
-                player.setVelocity(0, v.y, 0);
-                player.velocityModified = true;
+                if (savedInput != null) {
+                    player.input = savedInput;
+                    savedInput = null;
+                }
             }
             player.setSprinting(false);
             regenDelay = REGEN_DELAY;
@@ -129,6 +139,10 @@ public final class StaminaController {
         stamina = Math.max(0f, stamina - DASH_COST);
         regenDelay = REGEN_DELAY;
         dashDir = dashDirection(player);
+        // Рывок «залочен», как в Genshin: ввод движения выключен на время рывка,
+        // поэтому шаг игрока не растягивает бросок и он не меняет направление.
+        savedInput = player.input;
+        player.input = new Input();
         player.setSprinting(false);
     }
 
@@ -147,10 +161,13 @@ public final class StaminaController {
         return dir.normalize();
     }
 
-    /** Поддержание скорости рывка каждый тик (горизонталь, вертикаль сохраняется). */
+    /** Плавный профиль скорости рывка: синусоида — мягкий разгон, пик в середине,
+     *  торможение к нулю в конце, без резкого стопа. Вертикаль сохраняется. */
     private static void applyDashVelocity(ClientPlayerEntity player) {
+        float progress = (float) (DASH_TICKS - dashTicksLeft) / (DASH_TICKS - 1);
+        double speed = DASH_PEAK_SPEED * Math.sin(Math.PI * progress);
         Vec3d v = player.getVelocity();
-        player.setVelocity(dashDir.x * DASH_SPEED, v.y, dashDir.z * DASH_SPEED);
+        player.setVelocity(dashDir.x * speed, v.y, dashDir.z * speed);
         player.velocityModified = true;
     }
 
