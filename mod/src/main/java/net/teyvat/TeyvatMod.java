@@ -11,6 +11,7 @@ import net.minecraft.text.Text;
 import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.command.TeyvatCommand;
 import net.teyvat.network.NotesOpenPayload;
+import net.teyvat.server.BeachGuard;
 import net.teyvat.server.TeyvatQuests;
 import net.teyvat.server.TeyvatSpawn;
 import net.teyvat.worldgen.TeyvatOceanEdge;
@@ -39,6 +40,7 @@ public class TeyvatMod implements ModInitializer {
     public void onInitialize() {
         TeyvatOceanEdge.register();
         TeyvatXEdge.register();
+        BeachGuard.register();
         PaimonEntity.register();
         TeyvatBlocks.register();
         TeyvatBlocks.registerItemGroup();
