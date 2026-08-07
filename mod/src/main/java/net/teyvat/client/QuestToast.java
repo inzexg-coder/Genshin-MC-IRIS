@@ -37,12 +37,12 @@ public class QuestToast implements Toast {
 
     @Override
     public int getWidth() {
-        return 248;
+        return 210;
     }
 
     @Override
     public int getHeight() {
-        return 52;
+        return 44;
     }
 
     @Override
@@ -85,7 +85,7 @@ public class QuestToast implements Toast {
         context.fill(w - 1, 0, w, h, (goldA << 24) | 0xE8C86A);
         context.fill(1, 1, w - 1, 2, (goldA << 24) | 0xE8C86A);
 
-        int badgeCx = 30;
+        int badgeCx = 26;
         int badgeCy = h / 2;
         float badgeScale = easeOutBack(popT);
         float pulse = 0.55f + 0.45f * (float) Math.sin(showTime / 150.0 * Math.PI * 2.0);
@@ -96,28 +96,28 @@ public class QuestToast implements Toast {
         m.translate(badgeCx, badgeCy);
         m.scale(badgeScale, badgeScale);
         int glowA = (int) (80.0f * alpha * pulse);
-        context.fill(-19, -19, 19, 19, (glowA << 24) | 0xFFFFD97A);
-        context.fill(-13, -13, 13, 13, ((int) (glowA * 1.5f) << 24) | 0xFFE8C86A);
+        context.fill(-16, -16, 16, 16, (glowA << 24) | 0xFFFFD97A);
+        context.fill(-11, -11, 11, 11, ((int) (glowA * 1.5f) << 24) | 0xFFE8C86A);
         // Золотой ромб с тёмной сердцевиной — символ выполненного задания.
         m.rotate((float) Math.PI / 4.0f);
-        context.fill(-13, -13, 13, 13, (goldA << 24) | 0xFFE8C86A);
-        context.fill(-11, -11, 11, 11, ((int) (0xF2 * alpha) << 24) | 0x1B2338);
+        context.fill(-11, -11, 11, 11, (goldA << 24) | 0xFFE8C86A);
+        context.fill(-9, -9, 9, 9, ((int) (0xF2 * alpha) << 24) | 0x1B2338);
         m.popMatrix();
 
         // Галочка в центре ромба — рисуется своим масштабом, поверх ромба.
         m.pushMatrix();
         m.translate(badgeCx, badgeCy);
-        m.scale(badgeScale * 1.9f, badgeScale * 1.9f);
+        m.scale(badgeScale * 1.7f, badgeScale * 1.7f);
         String check = "✓";
         int cw = textRenderer.getWidth(check);
-        context.drawText(textRenderer, check, -cw / 2, -4, (goldA << 24) | 0xFFE8C86A, true);
+        context.drawText(textRenderer, check, -cw / 2, -3, (goldA << 24) | 0xFFE8C86A, true);
         m.popMatrix();
 
         // Золотой заголовок и имя задания мягко всплывают снизу.
-        float slide = (1.0f - easeOutCubic(popT)) * 7.0f;
+        float slide = (1.0f - easeOutCubic(popT)) * 6.0f;
         int textA = (int) (255 * alpha);
-        context.drawText(textRenderer, this.title, 56, (int) (11 + slide), (textA << 24) | 0xFFE8C86A, true);
-        context.drawText(textRenderer, this.questName, 56, (int) (27 + slide), (textA << 24) | 0xFFD8D2C4, true);
+        context.drawText(textRenderer, this.title, 48, (int) (9 + slide), (textA << 24) | 0xFFE8C86A, true);
+        context.drawText(textRenderer, this.questName, 48, (int) (23 + slide), (textA << 24) | 0xFFD8D2C4, true);
     }
 
     /** Затухание с лёгким перелётом за 1.0 (пружинящее появление). */

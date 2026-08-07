@@ -88,7 +88,8 @@ public abstract class ChatHudMixin {
         ChatHudLine latest = this.messages.get(0);
         // Пока идёт диалог с НПС, панель не скрывается по таймеру.
         boolean dialogue = DialogueState.isActive();
-        int age = this.client.inGameHud.getTicks() - latest.creationTick();
+        int now = this.client.inGameHud.getTicks();
+        int age = now - latest.creationTick();
         if (!dialogue && age > HIDE_AFTER_TICKS + FADE_TICKS) {
             return;
         }
@@ -97,10 +98,14 @@ public abstract class ChatHudMixin {
             return;
         }
         // Плавное затухание: после 3 секунд панель мягко тает, а не исчезает резко.
-        float alpha = 1.0f;
+        float fadeAlpha = 1.0f;
         if (!dialogue && age > HIDE_AFTER_TICKS) {
-            alpha = Math.max(0.0f, 1.0f - (age - HIDE_AFTER_TICKS) / (float) FADE_TICKS);
+            fadeAlpha = Math.max(0.0f, 1.0f - (age - HIDE_AFTER_TICKS) / (float) FADE_TICKS);
         }
+        // Появление: панель мягко всплывает снизу и проявляется за первые ~8 тиков.
+        float entrance = Math.min(1.0f, age / 8.0f);
+        float alpha = fadeAlpha * teyvat$easeOutCubic(entrance);
+        float lift = (1.0f - entrance) * 8.0f;
         int w = context.getScaledWindowWidth();
         int h = context.getScaledWindowHeight();
         int pad = 14;
@@ -112,16 +117,23 @@ public abstract class ChatHudMixin {
         int x0 = (w - panelW) / 2;
         int x1 = x0 + panelW;
         int y1 = h - 38;
-        int y0 = y1 - panelH;
+        int y0 = y1 - panelH + (int) lift;
 
+        // Переливающееся золото: тон рамки мягко дышит между тёплым и светлым золотом.
+        float shimmer = 0.5f + 0.5f * (float) Math.sin(now * 0.22);
+        int gold = teyvat$lerpColor(0xFFE8C86A, 0xFFFFF2B8, shimmer);
         // Панель в стиле заметок: тёмно-синяя, золотая рамка и акцентная полоска.
         context.fill(x0, y0, x1, y1, teyvat$withAlpha(0xF21B2338, alpha));
-        // Тонкая золотая рамка (1px) и аккуратная акцентная линия сверху.
-        context.fill(x0, y0, x1, y0 + 1, teyvat$withAlpha(0xFFE8C86A, alpha));
-        context.fill(x0, y1 - 1, x1, y1, teyvat$withAlpha(0xFFE8C86A, alpha));
-        context.fill(x0, y0, x0 + 1, y1, teyvat$withAlpha(0xFFE8C86A, alpha));
-        context.fill(x1 - 1, y0, x1, y1, teyvat$withAlpha(0xFFE8C86A, alpha));
-        context.fill(x0 + 1, y0 + 1, x1 - 1, y0 + 2, teyvat$withAlpha(0xFFE8C86A, alpha));
+        // Тонкая переливающаяся золотая рамка (1px) и акцентная линия сверху.
+        context.fill(x0, y0, x1, y0 + 1, teyvat$withAlpha(gold, alpha));
+        context.fill(x0, y1 - 1, x1, y1, teyvat$withAlpha(gold, alpha));
+        context.fill(x0, y0, x0 + 1, y1, teyvat$withAlpha(gold, alpha));
+        context.fill(x1 - 1, y0, x1, y1, teyvat$withAlpha(gold, alpha));
+        context.fill(x0 + 1, y0 + 1, x1 - 1, y0 + 2, teyvat$withAlpha(gold, alpha));
+        // Бегущий золотой блик по акцентной линии — свет переливается вдоль рамки.
+        int shineX = x0 + (int) ((now * 5L) % Math.max(1, panelW - 50));
+        context.fill(shineX, y0 + 1, Math.min(shineX + 50, x1 - 1), y0 + 2,
+                teyvat$withAlpha(0xFFFFFFFF, alpha));
         int ty = y0 + 15;
         TextRenderer tr = this.client.textRenderer;
         for (String line : lines) {
@@ -134,6 +146,26 @@ public abstract class ChatHudMixin {
     private static int teyvat$withAlpha(int argb, float alpha) {
         int a = (int) ((argb >>> 24) * alpha);
         return (a << 24) | (argb & 0x00FFFFFF);
+    }
+
+    /** Плавное ускорение к концу — для появления панели. */
+    private static float teyvat$easeOutCubic(float t) {
+        float u = 1.0f - t;
+        return 1.0f - u * u * u;
+    }
+
+    /** Интерполяция между двумя RGB-цветами (альфа сохраняется от первого). */
+    private static int teyvat$lerpColor(int a, int b, float t) {
+        int ar = (a >> 16) & 0xFF;
+        int ag = (a >> 8) & 0xFF;
+        int ab = a & 0xFF;
+        int br = (b >> 16) & 0xFF;
+        int bg = (b >> 8) & 0xFF;
+        int bb = b & 0xFF;
+        int r = (int) (ar + (br - ar) * t);
+        int g = (int) (ag + (bg - ag) * t);
+        int bl = (int) (ab + (bb - ab) * t);
+        return (a & 0xFF000000) | (r << 16) | (g << 8) | bl;
     }
 
     /** Перенос строк по ширине панели (как в заметках). */

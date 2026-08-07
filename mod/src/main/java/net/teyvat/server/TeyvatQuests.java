@@ -1,7 +1,6 @@
 package net.teyvat.server;
 
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.Text;
 import net.teyvat.quest.Quests;
 
 /**
@@ -18,7 +17,8 @@ public final class TeyvatQuests {
         return player.getCommandTags().contains(TAG_PREFIX + questId);
     }
 
-    /** Помечает квест выполненным и пишет золотое уведомление в чат игроку. */
+    /** Помечает квест выполненным. Уведомление игроку — только клиентский попап
+     *  «Задание выполнено» (справа сверху), в чат ничего не пишется. */
     public static void complete(ServerPlayerEntity player, String questId) {
         if (!Quests.MEET_PAIMON.equals(questId)) {
             return;
@@ -27,8 +27,5 @@ public final class TeyvatQuests {
             return;
         }
         player.addCommandTag(TAG_PREFIX + questId);
-        player.sendMessage(Text.literal(
-                "§6§l[Задание выполнено] §r§e«" + Quests.MEET_PAIMON_TITLE
-                        + "» §7— Паймон теперь твой спутник и гид."), false);
     }
 }
