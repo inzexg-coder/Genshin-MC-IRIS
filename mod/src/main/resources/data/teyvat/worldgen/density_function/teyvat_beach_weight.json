@@ -7,61 +7,39 @@
    "spline": {
     "coordinate": {
      "type": "minecraft:add",
-     "argument1": {
-      "type": "teyvat:x_edge"
-     },
+     "argument1": "teyvat:teyvat_beach_radius",
      "argument2": {
       "type": "minecraft:mul",
-      "argument1": 0.07,
+      "argument1": 0.08,
       "argument2": {
        "type": "minecraft:shifted_noise",
        "noise": "minecraft:surface_secondary",
        "shift_x": "minecraft:shift_x",
        "shift_y": 0.0,
        "shift_z": "minecraft:shift_z",
-       "xz_scale": 0.9,
+       "xz_scale": 1.0,
        "y_scale": 0.0
       }
      }
     },
     "points": [
      {
-      "location": -1.0,
-      "value": 0.0,
-      "derivative": 0.0
-     },
-     {
-      "location": -0.95,
-      "value": 0.0,
-      "derivative": 0.4
-     },
-     {
-      "location": -0.6,
-      "value": 1.0,
-      "derivative": 0.7
-     },
-     {
-      "location": -0.5,
+      "location": 0.0,
       "value": 1.0,
       "derivative": 0.0
      },
      {
-      "location": 0.5,
+      "location": 0.85,
       "value": 1.0,
       "derivative": 0.0
      },
      {
-      "location": 0.6,
-      "value": 1.0,
-      "derivative": -0.7
-     },
-     {
-      "location": 0.95,
+      "location": 1.15,
       "value": 0.0,
-      "derivative": -0.4
+      "derivative": 0.0
      },
      {
-      "location": 1.0,
+      "location": 2.0,
       "value": 0.0,
       "derivative": 0.0
      }

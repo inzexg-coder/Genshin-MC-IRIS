@@ -5,131 +5,57 @@
   "argument": {
    "type": "minecraft:range_choice",
    "input": {
-    "type": "teyvat:z_edge"
+    "type": "minecraft:max",
+    "argument1": 0.0,
+    "argument2": {
+     "type": "minecraft:add",
+     "argument1": "teyvat:teyvat_beach_radius",
+     "argument2": {
+      "type": "minecraft:mul",
+      "argument1": 0.08,
+      "argument2": {
+       "type": "minecraft:shifted_noise",
+       "noise": "minecraft:surface_secondary",
+       "shift_x": "minecraft:shift_x",
+       "shift_y": 0.0,
+       "shift_z": "minecraft:shift_z",
+       "xz_scale": 1.0,
+       "y_scale": 0.0
+      }
+     }
+    }
    },
-   "min_inclusive": 0.2,
-   "max_exclusive": 3.0,
-   "when_in_range": {
+   "min_inclusive": 0.0,
+   "max_exclusive": 1.0,
+   "when_in_range": 1.0,
+   "when_out_of_range": {
     "type": "minecraft:range_choice",
     "input": {
-     "type": "minecraft:add",
-     "argument1": "teyvat:teyvat_beach_weight",
-     "argument2": 1.0
-    },
-    "min_inclusive": 1.5,
-    "max_exclusive": 3.0,
-    "when_in_range": {
-     "type": "minecraft:range_choice",
-     "input": {
+     "type": "minecraft:max",
+     "argument1": 0.0,
+     "argument2": {
       "type": "minecraft:add",
-      "argument1": 0.52,
+      "argument1": "teyvat:teyvat_beach_radius",
       "argument2": {
        "type": "minecraft:mul",
-       "argument1": -1.0,
+       "argument1": 0.08,
        "argument2": {
-        "type": "minecraft:add",
-        "argument1": {
-         "type": "minecraft:add",
-         "argument1": {
-          "type": "teyvat:z_edge"
-         },
-         "argument2": {
-          "type": "minecraft:mul",
-          "argument1": -0.06,
-          "argument2": {
-           "type": "minecraft:clamp",
-           "input": {
-            "type": "minecraft:mul",
-            "argument1": {
-             "type": "teyvat:x_edge"
-            },
-            "argument2": {
-             "type": "teyvat:x_edge"
-            }
-           },
-           "min": 0.0,
-           "max": 1.0
-          }
-         }
-        },
-        "argument2": {
-         "type": "minecraft:mul",
-         "argument1": 0.03,
-         "argument2": {
-          "type": "minecraft:shifted_noise",
-          "noise": "minecraft:surface_secondary",
-          "shift_x": "minecraft:shift_x",
-          "shift_y": 0.0,
-          "shift_z": "minecraft:shift_z",
-          "xz_scale": 1.0,
-          "y_scale": 0.0
-         }
-        }
+        "type": "minecraft:shifted_noise",
+        "noise": "minecraft:surface_secondary",
+        "shift_x": "minecraft:shift_x",
+        "shift_y": 0.0,
+        "shift_z": "minecraft:shift_z",
+        "xz_scale": 1.0,
+        "y_scale": 0.0
        }
       }
-     },
-     "min_inclusive": 0.0,
-     "max_exclusive": 2.0,
-     "when_in_range": 1.0,
-     "when_out_of_range": {
-      "type": "minecraft:range_choice",
-      "input": {
-       "type": "minecraft:add",
-       "argument1": 0.56,
-       "argument2": {
-        "type": "minecraft:mul",
-        "argument1": -1.0,
-        "argument2": {
-         "type": "minecraft:add",
-         "argument1": {
-          "type": "minecraft:add",
-          "argument1": {
-           "type": "teyvat:z_edge"
-          },
-          "argument2": {
-           "type": "minecraft:mul",
-           "argument1": -0.06,
-           "argument2": {
-            "type": "minecraft:clamp",
-            "input": {
-             "type": "minecraft:mul",
-             "argument1": {
-              "type": "teyvat:x_edge"
-             },
-             "argument2": {
-              "type": "teyvat:x_edge"
-             }
-            },
-            "min": 0.0,
-            "max": 1.0
-           }
-          }
-         },
-         "argument2": {
-          "type": "minecraft:mul",
-          "argument1": 0.03,
-          "argument2": {
-           "type": "minecraft:shifted_noise",
-           "noise": "minecraft:surface_secondary",
-           "shift_x": "minecraft:shift_x",
-           "shift_y": 0.0,
-           "shift_z": "minecraft:shift_z",
-           "xz_scale": 1.0,
-           "y_scale": 0.0
-          }
-         }
-        }
-       }
-      },
-      "min_inclusive": 0.0,
-      "max_exclusive": 2.0,
-      "when_in_range": 0.0,
-      "when_out_of_range": -1.0
      }
     },
+    "min_inclusive": 1.0,
+    "max_exclusive": 1.07,
+    "when_in_range": 0.0,
     "when_out_of_range": -1.0
-   },
-   "when_out_of_range": -1.0
+   }
   }
  }
 }

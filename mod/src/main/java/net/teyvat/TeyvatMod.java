@@ -14,6 +14,7 @@ import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.BeachGuard;
 import net.teyvat.server.TeyvatQuests;
 import net.teyvat.server.TeyvatSpawn;
+import net.teyvat.worldgen.TeyvatBeachRadius;
 import net.teyvat.worldgen.TeyvatOceanEdge;
 import net.teyvat.worldgen.TeyvatXEdge;
 import net.teyvat.network.TravelerChoiceOpenPayload;
@@ -40,6 +41,7 @@ public class TeyvatMod implements ModInitializer {
     public void onInitialize() {
         TeyvatOceanEdge.register();
         TeyvatXEdge.register();
+        TeyvatBeachRadius.register();
         BeachGuard.register();
         PaimonEntity.register();
         TeyvatBlocks.register();
