@@ -11,6 +11,7 @@ import net.minecraft.text.Text;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.teyvat.client.ChatFlash;
 import net.teyvat.client.TravelerChoiceClient;
 import net.teyvat.network.QuestEventPayload;
 import net.teyvat.quest.Quests;
@@ -257,11 +258,13 @@ public final class PaimonManager {
         player.sendMessage(Text.literal("§fПаймон§7: §f" + text), false);
     }
 
-    /** Квест «Познакомиться с Паймон»: сообщаем серверу, что знакомство завершилось. */
+    /** Квест «Познакомиться с Паймон»: сообщаем серверу, что знакомство завершилось,
+     *  и зажигаем яркую вспышку в чате. */
     private static void reportQuestMeetPaimon() {
         if (MinecraftClient.getInstance().getNetworkHandler() != null) {
             ClientPlayNetworking.send(new QuestEventPayload(Quests.MEET_PAIMON));
         }
+        ChatFlash.trigger();
     }
 
     public static void remove() {
