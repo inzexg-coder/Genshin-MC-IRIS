@@ -3,6 +3,7 @@ package net.teyvat.mixin.client;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.GameRenderer;
+import net.teyvat.client.StaminaController;
 import net.teyvat.client.ZoomController;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -19,6 +20,7 @@ public abstract class GameRendererMixin {
             return;
         }
         float fov = cir.getReturnValue();
-        cir.setReturnValue(fov * ZoomController.fovFactor());
+        // Рывок слегка расширяет обзор — ощущение ускорения, как в Genshin.
+        cir.setReturnValue(fov * ZoomController.fovFactor() * (1f + 0.05f * StaminaController.dashFactor()));
     }
 }

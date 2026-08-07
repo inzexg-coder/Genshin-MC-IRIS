@@ -4,6 +4,7 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.input.Input;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.particle.ParticleTypes;
 import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.Vec3d;
 import net.teyvat.TeyvatClient;
@@ -25,11 +26,11 @@ public final class StaminaController {
     private static final float REGEN_RATE = 30f / 20f;
     /** Пауза перед восстановлением после траты (1 сек). */
     private static final int REGEN_DELAY = 20;
-    /** Длительность рывка: 0.3 сек. */
-    private static final int DASH_TICKS = 6;
+    /** Длительность рывка: 0.2 сек. */
+    private static final int DASH_TICKS = 4;
     /** Пик скорости рывка: синусоида разгоняет и тормозит плавно,
-     *  ~0.55 блока за рывок, как короткий бросок в Genshin. */
-    private static final double DASH_PEAK_SPEED = 3.4;
+     *  ~0.3 блока за рывок — короткий бросок, как в Genshin. */
+    private static final double DASH_PEAK_SPEED = 3.5;
     /** Окно двойного нажатия W, чтобы побежать (0.5 сек). */
     private static final int DOUBLE_TAP_WINDOW = 10;
 
@@ -96,6 +97,7 @@ public final class StaminaController {
 
         if (dashing) {
             applyDashVelocity(player);
+            spawnDashDust(client, player);
             dashTicksLeft--;
             if (dashTicksLeft <= 0) {
                 dashing = false;
@@ -161,14 +163,37 @@ public final class StaminaController {
         return dir.normalize();
     }
 
-    /** Плавный профиль скорости рывка: синусоида — мягкий разгон, пик в середине,
-     *  торможение к нулю в конце, без резкого стопа. Вертикаль сохраняется. */
-    private static void applyDashVelocity(ClientPlayerEntity player) {
+    /** Профиль рывка 0..1: синусоида — мягкий разгон, пик в середине, торможение
+     *  к нулю в конце. Используется для скорости, FOV-кика и наклона камеры. */
+    public static float dashFactor() {
+        if (!dashing) {
+            return 0f;
+        }
         float progress = (float) (DASH_TICKS - dashTicksLeft) / (DASH_TICKS - 1);
-        double speed = DASH_PEAK_SPEED * Math.sin(Math.PI * progress);
+        return Math.max(0f, (float) Math.sin(Math.PI * progress));
+    }
+
+    /** Скорость рывка по профилю. Вертикаль сохраняется. */
+    private static void applyDashVelocity(ClientPlayerEntity player) {
+        double speed = DASH_PEAK_SPEED * dashFactor();
         Vec3d v = player.getVelocity();
         player.setVelocity(dashDir.x * speed, v.y, dashDir.z * speed);
         player.velocityModified = true;
+    }
+
+    /** Пыль под ногами: клуб на старте рывка и лёгкий шлейф во время полёта. */
+    private static void spawnDashDust(MinecraftClient client, ClientPlayerEntity player) {
+        if (client.world == null) {
+            return;
+        }
+        int count = dashTicksLeft >= DASH_TICKS - 1 ? 4 : 1;
+        for (int i = 0; i < count; i++) {
+            client.world.addParticleClient(ParticleTypes.POOF,
+                    player.getX() + (client.world.random.nextDouble() - 0.5) * 0.5,
+                    player.getY() + 0.1,
+                    player.getZ() + (client.world.random.nextDouble() - 0.5) * 0.5,
+                    0, 0, 0);
+        }
     }
 
     /** Текущая выносливость (для дуги на экране). */
