@@ -37,7 +37,7 @@ public class TeyvatClient implements ClientModInitializer {
     /** Зум по кнопке: удержание клавиши плавно приближает камеру (вместо подзорной трубы). */
     public static final KeyBinding ZOOM = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, CATEGORY));
-    /** Бег и рывок как в Genshin: тап = рывок вперёд, удержание = бег с выносливостью. */
+    /** Рывок как в Genshin: тап = короткий бросок вперёд (бег — только двойное W). */
     public static final KeyBinding SPRINT_DASH = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.sprint_dash", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_LEFT_CONTROL, CATEGORY));
     /** Свободная камера (удержание или переключатель — режим в config/teyvat.json → camera.free_look_mode). */

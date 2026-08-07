@@ -10,10 +10,10 @@ import net.minecraft.util.math.Vec3d;
 import net.teyvat.TeyvatClient;
 
 /**
- * Выносливость как в Genshin. Бег тратит стамину, рывок вперёд — короткий
- * бросок по кнопке (тап = рывок, удержание = бег). Ванильный спринт майна
- * выключен миксином ClientPlayerEntityMixin, поэтому бегом управляет
- * только этот класс. Двойное W тоже включает бег, как в майне.
+ * Выносливость как в Genshin. Бег тратит стамину и включается только
+ * двойным нажатием W. Рывок вперёд — короткий бросок по тапу Ctrl.
+ * Ванильный спринт майна выключен миксином ClientPlayerEntityMixin,
+ * поэтому бегом и рывком управляет только этот класс.
  */
 public final class StaminaController {
     /** Полная шкала выносливости: ~10 секунд бега при трате 15/сек. */
@@ -64,7 +64,7 @@ public final class StaminaController {
         }
         ClientPlayerEntity player = client.player;
 
-        // Рывок по нажатию кнопки: тап = рывок, удержание = бег после рывка.
+        // Рывок по тапу Ctrl: короткий бросок вперёд, удержание ничего не делает.
         boolean pressed = TeyvatClient.SPRINT_DASH.isPressed();
         boolean freshPress = pressed && !keyHeld;
         keyHeld = pressed;
@@ -116,7 +116,7 @@ public final class StaminaController {
             return;
         }
 
-        boolean wantSprint = (pressed || doubleTapHeld) && stamina > 0f;
+        boolean wantSprint = doubleTapHeld && stamina > 0f;
         if (wantSprint) {
             player.setSprinting(true);
             if (doubleTapHeld) {

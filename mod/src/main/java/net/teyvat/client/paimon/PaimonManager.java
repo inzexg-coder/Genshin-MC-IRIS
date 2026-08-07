@@ -94,7 +94,7 @@ public final class PaimonManager {
     private static final int SPRINT_TUTOR_END_GAP = 30;
     /** Фразы мини-урока про рывок: Паймон учит кнопке Ctrl. */
     private static final String[] DASH_PHRASES = {
-        "А теперь — рывок! Короткий бросок вперёд на Ctrl.",
+        "А теперь — рывок! Тапни Ctrl для короткого броска вперёд.",
         "Он тратит больше выносливости, зато мгновенно уводит из-под удара.",
         "Попробуй — тебя уже ждёт новое задание!"
     };
