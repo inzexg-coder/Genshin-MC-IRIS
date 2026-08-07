@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * Диалоговый оверлей в стиле Genshin: реплика рисуется прямо на экране внизу по центру,
  * чуть выше текста — золотой ник говорящего, над ним золотая орнаментика с ромбом.
- * Без подложки: каждая буква обводится тёмным контуром и выделяется сама по себе.
+ * За текстом — лёгкое затемнение, чтобы реплика читалась на любом фоне.
  * Диалоги больше не пишутся в чат: чат остаётся для обычных сообщений.
  */
 public final class DialogueOverlay {
@@ -76,7 +76,7 @@ public final class DialogueOverlay {
             return;
         }
         TextRenderer tr = client.textRenderer;
-        int pad = 18;
+        int pad = 22;
         int innerW = Math.max(160, Math.min(440, (int) (w * 0.62f) - pad * 2));
         List<String> lines = wrap(line, innerW);
         int textH = lines.size() * LINE_H;
@@ -87,12 +87,21 @@ public final class DialogueOverlay {
         int nickY = textY0 - 16;
         int lineY = nickY - 8;
 
-        // Золотая орнаментика: линия с ромбом по центру и короткими штрихами по краям.
-        // Ширина орнамента — по самой длинной строке реплики.
+        // Ширина окна — по самой длинной строке реплики.
         int maxLineW = nickW;
         for (String l : lines) {
             maxLineW = Math.max(maxLineW, tr.getWidth(l));
         }
+        int boxW = Math.max(maxLineW, 120) + pad * 2;
+        int boxX0 = cx - boxW / 2;
+        int boxX1 = cx + boxW / 2;
+        int boxY0 = lineY - 12;
+        int boxY1 = textY1 + 6;
+
+        // Лёгкое затемнение позади окна диалога — текст читается на любом фоне.
+        context.fill(boxX0, boxY0, boxX1, boxY1, withAlpha(0x660B1020, alpha));
+
+        // Золотая орнаментика: линия с ромбом по центру и короткими штрихами по краям.
         int gold = 0xFFE8C86A;
         int half = Math.min(90, maxLineW / 2 + 20);
         context.fill(cx - half, lineY, cx + half, lineY + 1, withAlpha(gold, alpha));
@@ -100,29 +109,16 @@ public final class DialogueOverlay {
         context.fill(cx - half - 14, lineY - 1, cx - half - 8, lineY + 2, withAlpha(gold, alpha));
         context.fill(cx + half + 8, lineY - 1, cx + half + 14, lineY + 2, withAlpha(gold, alpha));
 
-        // Золотой ник говорящего — с контуром по буквам.
-        drawOutlinedText(context, tr, speaker, cx - nickW / 2, nickY, withAlpha(gold, alpha));
+        // Золотой ник говорящего.
+        context.drawText(tr, speaker, cx - nickW / 2, nickY, withAlpha(gold, alpha), true);
 
-        // Текст реплики — без подложки, каждая буква обведена тёмным контуром.
+        // Текст реплики — с мягкой ванильной тенью, без обводки.
         int ty = textY0;
         for (String l : lines) {
             int lw = tr.getWidth(l);
-            drawOutlinedText(context, tr, l, cx - lw / 2, ty, withAlpha(0xFFF0EADA, alpha));
+            context.drawText(tr, l, cx - lw / 2, ty, withAlpha(0xFFF0EADA, alpha), true);
             ty += LINE_H;
         }
-    }
-
-    /** Мягкая обводка вокруг каждой буквы: тонкая (4 направления) и полупрозрачная,
-     *  плюс ванильная тень. Текст остаётся чётким на любом фоне без жирной чёрной рамки. */
-    private static void drawOutlinedText(DrawContext context, TextRenderer tr, String text,
-                                         int x, int y, int color) {
-        float a = Math.min(1.0f, (color >>> 24) / 255.0f);
-        int outline = withAlpha(0xFF141B28, a * 0.8f);
-        context.drawText(tr, text, x, y - 1, outline, false);
-        context.drawText(tr, text, x, y + 1, outline, false);
-        context.drawText(tr, text, x - 1, y, outline, false);
-        context.drawText(tr, text, x + 1, y, outline, false);
-        context.drawText(tr, text, x, y, color, true);
     }
 
     /** Маленький ромб из двух пересекающихся полос. */
