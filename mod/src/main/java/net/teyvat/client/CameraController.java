@@ -39,12 +39,27 @@ public final class CameraController {
     private static double lastEyeZ;
     /** Текущая дистанция (меняется колесиком). <=0 = брать из конфига. */
     private static double currentDistance;
+    /** Кадры плавного выезда из первого лица: камера стартует с точки глаз и медленно отплывает. */
+    private static int blendFrames;
 
     private CameraController() {}
 
     /** Активна ли свободная камера (миксин мыши перенаправляет вращение). */
     public static boolean isActive() {
         return active;
+    }
+
+    /** Переключить игрока в вид от 3-го лица с плавным выездом камеры
+     *  (используется после знакомства с Паймон). В первом лице ничего не делает. */
+    public static void switchToThirdPerson() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.options == null || client.player == null) {
+            return;
+        }
+        if (client.options.getPerspective().isFirstPerson()) {
+            client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
+            initialized = false;
+        }
     }
 
     /** Из MouseMixin вместо поворота игрока: вращаем орбиту камеры (как changeLookDirection). */
@@ -169,15 +184,22 @@ public final class CameraController {
         float rate = 1f - (float) Math.exp(-cfg.smoothness * dt);
         double eyeJump = eye.squaredDistanceTo(lastEyeX, lastEyeY, lastEyeZ);
         if (!initialized || eyeJump > 30.0 * 30.0) {
-            // Первый кадр или телепорт (спавн, смена измерения) — без рывка.
-            camX = target.x;
-            camY = target.y;
-            camZ = target.z;
+            // Вход в 3-е лицо (или телепорт): камера стартует с точки глаз и плавно
+            // отплывает назад — переход от первого лица к третьему без рывка.
+            camX = eye.x;
+            camY = eye.y;
+            camZ = eye.z;
             initialized = true;
+            blendFrames = 30;
         } else {
-            camX += (target.x - camX) * rate;
-            camY += (target.y - camY) * rate;
-            camZ += (target.z - camZ) * rate;
+            // Первые кадры после входа — более медленный «кинематографичный» выезд.
+            float r = blendFrames > 0 ? 1f - (float) Math.exp(-cfg.blend_smoothness * dt) : rate;
+            camX += (target.x - camX) * r;
+            camY += (target.y - camY) * r;
+            camZ += (target.z - camZ) * r;
+            if (blendFrames > 0) {
+                blendFrames--;
+            }
         }
         lastEyeX = eye.x;
         lastEyeY = eye.y;

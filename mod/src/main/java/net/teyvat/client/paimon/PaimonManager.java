@@ -11,6 +11,7 @@ import net.minecraft.text.Text;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.teyvat.client.CameraController;
 import net.teyvat.client.DialogueState;
 import net.teyvat.client.QuestToast;
 import net.teyvat.client.TravelerChoiceClient;
@@ -173,6 +174,10 @@ public final class PaimonManager {
                 entity.setFollowing(true);
                 DialogueState.end();
                 questReportTimer = 0;
+                // Плавный переход камеры из первого лица в третье (как в Genshin).
+                if (TeyvatConfig.get().paimon.third_person_after_intro) {
+                    CameraController.switchToThirdPerson();
+                }
             }
         } else {
             // Плавно доводим угол: быстрые повороты мыши почти не сдвигают позицию Паймон.

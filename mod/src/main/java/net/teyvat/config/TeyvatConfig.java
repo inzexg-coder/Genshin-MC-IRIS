@@ -64,6 +64,8 @@ public final class TeyvatConfig {
         public float up = 0.3f;
         /** Плавность догоняния позиции (1–30, больше = плавнее). */
         public float smoothness = 8.0f;
+        /** Скорость плавного выезда камеры из первого лица в третье (1–30, меньше = медленнее). */
+        public float blend_smoothness = 3.0f;
         /** Плавность возврата орбиты к герою после свободной камеры (1–30). */
         public float return_smoothness = 10.0f;
         /** Умная коллизия: камера не вжимается в блоки. */
@@ -82,6 +84,8 @@ public final class TeyvatConfig {
         public boolean enabled = true;
         /** Длительность знакомства после появления, тики. */
         public int intro_ticks = 600;
+        /** После монолога Паймон плавно перевести камеру из первого лица в третье. */
+        public boolean third_person_after_intro = true;
     }
 
     private static TeyvatConfig instance;
