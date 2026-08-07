@@ -177,8 +177,7 @@ public class TravelerChoiceScreen extends Screen {
         float frameSec = delta * 0.05f;
         int[] box = cardBox();
 
-        // Плавная анимация наведения: медленный шаг, лёгкий поворот и подсветка
-        // включаются/гаснут плавно.
+        // Плавная анимация наведения: шаг, покачивание и подсветка включаются/гаснут плавно.
         for (int i = 0; i < cards.size(); i++) {
             boolean over = !closing && isOver(i, mouseX, mouseY);
             float target = over ? 1f : 0f;
@@ -280,9 +279,8 @@ public class TravelerChoiceScreen extends Screen {
         TravelerPreviewPlayer player = preview(card, i);
         if (player != null) {
             player.age = (int) this.age;
-            // Фаза шага крутится медленнее прежнего (1.4 вместо 3.0): походка спокойнее.
             drawPlayerModel(context, player, mx1, my1, mx2, my2, delta, hoverAmount, yaw[i],
-                    time * 1.4f);
+                    time * 3.0f);
         }
 
         // Текстовая колонка, выровненная по вертикали относительно карточки.
@@ -356,11 +354,8 @@ public class TravelerChoiceScreen extends Screen {
             player.rightPantsLegVisible = true;
             player.capeVisible = true;
         }
-        // Медленный и плавный шаг при наведении: амплитуда сглаживается smoothstep'ом
-        // и слегка уменьшена, частота ниже прежней — походка спокойная, без рывков.
         if (state instanceof LivingEntityRenderState living) {
-            float ease = hoverAmount * hoverAmount * (3f - 2f * hoverAmount);
-            living.limbSwingAmplitude = ease * 0.8f;
+            living.limbSwingAmplitude = hoverAmount;
             living.limbSwingAnimationProgress = walkPhase;
         }
     }
