@@ -79,7 +79,8 @@ public abstract class ChatHudMixin {
         if (this.messages.isEmpty()) {
             return;
         }
-        String phrase = this.messages.get(this.messages.size() - 1).content().getString().trim();
+        // В списке чата новейшее сообщение стоит в начале (messages.add(0, ...)).
+        String phrase = this.messages.get(0).content().getString().trim();
         if (phrase.isEmpty()) {
             return;
         }
@@ -98,11 +99,12 @@ public abstract class ChatHudMixin {
 
         // Панель в стиле заметок: тёмно-синяя, золотая рамка и акцентная полоска.
         context.fill(x0, y0, x1, y1, 0xF21B2338);
-        context.fill(x0, y0, x1, y0 + 2, 0xFFE8C86A);
-        context.fill(x0, y1 - 2, x1, y1, 0xFFE8C86A);
-        context.fill(x0, y0, x0 + 2, y1, 0xFFE8C86A);
-        context.fill(x1 - 2, y0, x1, y1, 0xFFE8C86A);
-        context.fill(x0 + 2, y0 + 2, x1 - 2, y0 + 5, 0xFFE8C86A);
+        // Тонкая золотая рамка (1px) и аккуратная акцентная линия сверху.
+        context.fill(x0, y0, x1, y0 + 1, 0xFFE8C86A);
+        context.fill(x0, y1 - 1, x1, y1, 0xFFE8C86A);
+        context.fill(x0, y0, x0 + 1, y1, 0xFFE8C86A);
+        context.fill(x1 - 1, y0, x1, y1, 0xFFE8C86A);
+        context.fill(x0 + 1, y0 + 1, x1 - 1, y0 + 2, 0xFFE8C86A);
         int ty = y0 + 15;
         TextRenderer tr = this.client.textRenderer;
         for (String line : lines) {
