@@ -1,0 +1,34 @@
+package net.teyvat.server;
+
+import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
+import net.teyvat.quest.Quests;
+
+/**
+ * Серверная часть квестов. Состояние хранится в командах игрока (тег teyvat:quest_<id>):
+ * переживает перезаход и работает и в одиночке, и на выделенном сервере.
+ * Каждый квест выполняется один раз — фармить его нельзя.
+ */
+public final class TeyvatQuests {
+    private static final String TAG_PREFIX = "teyvat:quest_";
+
+    private TeyvatQuests() {}
+
+    public static boolean isCompleted(ServerPlayerEntity player, String questId) {
+        return player.getCommandTags().contains(TAG_PREFIX + questId);
+    }
+
+    /** Помечает квест выполненным и пишет золотое уведомление в чат игроку. */
+    public static void complete(ServerPlayerEntity player, String questId) {
+        if (!Quests.MEET_PAIMON.equals(questId)) {
+            return;
+        }
+        if (isCompleted(player, questId)) {
+            return;
+        }
+        player.addCommandTag(TAG_PREFIX + questId);
+        player.sendMessage(Text.literal(
+                "§6§l[Задание выполнено] §r§e«" + Quests.MEET_PAIMON_TITLE
+                        + "» §7— Паймон теперь твой спутник и гид."), false);
+    }
+}

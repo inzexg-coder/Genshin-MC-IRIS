@@ -11,11 +11,13 @@ import net.minecraft.text.Text;
 import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.command.TeyvatCommand;
 import net.teyvat.network.NotesOpenPayload;
+import net.teyvat.server.TeyvatQuests;
 import net.teyvat.server.TeyvatSpawn;
 import net.teyvat.worldgen.TeyvatOceanEdge;
 import net.teyvat.worldgen.TeyvatXEdge;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.network.TravelerChoicePayload;
+import net.teyvat.network.QuestEventPayload;
 import net.teyvat.network.TravelerChoiceSyncPayload;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,6 +45,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(NotesOpenPayload.ID, NotesOpenPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceOpenPayload.ID, TravelerChoiceOpenPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TravelerChoicePayload.ID, TravelerChoicePayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(QuestEventPayload.ID, QuestEventPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceSyncPayload.ID, TravelerChoiceSyncPayload.CODEC);
         CommandRegistrationCallback.EVENT.register(TeyvatCommand::register);
         ServerLifecycleEvents.SERVER_STARTED.register(TeyvatSpawn::prepare);
@@ -62,6 +65,13 @@ public class TeyvatMod implements ModInitializer {
             player.sendMessage(Text.literal(
                     "§e[Teyvat] §fПутешественник выбран: §b" + (choice.equals("lumine") ? "Люмин" : "Итэр")
                             + "§f. Скин увидят все игроки с модом."), false);
+        });
+
+        // События квестов от клиента: сервер отмечает выполнение и пишет золотое уведомление.
+        ServerPlayNetworking.registerGlobalReceiver(QuestEventPayload.ID, (payload, context) -> {
+            if (context.player() != null) {
+                TeyvatQuests.complete(context.player(), payload.questId());
+            }
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {

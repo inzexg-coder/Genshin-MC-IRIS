@@ -1,5 +1,6 @@
 package net.teyvat.client.paimon;
 
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.world.ClientWorld;
@@ -11,6 +12,8 @@ import net.teyvat.client.TravelerChoiceScreen;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.teyvat.client.TravelerChoiceClient;
+import net.teyvat.network.QuestEventPayload;
+import net.teyvat.quest.Quests;
 import net.teyvat.config.TeyvatConfig;
 
 /**
@@ -134,6 +137,7 @@ public final class PaimonManager {
             } else if (ticks >= entity.getIntroTicksLimit()) {
                 entity.setFollowing(true);
                 say(player, PHRASE_3);
+                reportQuestMeetPaimon();
             }
         } else {
             // Плавно доводим угол: быстрые повороты мыши почти не сдвигают позицию Паймон.
@@ -251,6 +255,13 @@ public final class PaimonManager {
 
     private static void say(AbstractClientPlayerEntity player, String text) {
         player.sendMessage(Text.literal("§fПаймон§7: §f" + text), false);
+    }
+
+    /** Квест «Познакомиться с Паймон»: сообщаем серверу, что знакомство завершилось. */
+    private static void reportQuestMeetPaimon() {
+        if (MinecraftClient.getInstance().getNetworkHandler() != null) {
+            ClientPlayNetworking.send(new QuestEventPayload(Quests.MEET_PAIMON));
+        }
     }
 
     public static void remove() {
