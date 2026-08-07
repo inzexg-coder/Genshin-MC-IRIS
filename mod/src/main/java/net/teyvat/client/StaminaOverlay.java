@@ -11,13 +11,15 @@ import org.joml.Matrix3x2fStack;
  */
 public final class StaminaOverlay {
     /** Радиус дуги в пикселях. */
-    private static final double RADIUS = 30;
+    private static final double RADIUS = 20;
     /** Толщина дуги. */
-    private static final int THICKNESS = 5;
-    /** Нижний край дуги над нижним краем экрана (когда диалога нет). */
+    private static final int THICKNESS = 4;
+    /** Нижний край дуги над нижним краем экрана — всегда на одном месте. */
     private static final int BOTTOM_MARGIN = 16;
-    /** Отступ дуги от верхней границы окна диалога. */
-    private static final int DIALOGUE_GAP = 12;
+    /** Прозрачность заливки (бледная, как и просили). */
+    private static final int FILL_ALPHA = 150;
+    /** Прозрачность фоновой дорожки. */
+    private static final int TRACK_ALPHA = 40;
     /** Плавность появления/таяния. */
     private static final float FADE_SPEED = 0.08f;
     /** Порог низкой стамины. */
@@ -47,19 +49,15 @@ public final class StaminaOverlay {
         int w = context.getScaledWindowWidth();
         int h = context.getScaledWindowHeight();
         int cx = w / 2;
-        // Дуга не перекрывает диалог: если Паймон говорит, опускаемся под его окно.
+        // Дуга всегда на одном месте: внизу по центру экрана.
         int arcBottom = h - BOTTOM_MARGIN;
-        int dialogueTop = DialogueOverlay.getBoxTop();
-        if (dialogueTop >= 0) {
-            arcBottom = dialogueTop - DIALOGUE_GAP;
-        }
         int cy = arcBottom - (int) RADIUS;
         boolean low = stamina < LOW_THRESHOLD;
         // Низкая стамина: дуга мигает и становится тёплой.
         float pulse = low ? 0.6f + 0.4f * (float) Math.sin(pulseTicks / 90.0 * Math.PI * 2.0) : 1f;
-        int a = (int) (255 * alpha * pulse);
+        int a = (int) (FILL_ALPHA * alpha * pulse);
         int fillCol = low ? ((a << 24) | 0xFFE88A5A) : ((a << 24) | 0xFFE8C86A);
-        int trackCol = ((int) (70 * alpha) << 24) | 0x1B2338;
+        int trackCol = ((int) (TRACK_ALPHA * alpha) << 24) | 0x1B2338;
         double filled = MathHelper.clamp(stamina / StaminaController.MAX_STAMINA, 0.0, 1.0);
 
         // Полукруг снизу: слева (180°) через низ (270°) вправо (360°).

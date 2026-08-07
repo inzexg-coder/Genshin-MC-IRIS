@@ -24,10 +24,10 @@ public final class StaminaController {
     private static final float REGEN_RATE = 30f / 20f;
     /** Пауза перед восстановлением после траты (1 сек). */
     private static final int REGEN_DELAY = 20;
-    /** Длительность рывка: 0.2 сек. */
-    private static final int DASH_TICKS = 4;
-    /** Скорость рывка: 4.5 блока/сек → ~0.9 блока за рывок. */
-    private static final double DASH_SPEED = 4.5;
+    /** Длительность рывка: 0.1 сек. */
+    private static final int DASH_TICKS = 2;
+    /** Скорость рывка: 2 блока/сек → ~0.6 блока за рывок вместе с шагом. */
+    private static final double DASH_SPEED = 2.0;
     /** Окно двойного нажатия W, чтобы побежать (0.5 сек). */
     private static final int DOUBLE_TAP_WINDOW = 10;
 
@@ -89,6 +89,10 @@ public final class StaminaController {
             dashTicksLeft--;
             if (dashTicksLeft <= 0) {
                 dashing = false;
+                // Гасим остаточную скорость, чтобы рывок не растягивался по инерции.
+                Vec3d v = player.getVelocity();
+                player.setVelocity(0, v.y, 0);
+                player.velocityModified = true;
             }
             player.setSprinting(false);
             regenDelay = REGEN_DELAY;
