@@ -38,6 +38,9 @@ public class QuestToast implements Toast {
     private final String questName;
     /** true = «новое задание»: пустой ромб без искры, небесная тема. */
     private boolean newQuest;
+    /** Объявленное задание висит в углу, пока не выполнится (снимается при
+     *  замене на «Задание выполнено»). */
+    private boolean persistent;
     private int width;
     private long showTime;
 
@@ -49,6 +52,7 @@ public class QuestToast implements Toast {
         this.title = title;
         this.questName = questName;
         this.newQuest = newQuest;
+        this.persistent = newQuest;
         if (newQuest) {
             activeNewQuest = this;
         }
@@ -65,6 +69,7 @@ public class QuestToast implements Toast {
         activeNewQuest = null;
         t.title = title;
         t.newQuest = false;
+        t.persistent = false;
         t.recomputeWidth();
         t.showTime = 0;
         return true;
@@ -100,6 +105,10 @@ public class QuestToast implements Toast {
 
     @Override
     public Visibility getVisibility() {
+        // Объявленное задание не исчезает, пока не выполнено.
+        if (this.persistent) {
+            return Visibility.SHOW;
+        }
         return this.showTime >= VISIBLE_MS ? Visibility.HIDE : Visibility.SHOW;
     }
 
@@ -110,7 +119,7 @@ public class QuestToast implements Toast {
             this.showTime = showTime;
         }
         // Окно «Новое задание» отслужило — больше некому превращаться в «выполнено».
-        if (newQuest && activeNewQuest == this && this.showTime >= VISIBLE_MS) {
+        if (newQuest && activeNewQuest == this && this.showTime >= VISIBLE_MS && !persistent) {
             activeNewQuest = null;
         }
     }
@@ -130,7 +139,8 @@ public class QuestToast implements Toast {
         // Время идёт с момента полного появления окна; поп-анимации — в начале.
         float popT = MathHelper.clamp((float) st / POP_MS, 0.0f, 1.0f);
         float fadeIn = MathHelper.clamp((float) st / 180.0f, 0.0f, 1.0f);
-        float fadeOut = MathHelper.clamp((VISIBLE_MS + 600 - st) / 600.0f, 0.0f, 1.0f);
+        float fadeOut = persistent ? 1.0f
+                : MathHelper.clamp((VISIBLE_MS + 600 - st) / 600.0f, 0.0f, 1.0f);
         float alpha = fadeIn * fadeOut;
         if (alpha <= 0.01f) {
             return;

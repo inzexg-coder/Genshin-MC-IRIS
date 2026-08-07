@@ -54,7 +54,8 @@ public abstract class MouseMixin {
         }
         CameraController.scroll((float) vertical);
         // Первая прокрутка колеса в 3-м лице выполняет задание «Попробуй приблизить камеру».
-        if (!QuestStateClient.isCompleted(Quests.TRY_SCROLL)) {
+        // Действие засчитывается только после объявления задания (окно в углу).
+        if (!QuestStateClient.isCompleted(Quests.TRY_SCROLL) && PaimonManager.isQuestAnnounced(Quests.TRY_SCROLL)) {
             QuestClient.complete(Quests.TRY_SCROLL, Quests.TRY_SCROLL_TITLE);
             // После задания с колесом мыши Паймон учит приближать мир кнопкой C.
             PaimonManager.startZoomTutorial();

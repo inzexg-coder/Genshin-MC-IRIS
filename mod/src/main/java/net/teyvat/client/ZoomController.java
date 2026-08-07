@@ -76,7 +76,8 @@ public final class ZoomController {
         // Квест доступен только после задания с колесом мыши.
         if (lookAccum >= LOOK_AROUND_DEGREES
                 && QuestStateClient.isCompleted(Quests.TRY_SCROLL)
-                && !QuestStateClient.isCompleted(Quests.TRY_ZOOM)) {
+                && !QuestStateClient.isCompleted(Quests.TRY_ZOOM)
+                && PaimonManager.isQuestAnnounced(Quests.TRY_ZOOM)) {
             QuestClient.complete(Quests.TRY_ZOOM, Quests.TRY_ZOOM_TITLE);
             PaimonManager.onZoomQuestCompleted();
         }

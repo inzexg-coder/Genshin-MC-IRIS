@@ -61,7 +61,7 @@ public final class PaimonManager {
     /** Фразы мини-урока: Паймон подсказывает про колесо мыши после знакомства. */
     private static final String[] TUTOR_PHRASES = {
         "Кстати! Камеру можно приближать и отдалять колесом мыши.",
-        "Покрути его — тебя уже ждёт новое задание!"
+        "Покрути его — задание в углу ждёт!"
     };
     /** Пауза перед первой фразой урока после отчёта о первом задании (тики). */
     private static final int TUTOR_START_TICK = 40;
@@ -72,7 +72,7 @@ public final class PaimonManager {
     /** Фразы урока про кнопку C: Паймон учит приближать мир и осматриваться. */
     private static final String[] ZOOM_PHRASES = {
         "А ещё зажми кнопку C — и мир приблизится к тебе!",
-        "Попробуй! Осмотрись вокруг — вблизи видно даже самое далёкое."
+        "Попробуй! Осмотрись вокруг — задание в углу ждёт."
     };
     /** Пауза перед первой фразой урока про C (тики). */
     private static final int ZOOM_TUTOR_START_TICK = 40;
@@ -96,7 +96,7 @@ public final class PaimonManager {
     private static final String[] DASH_PHRASES = {
         "А теперь — рывок! Тапни Ctrl для короткого броска вперёд.",
         "Он тратит больше выносливости, зато мгновенно уводит из-под удара.",
-        "Попробуй — тебя уже ждёт новое задание!"
+        "Попробуй!"
     };
     /** Пауза перед первой фразой урока про рывок (тики). */
     private static final int DASH_TUTOR_START_TICK = 40;
@@ -164,12 +164,14 @@ public final class PaimonManager {
         // сделал рывок по Ctrl — задание с рывком.
         if (QuestStateClient.isCompleted(Quests.TRY_ZOOM)
                 && !QuestStateClient.isCompleted(Quests.TRY_SPRINT)
+                && sprintPromptShown
                 && StaminaController.consumeSprintEvent()) {
             QuestClient.complete(Quests.TRY_SPRINT, Quests.TRY_SPRINT_TITLE);
             onSprintQuestCompleted();
         }
         if (QuestStateClient.isCompleted(Quests.TRY_SPRINT)
                 && !QuestStateClient.isCompleted(Quests.TRY_DASH)
+                && dashPromptShown
                 && StaminaController.consumeDashEvent()) {
             QuestClient.complete(Quests.TRY_DASH, Quests.TRY_DASH_TITLE);
             onDashQuestCompleted();
@@ -448,8 +450,13 @@ public final class PaimonManager {
         if (tutorTicks < 0) {
             return;
         }
+        // Объявление задания: окно «Новое задание» появляется в углу и висит,
+        // пока квест не выполнится. До объявления действие не засчитывается.
+        if (!tutorPromptShown) {
+            tutorPromptShown = true;
+            announceNewQuest("«" + Quests.TRY_SCROLL_TITLE + "»");
+        }
         tutorTicks++;
-        MinecraftClient client = MinecraftClient.getInstance();
         // Фразы урока, неспешно: каждая держится 4 секунды.
         for (int i = 0; i < TUTOR_PHRASES.length; i++) {
             if (tutorTicks == TUTOR_START_TICK + i * TUTOR_GAP_TICKS) {
@@ -457,11 +464,8 @@ public final class PaimonManager {
             }
         }
         int lastPhraseTick = TUTOR_START_TICK + (TUTOR_PHRASES.length - 1) * TUTOR_GAP_TICKS;
-        if (tutorTicks >= lastPhraseTick + TUTOR_END_GAP && !tutorPromptShown) {
-            tutorPromptShown = true;
+        if (tutorTicks >= lastPhraseTick + TUTOR_END_GAP) {
             DialogueOverlay.end();
-            // Уведомление о новом задании — небесно-голубой попап с пустым ромбом.
-            client.getToastManager().add(new QuestToast("Новое задание", "«" + Quests.TRY_SCROLL_TITLE + "»", true));
         }
     }
 
@@ -472,8 +476,13 @@ public final class PaimonManager {
         if (zoomTutorTicks < 0) {
             return;
         }
+        // Объявление задания: окно «Новое задание» появляется в углу и висит,
+        // пока квест не выполнится. До объявления действие не засчитывается.
+        if (!zoomPromptShown) {
+            zoomPromptShown = true;
+            announceNewQuest("«" + Quests.TRY_ZOOM_TITLE + "»");
+        }
         zoomTutorTicks++;
-        MinecraftClient client = MinecraftClient.getInstance();
         // Фразы урока про C, неспешно: каждая держится 4 секунды.
         for (int i = 0; i < ZOOM_PHRASES.length; i++) {
             if (zoomTutorTicks == ZOOM_TUTOR_START_TICK + i * ZOOM_TUTOR_GAP_TICKS) {
@@ -481,11 +490,8 @@ public final class PaimonManager {
             }
         }
         int lastPhraseTick = ZOOM_TUTOR_START_TICK + (ZOOM_PHRASES.length - 1) * ZOOM_TUTOR_GAP_TICKS;
-        if (zoomTutorTicks >= lastPhraseTick + ZOOM_TUTOR_END_GAP && !zoomPromptShown) {
-            zoomPromptShown = true;
+        if (zoomTutorTicks >= lastPhraseTick + ZOOM_TUTOR_END_GAP) {
             DialogueOverlay.end();
-            // Уведомление о новом задании — небесно-голубой попап с пустым ромбом.
-            client.getToastManager().add(new QuestToast("Новое задание", "«" + Quests.TRY_ZOOM_TITLE + "»", true));
         }
     }
 
@@ -515,8 +521,13 @@ public final class PaimonManager {
         if (sprintTutorTicks < 0) {
             return;
         }
+        // Объявление задания: окно «Новое задание» появляется в углу и висит,
+        // пока квест не выполнится. До объявления бег не засчитывается.
+        if (!sprintPromptShown) {
+            sprintPromptShown = true;
+            announceNewQuest("«" + Quests.TRY_SPRINT_TITLE + "»");
+        }
         sprintTutorTicks++;
-        MinecraftClient client = MinecraftClient.getInstance();
         // Фразы урока про бег, неспешно: каждая держится 4 секунды.
         for (int i = 0; i < SPRINT_PHRASES.length; i++) {
             if (sprintTutorTicks == SPRINT_TUTOR_START_TICK + i * SPRINT_TUTOR_GAP_TICKS) {
@@ -524,12 +535,8 @@ public final class PaimonManager {
             }
         }
         int lastPhraseTick = SPRINT_TUTOR_START_TICK + (SPRINT_PHRASES.length - 1) * SPRINT_TUTOR_GAP_TICKS;
-        if (sprintTutorTicks >= lastPhraseTick + SPRINT_TUTOR_END_GAP && !sprintPromptShown
-                && !QuestStateClient.isCompleted(Quests.TRY_SPRINT)) {
-            sprintPromptShown = true;
+        if (sprintTutorTicks >= lastPhraseTick + SPRINT_TUTOR_END_GAP) {
             DialogueOverlay.end();
-            // Уведомление о новом задании — небесно-голубой попап с пустым ромбом.
-            client.getToastManager().add(new QuestToast("Новое задание", "«" + Quests.TRY_SPRINT_TITLE + "»", true));
         }
     }
 
@@ -539,8 +546,13 @@ public final class PaimonManager {
         if (dashTutorTicks < 0) {
             return;
         }
+        // Объявление задания: окно «Новое задание» появляется в углу и висит,
+        // пока квест не выполнится. До объявления рывок не засчитывается.
+        if (!dashPromptShown) {
+            dashPromptShown = true;
+            announceNewQuest("«" + Quests.TRY_DASH_TITLE + "»");
+        }
         dashTutorTicks++;
-        MinecraftClient client = MinecraftClient.getInstance();
         // Фразы урока про рывок, неспешно: каждая держится 4 секунды.
         for (int i = 0; i < DASH_PHRASES.length; i++) {
             if (dashTutorTicks == DASH_TUTOR_START_TICK + i * DASH_TUTOR_GAP_TICKS) {
@@ -548,13 +560,32 @@ public final class PaimonManager {
             }
         }
         int lastPhraseTick = DASH_TUTOR_START_TICK + (DASH_PHRASES.length - 1) * DASH_TUTOR_GAP_TICKS;
-        if (dashTutorTicks >= lastPhraseTick + DASH_TUTOR_END_GAP && !dashPromptShown
-                && !QuestStateClient.isCompleted(Quests.TRY_DASH)) {
-            dashPromptShown = true;
+        if (dashTutorTicks >= lastPhraseTick + DASH_TUTOR_END_GAP) {
             DialogueOverlay.end();
-            // Уведомление о новом задании — небесно-голубой попап с пустым ромбом.
-            client.getToastManager().add(new QuestToast("Новое задание", "«" + Quests.TRY_DASH_TITLE + "»", true));
         }
+    }
+
+    /** Объявить новое задание: окно «Новое задание» в углу висит, пока не выполнится. */
+    private static void announceNewQuest(String questName) {
+        MinecraftClient.getInstance().getToastManager().add(new QuestToast("Новое задание", questName, true));
+    }
+
+    /** Объявлено ли задание (окно «Новое задание» показано): действие засчитывается
+     *  только после объявления. */
+    public static boolean isQuestAnnounced(String questId) {
+        if (Quests.TRY_SCROLL.equals(questId)) {
+            return tutorPromptShown;
+        }
+        if (Quests.TRY_ZOOM.equals(questId)) {
+            return zoomPromptShown;
+        }
+        if (Quests.TRY_SPRINT.equals(questId)) {
+            return sprintPromptShown;
+        }
+        if (Quests.TRY_DASH.equals(questId)) {
+            return dashPromptShown;
+        }
+        return false;
     }
 
     public static void remove() {
