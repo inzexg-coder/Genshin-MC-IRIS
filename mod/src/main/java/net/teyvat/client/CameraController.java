@@ -44,6 +44,8 @@ public final class CameraController {
     /** Сглаженная «безопасная» дистанция камеры (коллизия): не дёргается на стыках блоков. */
     private static double safeDist;
     private static boolean safeDistReady;
+    /** Сглаженное время кадра: неравномерный FPS (шейдеры, GC) не дёргает камеру. */
+    private static float smoothDt = 0.0167f;
 
     private CameraController() {}
 
@@ -159,8 +161,12 @@ public final class CameraController {
         // Углы камеры: при свободной камере — орбита, иначе орбита плавно догоняет героя.
         float playerYaw = entity.getYaw(tickDelta);
         float playerPitch = entity.getPitch(tickDelta);
+        // Сглаженное время кадра — единое для всей камеры (доступно до орбиты).
+        float rawDt = Math.min(Math.max(tickDelta, 0.0001f) * 0.05f, 0.1f);
+        smoothDt += (rawDt - smoothDt) * 0.3f;
+        float dt = Math.max(smoothDt, 0.0005f);
         if (!active) {
-            float rate = smoothRate(cfg.return_smoothness, tickDelta);
+            float rate = ratePerSecond(cfg.return_smoothness, dt);
             orbitYaw = MathHelper.lerpAngleDegrees(rate, orbitYaw, playerYaw);
             orbitPitch += (playerPitch - orbitPitch) * rate;
         }
@@ -182,11 +188,12 @@ public final class CameraController {
         double dist = MathHelper.clamp(currentDistance > 0 ? currentDistance : cfg.distance, min, max);
         Vec3d rawTarget = eye.subtract(fwd.multiply(dist)).add(right.multiply(cfg.side)).add(0, cfg.up, 0);
 
-        // Умная коллизия: дистанция до ближайшего блока сглаживается во времени,
-        // поэтому на стыках блоков камера не дёргается, а мягко останавливается.
+        // Умная коллизия: дистанция до ближайшего блока сглаживается во времени в обе
+        // стороны (и «в стену», и «из стены»), поэтому камера не дёргается на стыках
+        // блоков и при беге, а мягко останавливается и плавно отъезжает.
         Vec3d dir = rawTarget.subtract(eye);
         double full = dir.length();
-        double safe = -1.0;
+        double safe = full;
         if (cfg.collision && full > 1.0E-4) {
             Vec3d start = eye.add(0, 0.1, 0);
             RaycastContext context = new RaycastContext(start, rawTarget, RaycastContext.ShapeType.VISUAL,
@@ -199,20 +206,16 @@ public final class CameraController {
                 }
             }
         }
-        // Ограничиваем шаг сглаживания: скачок FPS не дёргает камеру.
-        float dt = Math.min(Math.max(tickDelta, 0.0001f) * 0.05f, 0.1f);
         double eyeJump = eye.squaredDistanceTo(lastEyeX, lastEyeY, lastEyeZ);
-        double useSafe = full;
-        if (safe >= 0) {
-            if (!safeDistReady || !initialized || eyeJump > 30.0 * 30.0) {
-                safeDist = safe;
-                safeDistReady = true;
-                useSafe = safe;
-            } else {
-                float collideRate = 1f - (float) Math.exp(-cfg.collision_smoothness * dt);
-                safeDist += (safe - safeDist) * collideRate;
-                useSafe = safeDist;
-            }
+        double useSafe;
+        if (!safeDistReady || !initialized || eyeJump > 30.0 * 30.0) {
+            safeDist = safe;
+            safeDistReady = true;
+            useSafe = safe;
+        } else {
+            float collideRate = 1f - (float) Math.exp(-cfg.collision_smoothness * dt);
+            safeDist += (safe - safeDist) * collideRate;
+            useSafe = safeDist;
         }
         Vec3d target = rawTarget;
         if (useSafe < full && full > 1.0E-4) {
@@ -273,9 +276,8 @@ public final class CameraController {
         orbitPitch = pitch;
     }
 
-    /** Коэффициент сглаживания для данного кадра (rate в секунду, delta — время кадра). */
-    private static float smoothRate(float perSecond, float tickDelta) {
-        float dt = Math.min(Math.max(tickDelta, 0.0001f) * 0.05f, 0.1f);
+    /** Коэффициент сглаживания: rate в секунду, dt — время кадра в секундах. */
+    private static float ratePerSecond(float perSecond, float dt) {
         return 1f - (float) Math.exp(-perSecond * dt);
     }
 }
