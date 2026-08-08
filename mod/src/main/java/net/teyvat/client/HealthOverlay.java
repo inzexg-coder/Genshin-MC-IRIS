@@ -12,6 +12,7 @@ import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.teyvat.config.TeyvatConfig;
 import net.teyvat.mixin.client.GameRendererAccessor;
+import org.joml.Matrix3x2fStack;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector4f;
@@ -29,18 +30,21 @@ import java.util.Map;
  * в стиле заметок Тейвата (тёмно-синяя с золотом).
  */
 public final class HealthOverlay {
-    /** Отступ полосы HP от левого края экрана. */
-    private static final int BAR_X = 24;
-    /** Нижний край полосы HP (от низа экрана). Над дугой стамины. */
-    private static final int BAR_BOTTOM_MARGIN = 78;
-    private static final int BAR_W = 152;
-    private static final int BAR_H = 12;
+    /** Центр дуги стамины (см. StaminaOverlay: RADIUS 20 + отступ 24). */
+    private static final int ARC_CX = 44;
+    /** Верх дуги от низа экрана (RADIUS + отступ + RADIUS = 20 + 24 + 20). */
+    private static final int ARC_TOP_FROM_BOTTOM = 64;
+    /** Полоса HP — тонкая, по ширине как дуга стамины, ровно над ней. */
+    private static final int BAR_W = 44;
+    private static final int BAR_H = 6;
+    /** Зазор между дугой стамины и полосой HP. */
+    private static final int BAR_GAP = 6;
 
     /** Радиус, в котором видны полоски HP противников. */
     private static final double MOB_RANGE = 48.0;
-    /** Ширина полоски HP противника. */
-    private static final int MOB_BAR_W = 34;
-    private static final int MOB_BAR_H = 3;
+    /** Полоска HP противника — маленькая, над головой. */
+    private static final int MOB_BAR_W = 20;
+    private static final int MOB_BAR_H = 2;
 
     /** Время жизни числа урона, тики. */
     private static final long NUMBER_LIFE_TICKS = 70;
@@ -87,30 +91,45 @@ public final class HealthOverlay {
         }
     }
 
-    /** Полоса HP героя: тёмно-синяя панель с золотой окантовкой и красным заполнением. */
+    /** Полоса HP героя: золотисто-синяя, как дуга стамины — тонкая, ровно над ней.
+     *  Золотое заполнение повторяет золото астролябия Селестии, по краям — узоры. */
     private static void renderPlayerBar(DrawContext context, MinecraftClient client) {
         int h = context.getScaledWindowHeight();
-        int y = h - BAR_BOTTOM_MARGIN - BAR_H;
+        int x0 = ARC_CX - BAR_W / 2;
+        int y0 = h - ARC_TOP_FROM_BOTTOM - BAR_GAP - BAR_H;
         float health = client.player.getHealth();
         float maxHealth = client.player.getMaxHealth();
         int fill = (int) (BAR_W * Math.max(0f, Math.min(1f, health / maxHealth)));
 
-        // Панель с золотой окантовкой (как заметки путешественника).
-        context.fill(BAR_X - 2, y - 2, BAR_X + BAR_W + 2, y + BAR_H + 2, 0xC81B2338);
-        context.fill(BAR_X - 1, y - 1, BAR_X + BAR_W + 1, y + BAR_H + 1, 0xCCE8C86A);
-        context.fill(BAR_X, y, BAR_X + BAR_W, y + BAR_H, 0xE614202E);
+        // Панель с золотой окантовкой (стиль заметок путешественника).
+        context.fill(x0 - 1, y0 - 1, x0 + BAR_W + 1, y0 + BAR_H + 1, 0xDCE8C86A);
+        context.fill(x0, y0, x0 + BAR_W, y0 + BAR_H, 0xE614202E);
 
-        // Заполнение: красный градиент (светлее сверху).
+        // Золотое заполнение: градиент, светлее сверху.
         if (fill > 0) {
-            context.fill(BAR_X, y, BAR_X + fill, y + BAR_H / 2, 0xE6FF6A52);
-            context.fill(BAR_X, y + BAR_H / 2, BAR_X + fill, y + BAR_H, 0xE6D93A2E);
+            context.fill(x0, y0, x0 + fill, y0 + BAR_H / 2, 0xE6F2D98C);
+            context.fill(x0, y0 + BAR_H / 2, x0 + fill, y0 + BAR_H, 0xE6D9A84E);
         }
-        // Тонкая золотая линия по верхнему краю.
-        context.fill(BAR_X, y, BAR_X + fill, y + 1, 0xA0FFFFFF);
+        // Блик по верхнему краю заполнения.
+        context.fill(x0, y0, x0 + fill, y0 + 1, 0xC0FFFFFF);
+
+        // Узоры: маленькие золотые ромбики по краям панели.
+        drawDiamond(context, x0 + 3, y0 + BAR_H / 2, 2, 0xE6E8C86A);
+        drawDiamond(context, x0 + BAR_W - 3, y0 + BAR_H / 2, 2, 0xE6E8C86A);
 
         TextRenderer tr = client.textRenderer;
         String text = Math.round(health) + "/" + Math.round(maxHealth);
-        context.drawText(tr, text, BAR_X + BAR_W + 10, y + (BAR_H - 9) / 2, 0xFFE8C86A, true);
+        context.drawText(tr, text, x0 + BAR_W + 8, y0 + (BAR_H - 9) / 2, 0xFFE8C86A, true);
+    }
+
+    /** Маленький ромб-орнамент (повёрнутый квадрат) в стиле Селестии. */
+    private static void drawDiamond(DrawContext context, int cx, int cy, int half, int color) {
+        Matrix3x2fStack m = context.getMatrices();
+        m.pushMatrix();
+        m.translate(cx, cy);
+        m.rotate((float) Math.PI / 4.0f);
+        context.fill(-half, -half, half, half, color);
+        m.popMatrix();
     }
 
     /** Мир: полоски HP противников и числа урона, спроецированные на экран. */
@@ -138,7 +157,7 @@ public final class HealthOverlay {
                     e -> e != client.player && !e.isPlayer() && e.isAlive()
                             && !(e instanceof ArmorStandEntity));
             for (LivingEntity mob : mobs) {
-                Vec3d head = mob.getLerpedPos(tickDelta).add(0.0, mob.getHeight() + 0.45, 0.0);
+                Vec3d head = mob.getLerpedPos(tickDelta).add(0.0, mob.getHeight() + 0.5, 0.0);
                 Vec3d screen = project(viewProj, head, sw, sh);
                 if (screen == null) {
                     continue;

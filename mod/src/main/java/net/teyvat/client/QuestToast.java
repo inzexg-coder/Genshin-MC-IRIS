@@ -7,6 +7,7 @@ import net.minecraft.client.toast.Toast;
 import net.minecraft.client.toast.ToastManager;
 import net.minecraft.sound.SoundEvent;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.util.Util;
 import net.minecraft.util.math.MathHelper;
 import org.joml.Matrix3x2fStack;
 
@@ -46,6 +47,11 @@ public class QuestToast implements Toast {
     private boolean persistent;
     private int width;
     private long showTime;
+    /** Момент перезапуска таймера (превращение «Новое задание» → «Выполнено»):
+     *  -1 = обычный отсчёт от появления окна. Без этого ToastManager передаёт
+     *  старое «время на экране», и превращённое окно мгновенно скрывается,
+     *  если задание выполняли долго (например, зум). */
+    private long resetAtMs = -1;
 
     public QuestToast(String title, String questName) {
         this(title, questName, false);
@@ -83,6 +89,9 @@ public class QuestToast implements Toast {
         t.newQuest = false;
         t.persistent = false;
         t.recomputeWidth();
+        // Таймер перезапускается: окно висит полные 4.5 сек, даже если
+        // «Новое задание» висело на экране несколько минут.
+        t.resetAtMs = Util.getMeasuringTimeMs();
         t.showTime = 0;
         return true;
     }
@@ -128,7 +137,11 @@ public class QuestToast implements Toast {
     public void update(ToastManager manager, long showTime) {
         // На паузе мир стоит — уведомление о квесте тоже замирает.
         if (!MinecraftClient.getInstance().isPaused()) {
-            this.showTime = showTime;
+            if (resetAtMs >= 0) {
+                this.showTime = Util.getMeasuringTimeMs() - resetAtMs;
+            } else {
+                this.showTime = showTime;
+            }
         }
         // Окно «Новое задание» отслужило — больше некому превращаться в «выполнено».
         if (newQuest && activeNewQuest == this && this.showTime >= VISIBLE_MS && !persistent) {
