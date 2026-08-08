@@ -8,18 +8,24 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
+import net.minecraft.util.TypeFilter;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Box;
 import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.command.TeyvatCommand;
 import net.teyvat.config.TeyvatConfig;
 import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.ExpGainPayload;
+import net.teyvat.network.MobLevelSyncPayload;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.BeachGuard;
 import net.teyvat.server.TeyvatQuests;
@@ -53,6 +59,9 @@ public class TeyvatMod implements ModInitializer {
     private static final Set<String> VALID_CHOICES = Set.of("lumine", "aether");
     private static final Map<UUID, String> TRAVELER_CHOICES = new ConcurrentHashMap<>();
 
+    /** Радиус (в блоках), в котором игроку приходят уровни мобов (чуть больше радиуса отрисовки). */
+    private static final double MOB_LEVEL_SYNC_RANGE = 64.0;
+
     @Override
     public void onInitialize() {
         TeyvatOceanEdge.register();
@@ -71,6 +80,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(ProgressionSyncPayload.ID, ProgressionSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ExpGainPayload.ID, ExpGainPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(DamageNumberPayload.ID, DamageNumberPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MobLevelSyncPayload.ID, MobLevelSyncPayload.CODEC);
         CommandRegistrationCallback.EVENT.register(TeyvatCommand::register);
         ServerLifecycleEvents.SERVER_STARTED.register(TeyvatSpawn::prepare);
         LOGGER.info("Teyvat mod initialized: {} blocks registered", TeyvatBlocks.ALL_BLOCKS.size());
@@ -118,7 +128,24 @@ public class TeyvatMod implements ModInitializer {
         });
 
         // Уровни мобов: назначаются при загрузке в мир, растут от расстояния до спавна.
-        ServerEntityEvents.ENTITY_LOAD.register(MobLevels::onEntityLoad);
+        // После назначения шлём уровень игрокам рядом — клиент показывает подпись «Ур. X»
+        // над всеми мобами, а не только после удара. Ошибки здесь не должны ломать загрузку
+        // сущности в мир (тот же хук, что и назначение уровня).
+        ServerEntityEvents.ENTITY_LOAD.register((entity, world) -> {
+            MobLevels.onEntityLoad(entity, world);
+            try {
+                if (entity instanceof LivingEntity living && !(entity instanceof PlayerEntity)
+                        && !(entity instanceof ArmorStandEntity)) {
+                    MobLevelSyncPayload payload = new MobLevelSyncPayload(entity.getId(), MobLevels.getLevel(living));
+                    double range = MOB_LEVEL_SYNC_RANGE * MOB_LEVEL_SYNC_RANGE;
+                    for (ServerPlayerEntity player : world.getPlayers(p -> p.squaredDistanceTo(entity) <= range)) {
+                        ServerPlayNetworking.send(player, payload);
+                    }
+                }
+            } catch (Exception e) {
+                LOGGER.error("Ошибка рассылки уровня моба {}: {}", entity.getType(), e.toString());
+            }
+        });
 
         // Опыт за убийства с анти-фармом: прогресс в NBT игрока, тост на экран.
         // AFTER_DEATH вызывается внутри обработки смерти — ошибка здесь не должна
@@ -187,6 +214,20 @@ public class TeyvatMod implements ModInitializer {
                     TeyvatQuests.isCompleted(player, Quests.TRY_DASH)));
             // Прогрессия: ранг, опыт, примогемы, ростера персонажей.
             ProgressionStore.sync(player);
+            // Уровни уже загруженных мобов рядом: ENTITY_LOAD для них уже отработал,
+            // поэтому шлём текущие уровни при входе игрока.
+            for (ServerWorld world : server.getWorlds()) {
+                if (world.getRegistryKey() != player.getEntityWorld().getRegistryKey()) {
+                    continue;
+                }
+                BlockPos pos = player.getBlockPos();
+                Box box = new Box(pos.getX() - MOB_LEVEL_SYNC_RANGE, pos.getY() - MOB_LEVEL_SYNC_RANGE, pos.getZ() - MOB_LEVEL_SYNC_RANGE,
+                        pos.getX() + MOB_LEVEL_SYNC_RANGE, pos.getY() + MOB_LEVEL_SYNC_RANGE, pos.getZ() + MOB_LEVEL_SYNC_RANGE);
+                for (LivingEntity mob : world.getEntitiesByType(TypeFilter.instanceOf(LivingEntity.class), box,
+                        e -> !(e instanceof PlayerEntity) && !(e instanceof ArmorStandEntity))) {
+                    ServerPlayNetworking.send(player, new MobLevelSyncPayload(mob.getId(), MobLevels.getLevel(mob)));
+                }
+            }
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->

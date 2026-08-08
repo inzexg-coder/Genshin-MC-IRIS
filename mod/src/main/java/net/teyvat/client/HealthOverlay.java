@@ -48,8 +48,8 @@ public final class HealthOverlay {
      *  в полтора раза короче и вдвое тоньше полосы героя. */
     private static final int MOB_BAR_W = 23;
     private static final int MOB_BAR_H = 2;
-    /** Сколько тиков полоска видна после последней атаки моба (2 секунды). */
-    private static final long MOB_BAR_VISIBLE_TICKS = 40;
+    /** Сколько тиков полоска видна после последней атаки моба (5 секунд). */
+    private static final long MOB_BAR_VISIBLE_TICKS = 100;
     /** Затухание полоски перед скрытием, тики. */
     private static final long MOB_BAR_FADE_TICKS = 10;
     /** Попап появления полоски после первой атаки, тики. */
@@ -75,6 +75,17 @@ public final class HealthOverlay {
     private record MobBarState(long firstHitTick, long lastHitTick, int level) {}
     /** id сущности → состояние её полоски HP (появляется только при атаке). */
     private static final Map<Integer, MobBarState> MOB_BARS = new HashMap<>();
+
+    /** id сущности → уровень моба из синка сервера: подпись «Ур. X» видна
+     *  над всеми мобами, даже если их ещё не атаковали. */
+    private static final Map<Integer, Integer> MOB_LEVELS = new HashMap<>();
+
+    /** Сервер прислал уровень моба (при загрузке моба или входе игрока). */
+    public static void setMobLevel(int entityId, int level) {
+        if (level >= 1) {
+            MOB_LEVELS.put(entityId, level);
+        }
+    }
 
     /** Сервер прислал урон: кладём число в очередь сущности и показываем
      *  полоску HP моба с его уровнем. */
@@ -308,6 +319,11 @@ public final class HealthOverlay {
                 return entity == null || !entity.isAlive()
                         || now - e.getValue().lastHitTick() >= MOB_BAR_VISIBLE_TICKS;
             });
+            // Чистим синхронизированные уровни мёртвых/исчезнувших сущностей.
+            MOB_LEVELS.entrySet().removeIf(e -> {
+                LivingEntity entity = (LivingEntity) client.world.getEntityById(e.getKey());
+                return entity == null || !entity.isAlive();
+            });
             List<LivingEntity> mobs = client.world.getEntitiesByType(
                     TypeFilter.instanceOf(LivingEntity.class),
                     new Box(camPos.x - MOB_RANGE, camPos.y - MOB_RANGE, camPos.z - MOB_RANGE,
@@ -315,19 +331,26 @@ public final class HealthOverlay {
                     e -> e != client.player && !e.isPlayer() && e.isAlive()
                             && !(e instanceof ArmorStandEntity));
             for (LivingEntity mob : mobs) {
-                // Полоска появляется попапом только при атаке моба и видна,
-                // пока бой не затих.
                 MobBarState state = MOB_BARS.get(mob.getId());
-                if (state == null) {
-                    continue;
-                }
+                // Уровень: из синка сервера (виден у всех мобов) или из пакета урона.
+                Integer syncedLevel = MOB_LEVELS.get(mob.getId());
+                int level = syncedLevel != null ? syncedLevel : (state != null ? state.level() : -1);
                 Vec3d head = mob.getLerpedPos(tickDelta).add(0.0, mob.getHeight() + 0.5, 0.0);
-                // Не показываем полоску сквозь блоки и тела игроков.
+                // Не показываем сквозь блоки и тела игроков.
                 if (!hasLineOfSight(client, camPos, head)) {
                     continue;
                 }
                 Vec3d screen = project(viewProj, head, sw, sh);
                 if (screen == null) {
+                    continue;
+                }
+                // Подпись «Ур. X» — всегда над всеми мобами (мельче и выше полоски HP).
+                if (level >= 0) {
+                    drawMobLevelLabel(context, client, screen, level);
+                }
+                // Полоска появляется попапом только при атаке моба и видна,
+                // пока бой не затих.
+                if (state == null) {
                     continue;
                 }
                 float frac = Math.max(0f, Math.min(1f, mob.getHealth() / mob.getMaxHealth()));
@@ -346,12 +369,6 @@ public final class HealthOverlay {
                 if (alpha <= 0.01f) {
                     continue;
                 }
-                // Над полоской — уровень моба (имя добавим вместе со своими мобами).
-                String levelText = "Ур. " + state.level();
-                int levelW = client.textRenderer.getWidth(levelText);
-                context.drawText(client.textRenderer, levelText, (int) screen.x - levelW / 2,
-                        (int) screen.y - 11, withAlpha(0xFFE8C86A, alpha), true);
-
                 // Рисуем вокруг центра полоски, с масштабом попапа.
                 Matrix3x2fStack m = context.getMatrices();
                 m.pushMatrix();
@@ -431,6 +448,20 @@ public final class HealthOverlay {
                 it.remove();
             }
         }
+    }
+
+    /** Подпись уровня моба «Ур. X»: мелкая золотая, выше полоски HP.
+     *  Рисуется всегда, пока моб в поле зрения. */
+    private static void drawMobLevelLabel(DrawContext context, MinecraftClient client, Vec3d screen, int level) {
+        String text = "Ур. " + level;
+        TextRenderer tr = client.textRenderer;
+        int w = tr.getWidth(text);
+        Matrix3x2fStack m = context.getMatrices();
+        m.pushMatrix();
+        m.translate((int) screen.x, (int) screen.y - 17);
+        m.scale(0.6f, 0.6f);
+        context.drawText(tr, text, -w / 2, 0, 0xFFE8C86A, true);
+        m.popMatrix();
     }
 
     /** Мир → экран. null, если точка за камерой или вне экрана (с запасом). */

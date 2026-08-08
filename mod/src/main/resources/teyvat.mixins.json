@@ -24,7 +24,6 @@
   "common": [
     "common.HungerManagerMixin",
     "common.LivingEntityMixin",
-    "common.LivingEntityLevelAccessor",
     "common.ServerPlayerEntityMixin",
     "common.RegenerationStatusEffectMixin",
     "common.InstantHealthOrDamageStatusEffectMixin"

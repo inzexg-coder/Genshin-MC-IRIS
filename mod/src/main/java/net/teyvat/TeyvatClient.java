@@ -25,6 +25,7 @@ import net.teyvat.client.ProgressionToast;
 import net.teyvat.client.QuestStateClient;
 import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.ExpGainPayload;
+import net.teyvat.network.MobLevelSyncPayload;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestStatePayload;
@@ -86,6 +87,11 @@ public class TeyvatClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(DamageNumberPayload.ID, (payload, context) -> {
             context.client().execute(() ->
                     HealthOverlay.addDamageNumber(payload.entityId(), payload.amount(), payload.mobLevel()));
+        });
+
+        // Уровень моба от сервера: подпись «Ур. X» над головой видна и без атаки.
+        ClientPlayNetworking.registerGlobalReceiver(MobLevelSyncPayload.ID, (payload, context) -> {
+            context.client().execute(() -> HealthOverlay.setMobLevel(payload.entityId(), payload.level()));
         });
 
         // Прогрессия: ранг, опыт, примогемы, ростера персонажей — для HUD и меню.
