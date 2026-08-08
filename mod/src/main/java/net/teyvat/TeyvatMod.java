@@ -34,6 +34,7 @@ import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.ExpGainPayload;
 import net.teyvat.network.MobLevelSyncPayload;
 import net.teyvat.network.NotesOpenPayload;
+import net.teyvat.server.BeachBoundary;
 import net.teyvat.server.BeachGuard;
 import net.teyvat.server.TeyvatQuests;
 import net.teyvat.server.TeyvatSpawn;
@@ -82,6 +83,7 @@ public class TeyvatMod implements ModInitializer {
         TeyvatXEdge.register();
         TeyvatBeachRadius.register();
         BeachGuard.register();
+        BeachBoundary.register();
         PaimonEntity.register();
         HydroSlimeEntity.register();
         HydroSlimeProjectileEntity.register();

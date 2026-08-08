@@ -166,6 +166,20 @@ public final class TeyvatConfig {
         public boolean only_peaceful_spawns = true;
     }
 
+    /** Обучение: игрок не выпускается с пляжа, пока не пройдены все задания. */
+    public Tutorial tutorial = new Tutorial();
+
+    public static class Tutorial {
+        /** Не выпускать игрока за пределы пляжа до конца обучения. */
+        public boolean lock_beach = true;
+        /** Радиус (блоки) вокруг точки спавна, за который нельзя выходить. */
+        public double beach_radius = 75.0;
+        /** Сообщение при попытке выйти за границу. */
+        public String message = "Твоё путешествие начнётся, когда обучение будет пройдено.";
+        /** Как часто показывать сообщение (тики). */
+        public int message_cooldown_ticks = 100;
+    }
+
     private static TeyvatConfig instance;
 
     public static TeyvatConfig get() {
@@ -206,6 +220,9 @@ public final class TeyvatConfig {
                     }
                     if (cfg.world == null) {
                         cfg.world = new World();
+                    }
+                    if (cfg.tutorial == null) {
+                        cfg.tutorial = new Tutorial();
                     }
                 }
             } catch (Exception ignored) {
