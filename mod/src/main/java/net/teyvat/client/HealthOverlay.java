@@ -32,20 +32,20 @@ import java.util.Map;
 public final class HealthOverlay {
     /** Центр дуги стамины (см. StaminaOverlay: RADIUS 20 + отступ 24). */
     private static final int ARC_CX = 44;
-    /** Верх дуги от низа экрана: концы дуги на уровне центра (RADIUS + отступ). */
-    private static final int ARC_TOP_FROM_BOTTOM = 44;
-    /** Полоса HP — тонкая, по ширине как дуга стамины, прямо над ней. */
+    /** Вершина дуги стамины от низа экрана: центр дуги на h-44, радиус 20,
+     *  дуга выгибается вверх — верхний край пика на h-44-20-2 = h-66. */
+    private static final int ARC_PEAK_FROM_BOTTOM = 66;
+    /** Полоса HP — тонкая, по ширине как дуга стамины, ровно над её пиком. */
     private static final int BAR_W = 44;
     private static final int BAR_H = 6;
-    /** Равный зазор между дугой стамины, полосой HP и текстом над ней.
-     *  Достаточный, чтобы полоса никогда не ложилась на дугу. */
-    private static final int UI_GAP = 16;
+    /** Равный зазор между дугой стамины, полосой HP и текстом над ней. */
+    private static final int UI_GAP = 10;
 
     /** Радиус, в котором видны полоски HP противников. */
     private static final double MOB_RANGE = 48.0;
     /** Полоска HP противника — маленькая, над головой, в золотой рамке. */
-    private static final int MOB_BAR_W = 24;
-    private static final int MOB_BAR_H = 4;
+    private static final int MOB_BAR_W = 26;
+    private static final int MOB_BAR_H = 5;
 
     /** Время жизни числа урона, тики. */
     private static final long NUMBER_LIFE_TICKS = 70;
@@ -98,7 +98,7 @@ public final class HealthOverlay {
     private static void renderPlayerBar(DrawContext context, MinecraftClient client) {
         int h = context.getScaledWindowHeight();
         int x0 = ARC_CX - BAR_W / 2;
-        int y0 = h - ARC_TOP_FROM_BOTTOM - UI_GAP - BAR_H;
+        int y0 = h - ARC_PEAK_FROM_BOTTOM - UI_GAP - BAR_H;
         float health = client.player.getHealth();
         float maxHealth = client.player.getMaxHealth();
         int fill = (int) (BAR_W * Math.max(0f, Math.min(1f, health / maxHealth)));
@@ -136,13 +136,13 @@ public final class HealthOverlay {
     }
 
     /** Цвет полоски HP противника: тёмно-синий при полном здоровье,
-     *  голубеет по мере потери HP (синяя => голубая). */
+     *  ярко голубеет по мере потери HP (синяя => голубая). */
     private static int hpBlue(float frac) {
         float t = 1f - Math.max(0f, Math.min(1f, frac));
-        int r = (int) (0x1B + (0x79 - 0x1B) * t);
-        int g = (int) (0x23 + (0xB8 - 0x23) * t);
+        int r = (int) (0x1B + (0x66 - 0x1B) * t);
+        int g = (int) (0x23 + (0xD9 - 0x23) * t);
         int b = (int) (0x38 + (0xFF - 0x38) * t);
-        return (0xE6 << 24) | (r << 16) | (g << 8) | b;
+        return (0xFF << 24) | (r << 16) | (g << 8) | b;
     }
 
     /** Маленький ромб-орнамент (повёрнутый квадрат) в стиле Селестии. */
