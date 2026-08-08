@@ -8,9 +8,13 @@ import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
+import net.minecraft.block.ShapeContext;
 import net.minecraft.util.TypeFilter;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.RaycastContext;
 import net.teyvat.config.TeyvatConfig;
 import net.teyvat.mixin.client.GameRendererAccessor;
 import org.joml.Matrix3x2fStack;
@@ -203,6 +207,17 @@ public final class HealthOverlay {
         m.popMatrix();
     }
 
+    /** Прямая видимость от камеры до точки: полоски HP и числа урона
+     *  не просвечивают сквозь блоки и стены. */
+    private static boolean hasLineOfSight(ClientWorld world, Vec3d from, Vec3d to) {
+        BlockHitResult hit = world.raycast(new RaycastContext(from, to,
+                RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, ShapeContext.absent()));
+        if (hit.getType() == HitResult.Type.MISS) {
+            return true;
+        }
+        return hit.getPos().squaredDistanceTo(from) >= to.squaredDistanceTo(from) - 0.001;
+    }
+
     /** Мир: полоски HP противников и числа урона, спроецированные на экран. */
     private static void renderWorld(DrawContext context, MinecraftClient client, float tickDelta) {
         Camera camera = client.gameRenderer.getCamera();
@@ -229,6 +244,10 @@ public final class HealthOverlay {
                             && !(e instanceof ArmorStandEntity));
             for (LivingEntity mob : mobs) {
                 Vec3d head = mob.getLerpedPos(tickDelta).add(0.0, mob.getHeight() + 0.5, 0.0);
+                // Не показываем полоску сквозь блоки: только при прямой видимости.
+                if (!hasLineOfSight(client.world, camPos, head)) {
+                    continue;
+                }
                 Vec3d screen = project(viewProj, head, sw, sh);
                 if (screen == null) {
                     continue;
@@ -267,6 +286,11 @@ public final class HealthOverlay {
                 continue;
             }
             Vec3d base = entity.getLerpedPos(tickDelta).add(0.0, entity.getHeight() + 0.55, 0.0);
+            // Числа урона тоже не просвечивают сквозь блоки.
+            Camera cam = client.gameRenderer.getCamera();
+            if (!hasLineOfSight(client.world, cam.getPos(), base)) {
+                continue;
+            }
             Vec3d screen = project(viewProj, base, sw, sh);
             if (screen == null) {
                 continue;
