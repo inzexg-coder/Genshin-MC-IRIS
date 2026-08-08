@@ -37,14 +37,15 @@ public final class HealthOverlay {
     /** Полоса HP — тонкая, по ширине как дуга стамины, прямо над ней. */
     private static final int BAR_W = 44;
     private static final int BAR_H = 6;
-    /** Равный зазор между дугой стамины, полосой HP и текстом над ней. */
-    private static final int UI_GAP = 10;
+    /** Равный зазор между дугой стамины, полосой HP и текстом над ней.
+     *  Достаточный, чтобы полоса никогда не ложилась на дугу. */
+    private static final int UI_GAP = 16;
 
     /** Радиус, в котором видны полоски HP противников. */
     private static final double MOB_RANGE = 48.0;
-    /** Полоска HP противника — маленькая, над головой. */
-    private static final int MOB_BAR_W = 20;
-    private static final int MOB_BAR_H = 2;
+    /** Полоска HP противника — маленькая, над головой, в золотой рамке. */
+    private static final int MOB_BAR_W = 24;
+    private static final int MOB_BAR_H = 4;
 
     /** Время жизни числа урона, тики. */
     private static final long NUMBER_LIFE_TICKS = 70;
@@ -112,7 +113,7 @@ public final class HealthOverlay {
         // Тонкий стальной блик по верхнему краю заполнения.
         context.fill(x0, y0, x0 + fill, y0 + 1, 0x50A8C4E8);
 
-        // Тонкая золотая узорчатая граница: штрихи по верху и низу, сплошные бока.
+        // Витиеватая золотая рамка: штрихи по верху и низу, сплошные бока.
         for (int x = x0; x < x0 + BAR_W; x += 4) {
             context.fill(x, y0 - 1, Math.min(x + 3, x0 + BAR_W + 1), y0, 0xDCE8C86A);
             context.fill(x, y0 + BAR_H, Math.min(x + 3, x0 + BAR_W + 1), y0 + BAR_H + 1, 0xDCE8C86A);
@@ -120,9 +121,13 @@ public final class HealthOverlay {
         context.fill(x0 - 1, y0, x0, y0 + BAR_H, 0xDCE8C86A);
         context.fill(x0 + BAR_W, y0, x0 + BAR_W + 1, y0 + BAR_H, 0xDCE8C86A);
 
-        // Узоры: маленькие золотые ромбики по краям панели.
+        // Позолота: ромбики по краям и в углах панели.
         drawDiamond(context, x0 + 3, y0 + BAR_H / 2, 2, 0xE6E8C86A);
         drawDiamond(context, x0 + BAR_W - 3, y0 + BAR_H / 2, 2, 0xE6E8C86A);
+        drawDiamond(context, x0 + 3, y0 + 1, 1, 0xE6FFE9A0);
+        drawDiamond(context, x0 + BAR_W - 3, y0 + 1, 1, 0xE6FFE9A0);
+        drawDiamond(context, x0 + 3, y0 + BAR_H - 1, 1, 0xE6FFE9A0);
+        drawDiamond(context, x0 + BAR_W - 3, y0 + BAR_H - 1, 1, 0xE6FFE9A0);
 
         // Число HP — ровно над полосой, с тем же зазором, по той же оси.
         TextRenderer tr = client.textRenderer;
@@ -183,12 +188,15 @@ public final class HealthOverlay {
                 float frac = Math.max(0f, Math.min(1f, mob.getHealth() / mob.getMaxHealth()));
                 int x0 = (int) (screen.x - MOB_BAR_W / 2.0);
                 int y0 = (int) screen.y;
-                context.fill(x0 - 1, y0 - 1, x0 + MOB_BAR_W + 1, y0 + MOB_BAR_H + 1, 0xB0070B14);
-                context.fill(x0, y0, x0 + MOB_BAR_W, y0 + MOB_BAR_H, 0xC014202E);
-                int fillW = (int) (MOB_BAR_W * frac);
+                // Золотая рамка с ромбиками по краям — витиеватая позолота.
+                context.fill(x0 - 1, y0 - 1, x0 + MOB_BAR_W + 1, y0 + MOB_BAR_H + 1, 0xCCE8C86A);
+                context.fill(x0, y0, x0 + MOB_BAR_W, y0 + MOB_BAR_H, 0xCC070B14);
+                drawDiamond(context, x0, y0 + MOB_BAR_H / 2, 2, 0xDCE8C86A);
+                drawDiamond(context, x0 + MOB_BAR_W, y0 + MOB_BAR_H / 2, 2, 0xDCE8C86A);
+                int fillW = (int) ((MOB_BAR_W - 2) * frac);
                 if (fillW > 0) {
                     // Полное HP — тёмно-синий как в заметках, с потерей HP голубеет.
-                    context.fill(x0, y0, x0 + fillW, y0 + MOB_BAR_H, hpBlue(frac));
+                    context.fill(x0 + 1, y0 + 1, x0 + 1 + fillW, y0 + MOB_BAR_H - 1, hpBlue(frac));
                 }
             }
         }

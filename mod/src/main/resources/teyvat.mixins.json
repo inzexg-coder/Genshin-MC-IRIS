@@ -13,7 +13,9 @@
     "client.CameraMixin",
     "client.CameraAccessor",
     "client.MouseMixin",
-    "client.ClientPlayerEntityMixin"
+    "client.ClientPlayerEntityMixin",
+    "client.AdvancementToastMixin",
+    "client.MinecraftClientMixin"
   ],
   "injectors": {
     "defaultRequire": 1
