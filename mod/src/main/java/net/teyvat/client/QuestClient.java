@@ -25,4 +25,18 @@ public final class QuestClient {
             client.getToastManager().add(new QuestToast("Задание выполнено", "«" + questTitle + "»"));
         }
     }
+
+    /** Квест выполнен на сервере (например, победа над слаймами тренировки):
+     *  помечаем локально и показываем тост. Обратный пакет серверу не шлём —
+     *  сервер сам отметил выполнение. */
+    public static void receiveServerCompletion(String questId, String questTitle) {
+        if (QuestStateClient.isCompleted(questId)) {
+            return;
+        }
+        QuestStateClient.markCompleted(questId);
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (!QuestToast.replaceActiveNewQuest("Задание выполнено")) {
+            client.getToastManager().add(new QuestToast("Задание выполнено", "«" + questTitle + "»"));
+        }
+    }
 }

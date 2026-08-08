@@ -39,7 +39,8 @@ public final class BeachBoundary {
                 && TeyvatQuests.isCompleted(player, Quests.TRY_SCROLL)
                 && TeyvatQuests.isCompleted(player, Quests.TRY_ZOOM)
                 && TeyvatQuests.isCompleted(player, Quests.TRY_SPRINT)
-                && TeyvatQuests.isCompleted(player, Quests.TRY_DASH);
+                && TeyvatQuests.isCompleted(player, Quests.TRY_DASH)
+                && TeyvatQuests.isCompleted(player, Quests.TRY_ATTACK);
     }
 
     private static void check(ServerPlayerEntity player) {

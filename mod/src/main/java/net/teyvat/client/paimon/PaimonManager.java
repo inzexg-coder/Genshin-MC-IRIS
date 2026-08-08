@@ -18,6 +18,7 @@ import net.teyvat.client.QuestToast;
 import net.teyvat.client.StaminaController;
 import net.teyvat.client.TravelerChoiceClient;
 import net.teyvat.network.QuestEventPayload;
+import net.teyvat.network.SlimeTrainingSpawnPayload;
 import net.teyvat.quest.Quests;
 import net.teyvat.config.TeyvatConfig;
 
@@ -104,6 +105,17 @@ public final class PaimonManager {
     private static final int DASH_TUTOR_GAP_TICKS = 80;
     /** Пауза после последней фразы перед уведомлением о новом задании (тики). */
     private static final int DASH_TUTOR_END_GAP = 30;
+    /** Фразы мини-урока про атаку: Паймон призывает слаймов и учит бить. */
+    private static final String[] ATTACK_PHRASES = {
+        "А теперь — самое интересное! На пляж забрели Гидро слаймы.",
+        "Левый клик — удар. Прикончи всех троих!"
+    };
+    /** Пауза перед первой фразой урока про атаку (тики). */
+    private static final int ATTACK_TUTOR_START_TICK = 40;
+    /** Каждая фраза урока про атаку держится 4 секунды (80 тиков). */
+    private static final int ATTACK_TUTOR_GAP_TICKS = 80;
+    /** Пауза после последней фразы перед уведомлением о новом задании (тики). */
+    private static final int ATTACK_TUTOR_END_GAP = 30;
     /** Дистанция до игрока во время знакомства. */
     private static final double INTRO_DIST = 2.4;
     /** Высота над игроком во время знакомства (чуть выше линии взгляда). */
@@ -137,12 +149,19 @@ public final class PaimonManager {
     private static int dashTutorTicks = -1;
     /** Показано ли уведомление «есть новое задание» урока про рывок. */
     private static boolean dashPromptShown;
+    /** Таймер мини-урока про атаку: -1 = не идёт, 0 = запущен после задания с рывком. */
+    private static int attackTutorTicks = -1;
+    /** Показано ли уведомление «есть новое задание» урока про атаку. */
+    private static boolean attackPromptShown;
+    /** Отправлен ли запрос на спавн слаймов (чтобы не дублировать при повторе урока). */
+    private static boolean attackSpawnRequested;
     /** Номера уроков для очереди: следующий урок ждёт, пока уведомление
      *  о выполненном задании не исчезнет с экрана. */
     private static final int TUTORIAL_SCROLL = 0;
     private static final int TUTORIAL_ZOOM = 1;
     private static final int TUTORIAL_SPRINT = 2;
     private static final int TUTORIAL_DASH = 3;
+    private static final int TUTORIAL_ATTACK = 4;
     /** Очередь следующего урока: -1 = нет. */
     private static int queuedTutorial = -1;
 
@@ -225,6 +244,13 @@ public final class PaimonManager {
         tutorPromptShown = false;
         zoomTutorTicks = -1;
         zoomPromptShown = false;
+        sprintTutorTicks = -1;
+        sprintPromptShown = false;
+        dashTutorTicks = -1;
+        dashPromptShown = false;
+        attackTutorTicks = -1;
+        attackPromptShown = false;
+        attackSpawnRequested = false;
         // Точка знакомства фиксируется абсолютно: Паймон стоит на месте, пока говорит.
         introPos = playerPos(client.player).add(forwardDeg(refYaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
         entity.setPosition(introPos.x, introPos.y, introPos.z);
@@ -283,7 +309,7 @@ public final class PaimonManager {
             tickScrollTutorial();
             // Урок про кнопку C идёт после задания с колесом мыши (не повторяется,
             // если квест уже выполнен; при перезаходе запускается снова до выполнения).
-            if (zoomTutorTicks < 0
+            if (attackTutorTicks < 0 && zoomTutorTicks < 0
                     && tutorTicks < 0
                     && questReportTimer < 0
                     && QuestStateClient.isCompleted(Quests.TRY_SCROLL)
@@ -293,7 +319,7 @@ public final class PaimonManager {
             tickZoomTutorial();
             // Урок про бег идёт после задания с кнопкой C (при перезаходе
             // запускается снова, пока квест не выполнен).
-            if (sprintTutorTicks < 0 && dashTutorTicks < 0 && zoomTutorTicks < 0
+            if (attackTutorTicks < 0 && sprintTutorTicks < 0 && dashTutorTicks < 0 && zoomTutorTicks < 0
                     && tutorTicks < 0 && questReportTimer < 0
                     && QuestStateClient.isCompleted(Quests.TRY_ZOOM)
                     && !QuestStateClient.isCompleted(Quests.TRY_SPRINT)) {
@@ -301,13 +327,21 @@ public final class PaimonManager {
             }
             tickSprintTutorial();
             // Урок про рывок идёт после задания с бегом.
-            if (dashTutorTicks < 0 && sprintTutorTicks < 0 && zoomTutorTicks < 0
+            if (attackTutorTicks < 0 && dashTutorTicks < 0 && sprintTutorTicks < 0 && zoomTutorTicks < 0
                     && tutorTicks < 0 && questReportTimer < 0
                     && QuestStateClient.isCompleted(Quests.TRY_SPRINT)
                     && !QuestStateClient.isCompleted(Quests.TRY_DASH)) {
                 queueTutorial(TUTORIAL_DASH);
             }
             tickDashTutorial();
+            // Урок про атаку идёт после задания с рывком.
+            if (attackTutorTicks < 0 && dashTutorTicks < 0 && sprintTutorTicks < 0
+                    && zoomTutorTicks < 0 && tutorTicks < 0 && questReportTimer < 0
+                    && QuestStateClient.isCompleted(Quests.TRY_DASH)
+                    && !QuestStateClient.isCompleted(Quests.TRY_ATTACK)) {
+                queueTutorial(TUTORIAL_ATTACK);
+            }
+            tickAttackTutorial();
         }
 
         Vec3d target;
@@ -520,10 +554,21 @@ public final class PaimonManager {
         }
     }
 
-    /** Квест про рывок выполнен: урок завершается, диалог плавно гаснет. */
+    /** Квест про рывок выполнен: урок завершается, дальше — урок про атаку. */
     private static void onDashQuestCompleted() {
         dashTutorTicks = -1;
         dashPromptShown = false;
+        DialogueOverlay.end();
+        // После задания с рывком — урок про атаку (пока не выполнен).
+        if (!QuestStateClient.isCompleted(Quests.TRY_ATTACK)) {
+            queueTutorial(TUTORIAL_ATTACK);
+        }
+    }
+
+    /** Квест про атаку выполнен (сервер прислал подтверждение): урок завершается. */
+    public static void onAttackQuestCompleted() {
+        attackTutorTicks = -1;
+        attackPromptShown = false;
         DialogueOverlay.end();
     }
 
@@ -576,6 +621,36 @@ public final class PaimonManager {
         }
     }
 
+    /** Мини-урок про атаку: Паймон призывает слаймов, затем всплывает
+     *  уведомление о новом задании и сервер спавнит слаймов. */
+    private static void tickAttackTutorial() {
+        if (attackTutorTicks < 0) {
+            return;
+        }
+        attackTutorTicks++;
+        for (int i = 0; i < ATTACK_PHRASES.length; i++) {
+            if (attackTutorTicks == ATTACK_TUTOR_START_TICK + i * ATTACK_TUTOR_GAP_TICKS) {
+                DialogueOverlay.show("Паймон", ATTACK_PHRASES[i]);
+            }
+        }
+        int lastPhraseTick = ATTACK_TUTOR_START_TICK + (ATTACK_PHRASES.length - 1) * ATTACK_TUTOR_GAP_TICKS;
+        // Объявление задания — только после последней фразы Паймон. Спавн слаймов
+        // запрашиваем один раз: сервер сам не создаст новых, если старые живы.
+        if (attackTutorTicks >= lastPhraseTick + ATTACK_TUTOR_END_GAP && !attackPromptShown
+                && !QuestStateClient.isCompleted(Quests.TRY_ATTACK)) {
+            attackPromptShown = true;
+            announceNewQuest("«" + Quests.TRY_ATTACK_TITLE + "»");
+            DialogueOverlay.end();
+            if (!attackSpawnRequested) {
+                attackSpawnRequested = true;
+                MinecraftClient client = MinecraftClient.getInstance();
+                if (client.getNetworkHandler() != null) {
+                    ClientPlayNetworking.send(new SlimeTrainingSpawnPayload());
+                }
+            }
+        }
+    }
+
     /** Объявить новое задание: окно «Новое задание» в углу висит, пока не выполнится. */
     private static void announceNewQuest(String questName) {
         MinecraftClient.getInstance().getToastManager().add(new QuestToast("Новое задание", questName, true));
@@ -615,6 +690,10 @@ public final class PaimonManager {
                 dashTutorTicks = 0;
                 dashPromptShown = false;
             }
+            case TUTORIAL_ATTACK -> {
+                attackTutorTicks = 0;
+                attackPromptShown = false;
+            }
             default -> { }
         }
     }
@@ -633,6 +712,9 @@ public final class PaimonManager {
         }
         if (Quests.TRY_DASH.equals(questId)) {
             return dashPromptShown;
+        }
+        if (Quests.TRY_ATTACK.equals(questId)) {
+            return attackPromptShown;
         }
         return false;
     }
@@ -659,6 +741,7 @@ public final class PaimonManager {
         return (tutorTicks >= 0 && !tutorPromptShown)
                 || (zoomTutorTicks >= 0 && !zoomPromptShown)
                 || (sprintTutorTicks >= 0 && !sprintPromptShown)
-                || (dashTutorTicks >= 0 && !dashPromptShown);
+                || (dashTutorTicks >= 0 && !dashPromptShown)
+                || (attackTutorTicks >= 0 && !attackPromptShown);
     }
 }

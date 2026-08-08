@@ -36,6 +36,7 @@ import net.teyvat.network.MobLevelSyncPayload;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.BeachBoundary;
 import net.teyvat.server.BeachGuard;
+import net.teyvat.server.SlimeTraining;
 import net.teyvat.server.TeyvatQuests;
 import net.teyvat.server.TeyvatSpawn;
 import net.teyvat.worldgen.TeyvatBeachRadius;
@@ -44,6 +45,8 @@ import net.teyvat.worldgen.TeyvatXEdge;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.network.TravelerChoicePayload;
 import net.teyvat.network.QuestEventPayload;
+import net.teyvat.network.QuestCompletePayload;
+import net.teyvat.network.SlimeTrainingSpawnPayload;
 import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestStatePayload;
 import net.teyvat.progression.MobLevels;
@@ -95,6 +98,8 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(TravelerChoiceOpenPayload.ID, TravelerChoiceOpenPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TravelerChoicePayload.ID, TravelerChoicePayload.CODEC);
         PayloadTypeRegistry.playC2S().register(QuestEventPayload.ID, QuestEventPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(SlimeTrainingSpawnPayload.ID, SlimeTrainingSpawnPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(QuestCompletePayload.ID, QuestCompletePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceSyncPayload.ID, TravelerChoiceSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(QuestStatePayload.ID, QuestStatePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ProgressionSyncPayload.ID, ProgressionSyncPayload.CODEC);
@@ -127,6 +132,14 @@ public class TeyvatMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(QuestEventPayload.ID, (payload, context) -> {
             if (context.player() != null) {
                 TeyvatQuests.complete(context.player(), payload.questId());
+            }
+        });
+
+        // Паймон объявила задание про слаймов: сервер призывает трёх тренировочных
+        // Гидро слаймов вокруг игрока (бьются только владельцем).
+        ServerPlayNetworking.registerGlobalReceiver(SlimeTrainingSpawnPayload.ID, (payload, context) -> {
+            if (context.player() != null) {
+                SlimeTraining.spawnAround(context.player());
             }
         });
 
@@ -248,7 +261,8 @@ public class TeyvatMod implements ModInitializer {
                     TeyvatQuests.isCompleted(player, Quests.TRY_SCROLL),
                     TeyvatQuests.isCompleted(player, Quests.TRY_ZOOM),
                     TeyvatQuests.isCompleted(player, Quests.TRY_SPRINT),
-                    TeyvatQuests.isCompleted(player, Quests.TRY_DASH)));
+                    TeyvatQuests.isCompleted(player, Quests.TRY_DASH),
+                    TeyvatQuests.isCompleted(player, Quests.TRY_ATTACK)));
             // Прогрессия: ранг, опыт, примогемы, ростера персонажей.
             ProgressionStore.sync(player);
             // Уровни уже загруженных мобов рядом: ENTITY_LOAD для них уже отработал,

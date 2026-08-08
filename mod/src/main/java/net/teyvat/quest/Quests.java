@@ -17,6 +17,9 @@ public final class Quests {
     /** «Попробуй сделать рывок» — первый рывок вперёд по Ctrl. */
     public static final String TRY_DASH = "try_dash";
     public static final String TRY_DASH_TITLE = "Попробуй сделать рывок";
+    /** «Победи Гидро слаймов» — призванные Паймон слаймы, бьются только владельцем. */
+    public static final String TRY_ATTACK = "try_attack";
+    public static final String TRY_ATTACK_TITLE = "Победи Гидро слаймов";
 
     private Quests() {}
 }

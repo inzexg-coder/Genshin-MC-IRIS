@@ -26,14 +26,17 @@ import net.teyvat.entity.HydroSlimeProjectileEntity;
 import net.teyvat.client.paimon.PaimonManager;
 import net.teyvat.client.ProgressionClient;
 import net.teyvat.client.ProgressionToast;
+import net.teyvat.client.QuestClient;
 import net.teyvat.client.QuestStateClient;
 import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.ExpGainPayload;
 import net.teyvat.network.MobLevelSyncPayload;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.network.ProgressionSyncPayload;
+import net.teyvat.network.QuestCompletePayload;
 import net.teyvat.network.QuestStatePayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
+import net.teyvat.quest.Quests;
 import net.teyvat.network.TravelerChoiceSyncPayload;
 import org.lwjgl.glfw.GLFW;
 
@@ -130,7 +133,18 @@ public class TeyvatClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(QuestStatePayload.ID, (payload, context) -> {
             context.client().execute(() ->
                     QuestStateClient.set(payload.meetPaimon(), payload.tryScroll(), payload.tryZoom(),
-                            payload.trySprint(), payload.tryDash()));
+                            payload.trySprint(), payload.tryDash(), payload.tryAttack()));
+        });
+
+        // Квест выполнен на сервере (победа над слаймами тренировки): тост
+        // «Задание выполнено» и завершение урока Паймон.
+        ClientPlayNetworking.registerGlobalReceiver(QuestCompletePayload.ID, (payload, context) -> {
+            context.client().execute(() -> {
+                QuestClient.receiveServerCompletion(payload.questId(), payload.questTitle());
+                if (Quests.TRY_ATTACK.equals(payload.questId())) {
+                    PaimonManager.onAttackQuestCompleted();
+                }
+            });
         });
 
         // Синхронизация выбора: применяем скин игрока через локальные текстуры мода.

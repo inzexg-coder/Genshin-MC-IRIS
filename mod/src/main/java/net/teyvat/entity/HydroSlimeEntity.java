@@ -1,5 +1,6 @@
 package net.teyvat.entity;
 
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.SpawnGroup;
@@ -18,7 +19,10 @@ import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.storage.ReadView;
+import net.minecraft.storage.WriteView;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.Identifier;
@@ -26,6 +30,9 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.teyvat.item.TeyvatItems;
 import net.teyvat.progression.MobLevels;
+import net.teyvat.server.SlimeTraining;
+
+import java.util.UUID;
 
 /**
  * Водный слайм из Genshin: голубое полупрозрачное тело с каплей-короной.
@@ -44,6 +51,10 @@ public class HydroSlimeEntity extends HostileEntity {
 
     /** Тики до следующего прыжка (считаем на сервере). */
     private int hopCooldown = 20;
+    /** Владелец тренировочного слайма (null — обычный слайм мира). */
+    private UUID ownerUuid;
+    /** Бой включён: до объявления задания слайм неуязвим даже для владельца. */
+    private boolean combatReady;
 
     public static void register() {
         if (TYPE == null) {
@@ -79,7 +90,73 @@ public class HydroSlimeEntity extends HostileEntity {
         super.tick();
         if (!this.getEntityWorld().isClient()) {
             this.hopCooldown--;
+            // Тренировочный слайм всегда прыгает к своему владельцу.
+            if (this.ownerUuid != null && this.getEntityWorld() instanceof ServerWorld serverWorld) {
+                ServerPlayerEntity owner = serverWorld.getServer().getPlayerManager().getPlayer(this.ownerUuid);
+                if (owner != null && owner.isAlive()) {
+                    this.setTarget(owner);
+                }
+            }
         }
+    }
+
+    /** Тренировочный слайм: принадлежит игроку и бьётся только им. */
+    public boolean isTraining() {
+        return this.ownerUuid != null;
+    }
+
+    public UUID getOwnerUuid() {
+        return this.ownerUuid;
+    }
+
+    public void setOwnerUuid(UUID ownerUuid) {
+        this.ownerUuid = ownerUuid;
+    }
+
+    public boolean isCombatReady() {
+        return this.combatReady;
+    }
+
+    public void setCombatReady(boolean combatReady) {
+        this.combatReady = combatReady;
+    }
+
+    @Override
+    protected void writeCustomData(WriteView nbt) {
+        super.writeCustomData(nbt);
+        if (this.ownerUuid != null) {
+            nbt.putString("Owner", this.ownerUuid.toString());
+        }
+        nbt.putBoolean("CombatReady", this.combatReady);
+    }
+
+    @Override
+    protected void readCustomData(ReadView nbt) {
+        super.readCustomData(nbt);
+        String owner = nbt.getString("Owner", "");
+        if (!owner.isEmpty()) {
+            try {
+                this.ownerUuid = UUID.fromString(owner);
+            } catch (IllegalArgumentException ignored) {
+                this.ownerUuid = null;
+            }
+        }
+        this.combatReady = nbt.getBoolean("CombatReady", false);
+    }
+
+    /** Тренировочный слайм бьётся только своим владельцем и только после
+     *  объявления задания (combatReady). Остальные игроки его не трогают. */
+    @Override
+    public boolean damage(ServerWorld world, DamageSource source, float amount) {
+        if (this.ownerUuid != null) {
+            Entity attacker = source.getAttacker() != null ? source.getAttacker() : source.getSource();
+            if (!(attacker instanceof PlayerEntity player)
+                    || !player.getUuid().equals(this.ownerUuid)
+                    || !this.combatReady) {
+                return false;
+            }
+        }
+        return super.damage(world, source, amount);
     }
 
     /** Прыжок: к цели, если она есть, иначе лёгкий случайный подскок. */
@@ -129,6 +206,9 @@ public class HydroSlimeEntity extends HostileEntity {
     @Override
     public void onDeath(DamageSource damageSource) {
         if (this.getEntityWorld() instanceof ServerWorld serverWorld) {
+            if (this.ownerUuid != null) {
+                SlimeTraining.onSlimeKilled(serverWorld, this);
+            }
             Vec3d p = new Vec3d(this.getX(), this.getY(), this.getZ());
             serverWorld.spawnParticles(ParticleTypes.SPLASH, p.x, p.y + 0.5, p.z,
                     26, 0.45, 0.45, 0.45, 0.06);
@@ -149,6 +229,9 @@ public class HydroSlimeEntity extends HostileEntity {
 
         @Override
         public boolean canStart() {
+            if (this.slime.isTraining()) {
+                return false;
+            }
             LivingEntity target = this.slime.getTarget();
             return target != null && target.isAlive()
                     && this.slime.squaredDistanceTo(target) <= 16.0 * 16.0;
