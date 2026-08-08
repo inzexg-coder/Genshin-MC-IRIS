@@ -356,9 +356,9 @@ public final class HealthOverlay {
                 if (screen == null) {
                     continue;
                 }
-                // Подпись «Ур. X» — всегда над всеми мобами (мельче и выше полоски HP).
+                // Подпись «Название Ур. X» — всегда над всеми мобами (мельче и выше полоски HP).
                 if (level >= 0) {
-                    drawMobLevelLabel(context, client, screen, level);
+                    drawMobLevelLabel(context, client, screen, mob, level);
                 }
                 // Полоска появляется попапом только при атаке моба и видна,
                 // пока бой не затих.
@@ -469,28 +469,33 @@ public final class HealthOverlay {
         }
     }
 
-    /** Подпись уровня моба «Ур. X»: мелкая золотая с тёмным контуром, выше полоски HP.
-     *  Рисуется всегда, пока моб в поле зрения. Контур нужен, чтобы подпись
-     *  не сливалась с ярким фоном (как имя врага в Genshin). */
-    private static void drawMobLevelLabel(DrawContext context, MinecraftClient client, Vec3d screen, int level) {
-        String text = "Ур. " + level;
+    /** Подпись моба «Свинья Ур. 5»: имя — светлое, уровень — золотой, с чистым
+     *  тонким контуром по диагоналям (как имя врага в Genshin). Контур нужен,
+     *  чтобы подпись не сливалась с ярким фоном. Рисуется всегда, пока моб в поле зрения. */
+    private static void drawMobLevelLabel(DrawContext context, MinecraftClient client, Vec3d screen, LivingEntity mob, int level) {
+        String name = mob.getType().getName().getString();
+        String levelText = " Ур. " + level;
         TextRenderer tr = client.textRenderer;
-        int w = tr.getWidth(text);
+        int w = tr.getWidth(name + levelText);
         Matrix3x2fStack m = context.getMatrices();
         m.pushMatrix();
-        m.translate((int) screen.x, (int) screen.y - 19);
-        m.scale(0.65f, 0.65f);
+        m.translate((int) screen.x, (int) screen.y - 20);
+        m.scale(0.7f, 0.7f);
+        int x = -w / 2;
+        drawOutlinedText(context, tr, name, x, 0, 0xFFF0EBDD);
+        drawOutlinedText(context, tr, levelText, x + tr.getWidth(name), 0, 0xFFE8C86A);
+        m.popMatrix();
+    }
+
+    /** Текст с тонким тёмным контуром: 4 прохода по диагоналям, затем цвет. */
+    private static void drawOutlinedText(DrawContext context, TextRenderer tr, String text, int x, int y, int color) {
         int outline = 0xFF05070D;
-        for (int ox = -1; ox <= 1; ox++) {
-            for (int oy = -1; oy <= 1; oy++) {
-                if (ox == 0 && oy == 0) {
-                    continue;
-                }
-                context.drawText(tr, text, -w / 2 + ox * 2, oy * 2, outline, false);
+        for (int ox = -1; ox <= 1; ox += 2) {
+            for (int oy = -1; oy <= 1; oy += 2) {
+                context.drawText(tr, text, x + ox, y + oy, outline, false);
             }
         }
-        context.drawText(tr, text, -w / 2, 0, 0xFFE8C86A, true);
-        m.popMatrix();
+        context.drawText(tr, text, x, y, color, false);
     }
 
     /** Клиентский фолбэк уровня: та же формула, что на сервере (расстояние от
