@@ -2,6 +2,7 @@ package net.teyvat.client;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.network.AbstractClientPlayerEntity;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderTickCounter;
@@ -47,6 +48,12 @@ public final class HealthOverlay {
      *  в полтора раза короче и вдвое тоньше полосы героя. */
     private static final int MOB_BAR_W = 23;
     private static final int MOB_BAR_H = 2;
+    /** Сколько тиков полоска видна после последней атаки моба. */
+    private static final long MOB_BAR_VISIBLE_TICKS = 100;
+    /** Затухание полоски перед скрытием, тики. */
+    private static final long MOB_BAR_FADE_TICKS = 15;
+    /** Попап появления полоски после первой атаки, тики. */
+    private static final long MOB_BAR_POP_TICKS = 12;
 
     /** Время жизни числа урона, тики. */
     private static final long NUMBER_LIFE_TICKS = 70;
@@ -63,17 +70,27 @@ public final class HealthOverlay {
     /** Запись всплывающего числа урона. */
     private record DamageNumber(float amount, long startTick) {}
 
+    /** Полоска HP моба: тик первой атаки (попап) и тик последней атаки (таймаут). */
+    private record MobBarState(long firstHitTick, long lastHitTick) {}
+    /** id сущности → состояние её полоски HP (появляется только при атаке). */
+    private static final Map<Integer, MobBarState> MOB_BARS = new HashMap<>();
+
     /** Сервер прислал урон: кладём число в очередь сущности. */
     public static void addDamageNumber(int entityId, float amount) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null) {
             return;
         }
+        long now = client.world.getTime();
         ArrayDeque<DamageNumber> queue = DAMAGE_NUMBERS.computeIfAbsent(entityId, k -> new ArrayDeque<>());
         if (queue.size() >= 4) {
             queue.pollFirst();
         }
-        queue.addLast(new DamageNumber(amount, client.world.getTime()));
+        queue.addLast(new DamageNumber(amount, now));
+        // Атака моба: полоска HP появляется попапом и держится, пока бой не затих.
+        MOB_BARS.compute(entityId, (k, state) -> state == null
+                ? new MobBarState(now, now)
+                : new MobBarState(state.firstHitTick(), now));
     }
 
     /** Рисуется поверх мира после HUD-слоя. */
@@ -208,14 +225,60 @@ public final class HealthOverlay {
     }
 
     /** Прямая видимость от камеры до точки: полоски HP и числа урона
-     *  не просвечивают сквозь блоки и стены. */
-    private static boolean hasLineOfSight(ClientWorld world, Vec3d from, Vec3d to) {
+     *  не просвечивают сквозь блоки, стены и тела игроков. */
+    private static boolean hasLineOfSight(MinecraftClient client, Vec3d from, Vec3d to) {
+        ClientWorld world = client.world;
         BlockHitResult hit = world.raycast(new RaycastContext(from, to,
                 RaycastContext.ShapeType.COLLIDER, RaycastContext.FluidHandling.NONE, ShapeContext.absent()));
-        if (hit.getType() == HitResult.Type.MISS) {
-            return true;
+        if (hit.getType() != HitResult.Type.MISS
+                && hit.getPos().squaredDistanceTo(from) < to.squaredDistanceTo(from) - 0.001) {
+            return false;
         }
-        return hit.getPos().squaredDistanceTo(from) >= to.squaredDistanceTo(from) - 0.001;
+        // Тела игроков закрывают обзор. Своё тело — только вне первого лица:
+        // от первого лица камера внутри своей коробки и не должна закрывать всё.
+        boolean firstPerson = client.options.getPerspective().isFirstPerson();
+        for (AbstractClientPlayerEntity player : world.getPlayers()) {
+            if (player == client.player && firstPerson) {
+                continue;
+            }
+            if (segmentIntersectsBox(from, to, player.getBoundingBox())) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** Пересекает ли отрезок [a, b] ось-выровненный прямоугольник box. */
+    private static boolean segmentIntersectsBox(Vec3d a, Vec3d b, Box box) {
+        double t0 = 0.0;
+        double t1 = 1.0;
+        Vec3d d = b.subtract(a);
+        double[] mins = { box.minX, box.minY, box.minZ };
+        double[] maxs = { box.maxX, box.maxY, box.maxZ };
+        double[] orig = { a.x, a.y, a.z };
+        double[] dir = { d.x, d.y, d.z };
+        for (int axis = 0; axis < 3; axis++) {
+            if (Math.abs(dir[axis]) < 1e-9) {
+                if (orig[axis] < mins[axis] || orig[axis] > maxs[axis]) {
+                    return false;
+                }
+            } else {
+                double inv = 1.0 / dir[axis];
+                double ta = (mins[axis] - orig[axis]) * inv;
+                double tb = (maxs[axis] - orig[axis]) * inv;
+                if (ta > tb) {
+                    double tmp = ta;
+                    ta = tb;
+                    tb = tmp;
+                }
+                t0 = Math.max(t0, ta);
+                t1 = Math.min(t1, tb);
+                if (t0 > t1) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     /** Мир: полоски HP противников и числа урона, спроецированные на экран. */
@@ -236,6 +299,13 @@ public final class HealthOverlay {
         Matrix4f viewProj = proj.mul(view, new Matrix4f());
 
         if (TeyvatConfig.get().health.show_mob_bars) {
+            // Чистим записи атак: мёртвые/исчезнувшие мобы и истёкший таймаут.
+            long now = client.world.getTime();
+            MOB_BARS.entrySet().removeIf(e -> {
+                LivingEntity entity = (LivingEntity) client.world.getEntityById(e.getKey());
+                return entity == null || !entity.isAlive()
+                        || now - e.getValue().lastHitTick() >= MOB_BAR_VISIBLE_TICKS;
+            });
             List<LivingEntity> mobs = client.world.getEntitiesByType(
                     TypeFilter.instanceOf(LivingEntity.class),
                     new Box(camPos.x - MOB_RANGE, camPos.y - MOB_RANGE, camPos.z - MOB_RANGE,
@@ -243,9 +313,15 @@ public final class HealthOverlay {
                     e -> e != client.player && !e.isPlayer() && e.isAlive()
                             && !(e instanceof ArmorStandEntity));
             for (LivingEntity mob : mobs) {
+                // Полоска появляется попапом только при атаке моба и видна,
+                // пока бой не затих.
+                MobBarState state = MOB_BARS.get(mob.getId());
+                if (state == null) {
+                    continue;
+                }
                 Vec3d head = mob.getLerpedPos(tickDelta).add(0.0, mob.getHeight() + 0.5, 0.0);
-                // Не показываем полоску сквозь блоки: только при прямой видимости.
-                if (!hasLineOfSight(client.world, camPos, head)) {
+                // Не показываем полоску сквозь блоки и тела игроков.
+                if (!hasLineOfSight(client, camPos, head)) {
                     continue;
                 }
                 Vec3d screen = project(viewProj, head, sw, sh);
@@ -253,18 +329,39 @@ public final class HealthOverlay {
                     continue;
                 }
                 float frac = Math.max(0f, Math.min(1f, mob.getHealth() / mob.getMaxHealth()));
-                int x0 = (int) (screen.x - MOB_BAR_W / 2.0);
-                int y0 = (int) screen.y;
+                // Попап появления после первой атаки: растёт от центра с «перелётом».
+                double pop = Math.min(1.0, (now - state.firstHitTick()) / (double) MOB_BAR_POP_TICKS);
+                double scale = 0.7 + 0.3 * pop;
+                if (pop > 0.6) {
+                    scale += 0.08 * Math.sin((pop - 0.6) / 0.4 * Math.PI);
+                }
+                float alpha = Math.min(1f, (now - state.firstHitTick()) / 5f);
+                // Если атак давно не было — полоска плавно гаснет.
+                long fade = MOB_BAR_VISIBLE_TICKS - (now - state.lastHitTick());
+                if (fade < MOB_BAR_FADE_TICKS) {
+                    alpha *= fade / (float) MOB_BAR_FADE_TICKS;
+                }
+                if (alpha <= 0.01f) {
+                    continue;
+                }
+                // Рисуем вокруг центра полоски, с масштабом попапа.
+                Matrix3x2fStack m = context.getMatrices();
+                m.pushMatrix();
+                m.translate((int) screen.x, (int) screen.y + MOB_BAR_H / 2);
+                m.scale((float) scale, (float) scale);
+                int halfW = MOB_BAR_W / 2;
+                int halfH = MOB_BAR_H / 2;
                 // Золотая рамка с ромбиками по краям — витиеватая позолота.
-                context.fill(x0 - 1, y0 - 1, x0 + MOB_BAR_W + 1, y0 + MOB_BAR_H + 1, 0xCCE8C86A);
-                context.fill(x0, y0, x0 + MOB_BAR_W, y0 + MOB_BAR_H, 0xCC070B14);
-                drawDiamond(context, x0, y0 + MOB_BAR_H / 2, 1, 0xDCE8C86A);
-                drawDiamond(context, x0 + MOB_BAR_W, y0 + MOB_BAR_H / 2, 1, 0xDCE8C86A);
+                context.fill(-halfW - 1, -halfH - 1, halfW + 1, halfH + 1, withAlpha(0xCCE8C86A, alpha));
+                context.fill(-halfW, -halfH, halfW, halfH, withAlpha(0xCC070B14, alpha));
+                drawDiamond(context, -halfW, 0, 1, withAlpha(0xDCE8C86A, alpha));
+                drawDiamond(context, halfW, 0, 1, withAlpha(0xDCE8C86A, alpha));
                 int fillW = (int) ((MOB_BAR_W - 2) * frac);
                 if (fillW > 0) {
                     // Полное HP — тёмно-синий как в заметках, с потерей HP голубеет.
-                    context.fill(x0 + 1, y0 + 1, x0 + 1 + fillW, y0 + MOB_BAR_H, hpBlue(frac));
+                    context.fill(-halfW + 1, -halfH + 1, -halfW + 1 + fillW, halfH, withAlpha(hpBlue(frac), alpha));
                 }
+                m.popMatrix();
             }
         }
 
@@ -286,9 +383,9 @@ public final class HealthOverlay {
                 continue;
             }
             Vec3d base = entity.getLerpedPos(tickDelta).add(0.0, entity.getHeight() + 0.55, 0.0);
-            // Числа урона тоже не просвечивают сквозь блоки.
+            // Числа урона тоже не просвечивают сквозь блоки и тела игроков.
             Camera cam = client.gameRenderer.getCamera();
-            if (!hasLineOfSight(client.world, cam.getPos(), base)) {
+            if (!hasLineOfSight(client, cam.getPos(), base)) {
                 continue;
             }
             Vec3d screen = project(viewProj, base, sw, sh);
