@@ -36,5 +36,10 @@
   "key.category.teyvat.main": "Teyvat",
   "generator.teyvat.teyvat": "Teyvat — Beach",
   "generator.teyvat.teyvat.info": "A single biome: white sand at the sea's edge, gently rising into green fields.",
-  "key.teyvat.sprint_dash": "Sprint / Dash"
+  "key.teyvat.sprint_dash": "Sprint / Dash",
+  "item.teyvat.slime_condensate": "Slime Condensate",
+  "item.teyvat.slime_secretions": "Slime Secretions",
+  "item.teyvat.slime_concentrate": "Slime Concentrate",
+  "item.teyvat.mora": "Mora",
+  "entity.teyvat.hydro_slime": "Hydro Slime"
 }

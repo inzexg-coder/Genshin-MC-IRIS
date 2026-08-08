@@ -29,6 +29,7 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 import net.teyvat.block.MarbleArchBlock;
+import net.teyvat.item.TeyvatItems;
 import net.teyvat.block.MarbleSideStairsBlock;
 
 import java.util.ArrayList;
@@ -162,6 +163,9 @@ public final class TeyvatBlocks {
                 .entries((context, entries) -> {
                     for (Block block : ALL_BLOCKS) {
                         entries.add(block);
+                    }
+                    for (Item item : TeyvatItems.ALL) {
+                        entries.add(item);
                     }
                 })
                 .build();

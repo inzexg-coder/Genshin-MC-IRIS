@@ -17,8 +17,12 @@ import net.teyvat.client.ZoomController;
 import net.teyvat.client.TravelerNotesScreen;
 import net.teyvat.client.HealthOverlay;
 import net.teyvat.client.StaminaController;
+import net.teyvat.client.hydro.HydroSlimeEntityRenderer;
+import net.teyvat.client.hydro.HydroSlimeProjectileRenderer;
 import net.teyvat.client.paimon.PaimonEntityRenderer;
 import net.teyvat.client.paimon.PaimonEntity;
+import net.teyvat.entity.HydroSlimeEntity;
+import net.teyvat.entity.HydroSlimeProjectileEntity;
 import net.teyvat.client.paimon.PaimonManager;
 import net.teyvat.client.ProgressionClient;
 import net.teyvat.client.ProgressionToast;
@@ -58,6 +62,9 @@ public class TeyvatClient implements ClientModInitializer {
     public void onInitializeClient() {
         // Рендер клиентской Паймон.
         EntityRendererRegistry.register(PaimonEntity.TYPE, PaimonEntityRenderer::new);
+        // Рендеры Гидро слайма и его водяного шара.
+        EntityRendererRegistry.register(HydroSlimeEntity.TYPE, HydroSlimeEntityRenderer::new);
+        EntityRendererRegistry.register(HydroSlimeProjectileEntity.TYPE, HydroSlimeProjectileRenderer::new);
 
         // Клавиша открывает заметки в любом режиме игры (клиентская сторона).
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

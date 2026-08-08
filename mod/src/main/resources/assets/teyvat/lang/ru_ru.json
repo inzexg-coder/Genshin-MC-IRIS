@@ -36,5 +36,10 @@
   "key.category.teyvat.main": "Teyvat",
   "generator.teyvat.teyvat": "Тейват — Пляж",
   "generator.teyvat.teyvat.info": "Один биом: белый песок у кромки моря, полого переходящий в зелёные поля.",
-  "key.teyvat.sprint_dash": "Бег / Рывок"
+  "key.teyvat.sprint_dash": "Бег / Рывок",
+  "item.teyvat.slime_condensate": "Слизь слайма",
+  "item.teyvat.slime_secretions": "Выделения слайма",
+  "item.teyvat.slime_concentrate": "Концентрат слайма",
+  "item.teyvat.mora": "Мора",
+  "entity.teyvat.hydro_slime": "Гидро слайм"
 }
