@@ -7,6 +7,6 @@ public class HydroSlimeRenderState extends EntityRenderState {
     public float yaw;
     /** Вертикальное растяжение: 0 = покой, ближе к 1 = прыжок вверх. */
     public float stretch;
-    /** Размер (как size у ванильного слайма): 2 = куб ровно в один блок. */
-    public int size = 2;
+    /** Масштаб модели: 1.4 ≈ 1.2 блока в ширину для куба 14×10×14. */
+    public float scale = 1.4f;
 }

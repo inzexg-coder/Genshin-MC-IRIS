@@ -9,9 +9,9 @@ import net.minecraft.client.model.TexturedModelData;
 import net.minecraft.client.render.entity.model.EntityModel;
 
 /**
- * Модель Гидро слайма — точная копия ванильного слайма Minecraft
- * (внешний куб 8×8×8 + внутренний куб с глазами и ртом), но текстура
- * перекрашена в голубой «водный» цвет. Начало координат — у ног.
+ * Модель Гидро слайма — два куба в стиле Hoyocraft: внешнее тело 14×10×14
+ * и внутреннее «ядро» 10×8×10, оба на текстуре 64×64 (uv 0,0 и 0,24).
+ * Низ внешнего куба стоит на земле, внутренний смещён вверх на 1 пиксель.
  */
 public class HydroSlimeEntityModel extends EntityModel<HydroSlimeRenderState> {
     public HydroSlimeEntityModel(ModelPart root) {
@@ -22,25 +22,16 @@ public class HydroSlimeEntityModel extends EntityModel<HydroSlimeRenderState> {
         ModelData data = new ModelData();
         ModelPartData root = data.getRoot();
 
-        // Внешнее тело — как у ванильного слайма (куб 8×8×8, низ у земли).
+        // Внешнее тело: 14×10×14, низ у земли (как в geo-модели Hoyocraft).
         root.addChild("cube",
-                ModelPartBuilder.create().uv(0, 0).cuboid(-4.0f, 0.0f, -4.0f, 8.0f, 8.0f, 8.0f),
+                ModelPartBuilder.create().uv(0, 0).cuboid(-7.0f, 0.0f, -7.0f, 14.0f, 10.0f, 14.0f),
                 ModelTransform.NONE);
 
-        // Внутренний куб (светлое «брюшко» на текстуре) и черты лица.
+        // Внутреннее ядро: 10×8×10, приподнято на 1 пиксель.
         root.addChild("innerCube",
-                ModelPartBuilder.create().uv(0, 16).cuboid(-3.0f, 1.0f, -3.0f, 6.0f, 6.0f, 6.0f),
-                ModelTransform.NONE);
-        root.addChild("right_eye",
-                ModelPartBuilder.create().uv(32, 0).cuboid(-3.25f, 2.0f, -3.5f, 2.0f, 2.0f, 2.0f),
-                ModelTransform.NONE);
-        root.addChild("left_eye",
-                ModelPartBuilder.create().uv(32, 4).cuboid(1.25f, 2.0f, -3.5f, 2.0f, 2.0f, 2.0f),
-                ModelTransform.NONE);
-        root.addChild("mouth",
-                ModelPartBuilder.create().uv(32, 8).cuboid(0.0f, 5.0f, -3.5f, 1.0f, 1.0f, 1.0f),
+                ModelPartBuilder.create().uv(0, 24).cuboid(-5.0f, 1.0f, -5.0f, 10.0f, 8.0f, 10.0f),
                 ModelTransform.NONE);
 
-        return TexturedModelData.of(data, 64, 32);
+        return TexturedModelData.of(data, 64, 64);
     }
 }

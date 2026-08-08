@@ -13,8 +13,8 @@ import net.minecraft.util.math.RotationAxis;
 import net.teyvat.entity.HydroSlimeEntity;
 
 /**
- * Рендер Гидро слайма как ванильного слайма Minecraft: куб с глазами и ртом,
- * squash-and-stretch при прыжках по формуле ванильного рендера.
+ * Рендер Гидро слайма: кастомная модель (два куба 14×10×14 и 10×8×10)
+ * в стиле Hoyocraft, squash-and-stretch при прыжках по формуле ванильного рендера.
  */
 public class HydroSlimeEntityRenderer extends EntityRenderer<HydroSlimeEntity, HydroSlimeRenderState> {
     private static final Identifier TEXTURE = Identifier.of("teyvat", "textures/entity/hydro_slime.png");
@@ -46,7 +46,7 @@ public class HydroSlimeEntityRenderer extends EntityRenderer<HydroSlimeEntity, H
         matrices.push();
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0f - state.yaw));
         // Ванильная формула масштаба слайма: при прыжке тело вытягивается вверх.
-        float i = state.size;
+        float i = state.scale;
         float f = state.stretch / (i * 0.5f + 1.0f);
         float g = 1.0f / (f + 1.0f);
         matrices.scale(g * i, (1.0f / g) * i, g * i);
