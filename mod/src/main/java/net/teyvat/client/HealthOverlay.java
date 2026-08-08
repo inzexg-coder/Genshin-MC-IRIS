@@ -48,10 +48,10 @@ public final class HealthOverlay {
      *  в полтора раза короче и вдвое тоньше полосы героя. */
     private static final int MOB_BAR_W = 23;
     private static final int MOB_BAR_H = 2;
-    /** Сколько тиков полоска видна после последней атаки моба. */
-    private static final long MOB_BAR_VISIBLE_TICKS = 100;
+    /** Сколько тиков полоска видна после последней атаки моба (2 секунды). */
+    private static final long MOB_BAR_VISIBLE_TICKS = 40;
     /** Затухание полоски перед скрытием, тики. */
-    private static final long MOB_BAR_FADE_TICKS = 15;
+    private static final long MOB_BAR_FADE_TICKS = 10;
     /** Попап появления полоски после первой атаки, тики. */
     private static final long MOB_BAR_POP_TICKS = 12;
 
