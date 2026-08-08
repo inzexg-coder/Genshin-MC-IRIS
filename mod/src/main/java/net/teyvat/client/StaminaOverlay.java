@@ -14,8 +14,11 @@ public final class StaminaOverlay {
     private static final double RADIUS = 20;
     /** Толщина дуги. */
     private static final int THICKNESS = 4;
-    /** Отступ дуги от левого и нижнего краёв экрана. */
+    /** Отступ дуги от левого края экрана. */
     private static final int CORNER_MARGIN = 24;
+    /** Отступ нижних точек дуги от низа экрана — на одной высоте с полосой HP
+     *  героя (HealthOverlay.BAR_FROM_BOTTOM). */
+    private static final int ARC_BOTTOM_OFFSET = 10;
     /** Прозрачность заливки (бледная, как и просили). */
     private static final int FILL_ALPHA = 150;
     /** Прозрачность фоновой дорожки. */
@@ -47,9 +50,10 @@ public final class StaminaOverlay {
         }
         float stamina = StaminaController.getStamina();
         int h = context.getScaledWindowHeight();
-        // Дуга в левом нижнем углу экрана, на одном месте.
+        // Дуга в левом нижнем углу экрана, на одном месте — низом на уровне
+        // полосы HP героя (BAR_FROM_BOTTOM = ARC_BOTTOM_OFFSET = 10).
         int cx = (int) (RADIUS + CORNER_MARGIN);
-        int cy = h - (int) RADIUS - CORNER_MARGIN;
+        int cy = h - ARC_BOTTOM_OFFSET;
         boolean low = stamina < LOW_THRESHOLD;
         // Низкая стамина: дуга мигает и становится тёплой.
         float pulse = low ? 0.6f + 0.4f * (float) Math.sin(pulseTicks / 90.0 * Math.PI * 2.0) : 1f;

@@ -5,15 +5,14 @@ import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.Camera;
 import net.minecraft.client.render.RenderTickCounter;
+import net.minecraft.client.world.ClientWorld;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.util.TypeFilter;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
-import net.teyvat.client.paimon.PaimonManager;
 import net.teyvat.config.TeyvatConfig;
 import net.teyvat.mixin.client.GameRendererAccessor;
-import net.teyvat.quest.Quests;
 import org.joml.Matrix3x2fStack;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -34,10 +33,9 @@ import java.util.Map;
 public final class HealthOverlay {
     /** Полоса HP героя — тонкая, внизу по центру, в ширину диалогового окна. */
     private static final int BAR_H = 4;
-    /** Отступ полосы от низа экрана: стоит под окнами диалогов (их низ на h-18). */
-    private static final int BAR_FROM_BOTTOM = 18;
-    /** Равный зазор между полосой HP и числом над ней. */
-    private static final int UI_GAP = 10;
+    /** Отступ полосы от низа экрана: стоит под окнами диалогов и на одной
+     *  высоте с нижними точками дуги стамины (StaminaOverlay.ARC_BOTTOM_OFFSET). */
+    private static final int BAR_FROM_BOTTOM = 10;
 
     /** Радиус, в котором видны полоски HP противников. */
     private static final double MOB_RANGE = 48.0;
@@ -95,14 +93,20 @@ public final class HealthOverlay {
      *  в их ширину. Тёмно-синяя как в заметках, с тонкой золотой рамкой. */
     private static boolean barRevealed;
     private static long revealStartTick;
+    /** Мир, для которого уже сыгран попап появления: при новом спавне играем снова. */
+    private static ClientWorld revealWorld;
 
     private static void renderPlayerBar(DrawContext context, MinecraftClient client) {
-        // До конца обучения с Паймон полосы нет вовсе: в кадре мир и Паймон.
-        if (!QuestStateClient.isCompleted(Quests.MEET_PAIMON) || PaimonManager.isIntroActive()) {
-            barRevealed = false;
+        ClientWorld world = client.world;
+        if (world == null || client.player == null) {
             return;
         }
-        long now = client.world.getTime();
+        // Новый мир (первый спавн или перезаход) — попап появления играется заново.
+        if (world != revealWorld) {
+            revealWorld = world;
+            barRevealed = false;
+        }
+        long now = world.getTime();
         if (!barRevealed) {
             barRevealed = true;
             revealStartTick = now;
@@ -121,7 +125,7 @@ public final class HealthOverlay {
         int barW = dialogueWidth(w);
         int cx = w / 2;
         // Низ окна диалога на h-18: полоса стоит под ним, у самого низа экрана.
-        int cy = h - BAR_FROM_BOTTOM + (int) ((1 - p) * 8);
+        int cy = h - BAR_FROM_BOTTOM + (int) ((1 - p) * 6);
 
         Matrix3x2fStack m = context.getMatrices();
         m.pushMatrix();
@@ -160,10 +164,10 @@ public final class HealthOverlay {
         drawDiamond(context, -halfW + 3, halfH - 1, 1, withAlpha(0xE6FFE9A0, alpha));
         drawDiamond(context, halfW - 3, halfH - 1, 1, withAlpha(0xE6FFE9A0, alpha));
 
-        // Число HP — ровно над полосой, с тем же зазором, по той же оси.
+        // Число HP — справа от полосы, на её высоте (по центру полосы).
         TextRenderer tr = client.textRenderer;
         String text = Math.round(health) + "/" + Math.round(maxHealth);
-        context.drawText(tr, text, -tr.getWidth(text) / 2, -halfH - UI_GAP - 9, withAlpha(0xFFE8C86A, alpha), true);
+        context.drawText(tr, text, halfW + 10, -4, withAlpha(0xFFE8C86A, alpha), true);
         m.popMatrix();
     }
 
