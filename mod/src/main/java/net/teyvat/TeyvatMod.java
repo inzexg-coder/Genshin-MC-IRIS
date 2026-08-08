@@ -101,14 +101,19 @@ public class TeyvatMod implements ModInitializer {
         });
 
         // Числа урона: когда игрок бьёт живую сущность, сервер шлёт ему урон
-        // и уровень моба (для полоски HP над головой).
+        // и уровень моба (для полоски HP над головой). Обработчик не должен
+        // бросать исключений — AFTER_DAMAGE вызывается внутри damage() сущности.
         ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, amount, originalAmount, blocked) -> {
-            if (amount <= 0f || !TeyvatConfig.get().health.show_damage_numbers) {
-                return;
-            }
-            if (source.getAttacker() instanceof ServerPlayerEntity attacker && attacker.isAlive()) {
-                ServerPlayNetworking.send(attacker,
-                        new DamageNumberPayload(entity.getId(), amount, MobLevels.getLevel(entity)));
+            try {
+                if (amount <= 0f || !TeyvatConfig.get().health.show_damage_numbers) {
+                    return;
+                }
+                if (source.getAttacker() instanceof ServerPlayerEntity attacker && attacker.isAlive()) {
+                    ServerPlayNetworking.send(attacker,
+                            new DamageNumberPayload(entity.getId(), amount, MobLevels.getLevel(entity)));
+                }
+            } catch (Exception e) {
+                LOGGER.error("Ошибка отправки числа урона для {}: {}", entity.getType(), e.toString());
             }
         });
 
@@ -116,19 +121,25 @@ public class TeyvatMod implements ModInitializer {
         ServerEntityEvents.ENTITY_LOAD.register(MobLevels::onEntityLoad);
 
         // Опыт за убийства с анти-фармом: прогресс в NBT игрока, тост на экран.
+        // AFTER_DEATH вызывается внутри обработки смерти — ошибка здесь не должна
+        // ломать смерть и выпадение дропа.
         ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {
-            if (entity instanceof PlayerEntity || entity instanceof ArmorStandEntity) {
-                return;
+            try {
+                if (entity instanceof PlayerEntity || entity instanceof ArmorStandEntity) {
+                    return;
+                }
+                if (!(damageSource.getAttacker() instanceof ServerPlayerEntity player)) {
+                    return;
+                }
+                long xp = MobXp.xpForKill(player, entity);
+                if (xp <= 0) {
+                    return;
+                }
+                boolean rankUp = ProgressionStore.addArExp(player, xp);
+                ServerPlayNetworking.send(player, new ExpGainPayload(xp, rankUp));
+            } catch (Exception e) {
+                LOGGER.error("Ошибка начисления опыта за убийство {}: {}", entity.getType(), e.toString());
             }
-            if (!(damageSource.getAttacker() instanceof ServerPlayerEntity player)) {
-                return;
-            }
-            long xp = MobXp.xpForKill(player, entity);
-            if (xp <= 0) {
-                return;
-            }
-            boolean rankUp = ProgressionStore.addArExp(player, xp);
-            ServerPlayNetworking.send(player, new ExpGainPayload(xp, rankUp));
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {

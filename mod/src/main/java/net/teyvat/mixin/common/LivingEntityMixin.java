@@ -43,13 +43,22 @@ public abstract class LivingEntityMixin {
 
     @Inject(method = "readCustomData", at = @At("HEAD"))
     private void teyvat$readLevel(ReadView view, CallbackInfo ci) {
-        this.teyvat$level = view.getInt("teyvat_level", -1);
+        try {
+            this.teyvat$level = view.getInt("teyvat_level", -1);
+        } catch (Exception ignored) {
+            // повреждённый/чужой NBT не должен ломать загрузку сущности
+            this.teyvat$level = -1;
+        }
     }
 
     @Inject(method = "writeCustomData", at = @At("HEAD"))
     private void teyvat$writeLevel(WriteView view, CallbackInfo ci) {
-        if (this.teyvat$level >= 0) {
-            view.putInt("teyvat_level", this.teyvat$level);
+        try {
+            if (this.teyvat$level >= 0) {
+                view.putInt("teyvat_level", this.teyvat$level);
+            }
+        } catch (Exception ignored) {
+            // сохранение уровня не должно ломать сохранение сущности
         }
     }
 }

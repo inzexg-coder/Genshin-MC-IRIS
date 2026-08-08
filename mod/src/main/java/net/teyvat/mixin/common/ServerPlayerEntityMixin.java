@@ -25,16 +25,28 @@ public abstract class ServerPlayerEntityMixin {
 
     @Inject(method = "readCustomData", at = @At("HEAD"))
     private void teyvat$readProgression(ReadView view, CallbackInfo ci) {
-        ProgressionStore.onRead((ServerPlayerEntity) (Object) this, view);
+        try {
+            ProgressionStore.onRead((ServerPlayerEntity) (Object) this, view);
+        } catch (Exception ignored) {
+            // ошибка прогрессии не должна ломать вход игрока в мир
+        }
     }
 
     @Inject(method = "writeCustomData", at = @At("HEAD"))
     private void teyvat$writeProgression(WriteView view, CallbackInfo ci) {
-        ProgressionStore.onWrite((ServerPlayerEntity) (Object) this, view);
+        try {
+            ProgressionStore.onWrite((ServerPlayerEntity) (Object) this, view);
+        } catch (Exception ignored) {
+            // ошибка прогрессии не должна ломать сохранение игрока
+        }
     }
 
     @Inject(method = "copyFrom", at = @At("HEAD"))
     private void teyvat$copyProgression(ServerPlayerEntity oldPlayer, boolean alive, CallbackInfo ci) {
-        ProgressionStore.onCopy((ServerPlayerEntity) (Object) this, oldPlayer);
+        try {
+            ProgressionStore.onCopy((ServerPlayerEntity) (Object) this, oldPlayer);
+        } catch (Exception ignored) {
+            // смерть/ресурс-спавн не должен ломаться из-за прогрессии
+        }
     }
 }

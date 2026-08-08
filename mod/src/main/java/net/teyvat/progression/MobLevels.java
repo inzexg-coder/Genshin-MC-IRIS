@@ -5,6 +5,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
+import net.teyvat.TeyvatMod;
 import net.teyvat.config.TeyvatConfig;
 import net.teyvat.mixin.common.LivingEntityLevelAccessor;
 
@@ -16,20 +17,27 @@ import net.teyvat.mixin.common.LivingEntityLevelAccessor;
 public final class MobLevels {
     private MobLevels() {}
 
-    /** Вызывается при загрузке сущности в серверный мир: назначает уровень, если его нет. */
+    /** Вызывается при загрузке сущности в серверный мир: назначает уровень, если его нет.
+     *  Никогда не должен бросать исключений: этот хук выполняется внутри загрузки
+     *  сущности в мир (startTracking), и любая ошибка здесь ломает инициализацию
+     *  сущности — моб не попадёт в список тика и замрёт. */
     public static void onEntityLoad(Entity entity, ServerWorld world) {
-        if (!(entity instanceof LivingEntity living) || entity instanceof PlayerEntity) {
-            return;
+        try {
+            if (!(entity instanceof LivingEntity living) || entity instanceof PlayerEntity) {
+                return;
+            }
+            TeyvatConfig.MobLevels cfg = TeyvatConfig.get().mob_levels;
+            if (cfg == null || !cfg.enabled) {
+                return;
+            }
+            LivingEntityLevelAccessor acc = (LivingEntityLevelAccessor) living;
+            if (acc.teyvat$getLevelField() >= 0) {
+                return;
+            }
+            acc.teyvat$setLevelField(computeLevel(world, entity.getBlockPos()));
+        } catch (Exception e) {
+            TeyvatMod.LOGGER.error("Не удалось назначить уровень мобу {}: {}", entity.getType(), e.toString());
         }
-        TeyvatConfig.MobLevels cfg = TeyvatConfig.get().mob_levels;
-        if (!cfg.enabled) {
-            return;
-        }
-        LivingEntityLevelAccessor acc = (LivingEntityLevelAccessor) living;
-        if (acc.teyvat$getLevelField() >= 0) {
-            return;
-        }
-        acc.teyvat$setLevelField(computeLevel(world, entity.getBlockPos()));
     }
 
     /** Формула уровня: базовый + прирост за блок расстояния от спавна мира. */
@@ -42,18 +50,23 @@ public final class MobLevels {
 
     /** Уровень сущности для клиентского отображения (полоски HP). Если уровень
      *  ещё не назначен (например, моб появился без события загрузки) — назначаем
-     *  лениво при первом ударе по нему. */
+     *  лениво при первом ударе по нему. Вызывается из AFTER_DAMAGE, поэтому не
+     *  должен бросать исключений: иначе прервётся обработка урона. */
     public static int getLevel(LivingEntity entity) {
-        LivingEntityLevelAccessor acc = (LivingEntityLevelAccessor) entity;
-        int level = acc.teyvat$getLevelField();
-        if (level >= 0) {
-            return level;
+        try {
+            LivingEntityLevelAccessor acc = (LivingEntityLevelAccessor) entity;
+            int level = acc.teyvat$getLevelField();
+            if (level >= 0) {
+                return level;
+            }
+            if (entity.getEntityWorld() instanceof ServerWorld serverWorld) {
+                level = computeLevel(serverWorld, entity.getBlockPos());
+                acc.teyvat$setLevelField(level);
+                return level;
+            }
+            return TeyvatConfig.get().mob_levels.base;
+        } catch (Exception e) {
+            return TeyvatConfig.get().mob_levels.base;
         }
-        if (entity.getEntityWorld() instanceof ServerWorld serverWorld) {
-            level = computeLevel(serverWorld, entity.getBlockPos());
-            acc.teyvat$setLevelField(level);
-            return level;
-        }
-        return TeyvatConfig.get().mob_levels.base;
     }
 }
