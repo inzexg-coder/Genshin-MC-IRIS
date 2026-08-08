@@ -32,13 +32,13 @@ import java.util.Map;
 public final class HealthOverlay {
     /** Центр дуги стамины (см. StaminaOverlay: RADIUS 20 + отступ 24). */
     private static final int ARC_CX = 44;
-    /** Верх дуги от низа экрана (RADIUS + отступ + RADIUS = 20 + 24 + 20). */
-    private static final int ARC_TOP_FROM_BOTTOM = 64;
-    /** Полоса HP — тонкая, по ширине как дуга стамины, ровно над ней. */
+    /** Верх дуги от низа экрана: концы дуги на уровне центра (RADIUS + отступ). */
+    private static final int ARC_TOP_FROM_BOTTOM = 44;
+    /** Полоса HP — тонкая, по ширине как дуга стамины, прямо над ней. */
     private static final int BAR_W = 44;
     private static final int BAR_H = 6;
-    /** Зазор между дугой стамины и полосой HP. */
-    private static final int BAR_GAP = 6;
+    /** Равный зазор между дугой стамины, полосой HP и текстом над ней. */
+    private static final int UI_GAP = 5;
 
     /** Радиус, в котором видны полоски HP противников. */
     private static final double MOB_RANGE = 48.0;
@@ -91,35 +91,42 @@ public final class HealthOverlay {
         }
     }
 
-    /** Полоса HP героя: золотисто-синяя, как дуга стамины — тонкая, ровно над ней.
-     *  Золотое заполнение повторяет золото астролябия Селестии, по краям — узоры. */
+    /** Полоса HP героя: синее заполнение с тонкой золотой узорчатой границей.
+     *  Композиция слева внизу: дуга стамины, над ней полоса HP, над ней число —
+     *  все с одинаковым зазором, ничего не наезжает на диалоговое окно. */
     private static void renderPlayerBar(DrawContext context, MinecraftClient client) {
         int h = context.getScaledWindowHeight();
         int x0 = ARC_CX - BAR_W / 2;
-        int y0 = h - ARC_TOP_FROM_BOTTOM - BAR_GAP - BAR_H;
+        int y0 = h - ARC_TOP_FROM_BOTTOM - UI_GAP - BAR_H;
         float health = client.player.getHealth();
         float maxHealth = client.player.getMaxHealth();
         int fill = (int) (BAR_W * Math.max(0f, Math.min(1f, health / maxHealth)));
 
-        // Панель с золотой окантовкой (стиль заметок путешественника).
-        context.fill(x0 - 1, y0 - 1, x0 + BAR_W + 1, y0 + BAR_H + 1, 0xDCE8C86A);
+        // Синяя панель: небесный градиент поверх тёмно-синей подложки.
         context.fill(x0, y0, x0 + BAR_W, y0 + BAR_H, 0xE614202E);
-
-        // Золотое заполнение: градиент, светлее сверху.
         if (fill > 0) {
-            context.fill(x0, y0, x0 + fill, y0 + BAR_H / 2, 0xE6F2D98C);
-            context.fill(x0, y0 + BAR_H / 2, x0 + fill, y0 + BAR_H, 0xE6D9A84E);
+            context.fill(x0, y0, x0 + fill, y0 + BAR_H / 2, 0xE679B8FF);
+            context.fill(x0, y0 + BAR_H / 2, x0 + fill, y0 + BAR_H, 0xE62E6FD4);
         }
         // Блик по верхнему краю заполнения.
         context.fill(x0, y0, x0 + fill, y0 + 1, 0xC0FFFFFF);
+
+        // Тонкая золотая узорчатая граница: штрихи по верху и низу, сплошные бока.
+        for (int x = x0; x < x0 + BAR_W; x += 4) {
+            context.fill(x, y0 - 1, Math.min(x + 3, x0 + BAR_W + 1), y0, 0xDCE8C86A);
+            context.fill(x, y0 + BAR_H, Math.min(x + 3, x0 + BAR_W + 1), y0 + BAR_H + 1, 0xDCE8C86A);
+        }
+        context.fill(x0 - 1, y0, x0, y0 + BAR_H, 0xDCE8C86A);
+        context.fill(x0 + BAR_W, y0, x0 + BAR_W + 1, y0 + BAR_H, 0xDCE8C86A);
 
         // Узоры: маленькие золотые ромбики по краям панели.
         drawDiamond(context, x0 + 3, y0 + BAR_H / 2, 2, 0xE6E8C86A);
         drawDiamond(context, x0 + BAR_W - 3, y0 + BAR_H / 2, 2, 0xE6E8C86A);
 
+        // Число HP — ровно над полосой, с тем же зазором, по той же оси.
         TextRenderer tr = client.textRenderer;
         String text = Math.round(health) + "/" + Math.round(maxHealth);
-        context.drawText(tr, text, x0 + BAR_W + 8, y0 + (BAR_H - 9) / 2, 0xFFE8C86A, true);
+        context.drawText(tr, text, x0 + (BAR_W - tr.getWidth(text)) / 2, y0 - UI_GAP - 9, 0xFFE8C86A, true);
     }
 
     /** Маленький ромб-орнамент (повёрнутый квадрат) в стиле Селестии. */
