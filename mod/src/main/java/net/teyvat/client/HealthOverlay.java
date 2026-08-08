@@ -39,9 +39,10 @@ public final class HealthOverlay {
 
     /** Радиус, в котором видны полоски HP противников. */
     private static final double MOB_RANGE = 48.0;
-    /** Полоска HP противника — маленькая, над головой, в золотой рамке. */
-    private static final int MOB_BAR_W = 34;
-    private static final int MOB_BAR_H = 4;
+    /** Полоска HP противника — маленькая, над головой, в золотой рамке:
+     *  в полтора раза короче и вдвое тоньше полосы героя. */
+    private static final int MOB_BAR_W = 23;
+    private static final int MOB_BAR_H = 2;
 
     /** Время жизни числа урона, тики. */
     private static final long NUMBER_LIFE_TICKS = 70;
@@ -238,12 +239,12 @@ public final class HealthOverlay {
                 // Золотая рамка с ромбиками по краям — витиеватая позолота.
                 context.fill(x0 - 1, y0 - 1, x0 + MOB_BAR_W + 1, y0 + MOB_BAR_H + 1, 0xCCE8C86A);
                 context.fill(x0, y0, x0 + MOB_BAR_W, y0 + MOB_BAR_H, 0xCC070B14);
-                drawDiamond(context, x0, y0 + MOB_BAR_H / 2, 2, 0xDCE8C86A);
-                drawDiamond(context, x0 + MOB_BAR_W, y0 + MOB_BAR_H / 2, 2, 0xDCE8C86A);
+                drawDiamond(context, x0, y0 + MOB_BAR_H / 2, 1, 0xDCE8C86A);
+                drawDiamond(context, x0 + MOB_BAR_W, y0 + MOB_BAR_H / 2, 1, 0xDCE8C86A);
                 int fillW = (int) ((MOB_BAR_W - 2) * frac);
                 if (fillW > 0) {
                     // Полное HP — тёмно-синий как в заметках, с потерей HP голубеет.
-                    context.fill(x0 + 1, y0 + 1, x0 + 1 + fillW, y0 + MOB_BAR_H - 1, hpBlue(frac));
+                    context.fill(x0 + 1, y0 + 1, x0 + 1 + fillW, y0 + MOB_BAR_H, hpBlue(frac));
                 }
             }
         }
