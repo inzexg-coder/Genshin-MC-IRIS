@@ -10,8 +10,10 @@ import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.util.TypeFilter;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
+import net.teyvat.client.paimon.PaimonManager;
 import net.teyvat.config.TeyvatConfig;
 import net.teyvat.mixin.client.GameRendererAccessor;
+import net.teyvat.quest.Quests;
 import org.joml.Matrix3x2fStack;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
@@ -24,28 +26,24 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Здоровье как в Genshin: слева внизу всегда видна полоса HP героя
- * (над дугой стамины), над головами противников — полоски их здоровья,
- * а при ударе всплывают числа урона. Всё рисуется поверх мира, панель
- * в стиле заметок Тейвата (тёмно-синяя с золотом).
+ * Здоровье как в Genshin: внизу по центру видна полоса HP героя (в ширину
+ * диалоговых окон, появляется после обучения с Паймон), над головами
+ * противников — полоски их здоровья, а при ударе всплывают числа урона.
+ * Всё рисуется поверх мира, панель в стиле заметок Тейвата (тёмно-синяя с золотом).
  */
 public final class HealthOverlay {
-    /** Центр дуги стамины (см. StaminaOverlay: RADIUS 20 + отступ 24). */
-    private static final int ARC_CX = 44;
-    /** Вершина дуги стамины от низа экрана: центр дуги на h-44, радиус 20,
-     *  дуга выгибается вверх — верхний край пика на h-44-20-2 = h-66. */
-    private static final int ARC_PEAK_FROM_BOTTOM = 66;
-    /** Полоса HP — тонкая, по ширине как дуга стамины, ровно над её пиком. */
-    private static final int BAR_W = 44;
-    private static final int BAR_H = 6;
-    /** Равный зазор между дугой стамины, полосой HP и текстом над ней. */
+    /** Полоса HP героя — тонкая, внизу по центру, в ширину диалогового окна. */
+    private static final int BAR_H = 4;
+    /** Отступ полосы от низа экрана: стоит под окнами диалогов (их низ на h-18). */
+    private static final int BAR_FROM_BOTTOM = 18;
+    /** Равный зазор между полосой HP и числом над ней. */
     private static final int UI_GAP = 10;
 
     /** Радиус, в котором видны полоски HP противников. */
     private static final double MOB_RANGE = 48.0;
     /** Полоска HP противника — маленькая, над головой, в золотой рамке. */
-    private static final int MOB_BAR_W = 26;
-    private static final int MOB_BAR_H = 5;
+    private static final int MOB_BAR_W = 34;
+    private static final int MOB_BAR_H = 4;
 
     /** Время жизни числа урона, тики. */
     private static final long NUMBER_LIFE_TICKS = 70;
@@ -92,47 +90,92 @@ public final class HealthOverlay {
         }
     }
 
-    /** Полоса HP героя: тёмно-синяя как в заметках путешественника, с тонкой
-     *  золотой узорчатой границей. Композиция слева внизу: дуга стамины,
-     *  над ней полоса HP, над ней число — все с одинаковым зазором. */
+    /** Полоса HP героя: появляется только после завершения обучения с Паймон
+     *  и выплывает попапом. Стоит внизу по центру экрана — под окнами диалогов,
+     *  в их ширину. Тёмно-синяя как в заметках, с тонкой золотой рамкой. */
+    private static boolean barRevealed;
+    private static long revealStartTick;
+
     private static void renderPlayerBar(DrawContext context, MinecraftClient client) {
+        // До конца обучения с Паймон полосы нет вовсе: в кадре мир и Паймон.
+        if (!QuestStateClient.isCompleted(Quests.MEET_PAIMON) || PaimonManager.isIntroActive()) {
+            barRevealed = false;
+            return;
+        }
+        long now = client.world.getTime();
+        if (!barRevealed) {
+            barRevealed = true;
+            revealStartTick = now;
+        }
+        int age = (int) (now - revealStartTick);
+        // Попап: полоса вырастает от центра с лёгким «перелётом» и подъёмом вверх.
+        double p = Math.min(1.0, age / 14.0);
+        double scale = 0.7 + 0.3 * p;
+        if (p > 0.6) {
+            scale += 0.08 * Math.sin((p - 0.6) / 0.4 * Math.PI);
+        }
+        float alpha = Math.min(1f, age / 5f);
+
+        int w = context.getScaledWindowWidth();
         int h = context.getScaledWindowHeight();
-        int x0 = ARC_CX - BAR_W / 2;
-        int y0 = h - ARC_PEAK_FROM_BOTTOM - UI_GAP - BAR_H;
+        int barW = dialogueWidth(w);
+        int cx = w / 2;
+        // Низ окна диалога на h-18: полоса стоит под ним, у самого низа экрана.
+        int cy = h - BAR_FROM_BOTTOM + (int) ((1 - p) * 8);
+
+        Matrix3x2fStack m = context.getMatrices();
+        m.pushMatrix();
+        m.translate(cx, cy);
+        m.scale((float) scale, (float) scale);
+
         float health = client.player.getHealth();
         float maxHealth = client.player.getMaxHealth();
-        int fill = (int) (BAR_W * Math.max(0f, Math.min(1f, health / maxHealth)));
+        int halfW = barW / 2;
+        int halfH = BAR_H / 2;
+        int fill = (int) (barW * Math.max(0f, Math.min(1f, health / maxHealth)));
 
         // Тёмно-синяя подложка (глубже цвета панели заметок).
-        context.fill(x0, y0, x0 + BAR_W, y0 + BAR_H, 0xFF070B14);
+        context.fill(-halfW, -halfH, halfW, halfH, withAlpha(0xFF070B14, alpha));
         if (fill > 0) {
             // Заполнение в цвете заметок: чуть светлее сверху, темнее снизу.
-            context.fill(x0, y0, x0 + fill, y0 + BAR_H / 2, 0xE61B2338);
-            context.fill(x0, y0 + BAR_H / 2, x0 + fill, y0 + BAR_H, 0xE614202E);
+            context.fill(-halfW, -halfH, -halfW + fill, 0, withAlpha(0xE61B2338, alpha));
+            context.fill(-halfW, 0, -halfW + fill, halfH, withAlpha(0xE614202E, alpha));
+            // Тонкий стальной блик по верхнему краю заполнения.
+            context.fill(-halfW, -halfH, -halfW + fill, -halfH + 1, withAlpha(0x50A8C4E8, alpha));
         }
-        // Тонкий стальной блик по верхнему краю заполнения.
-        context.fill(x0, y0, x0 + fill, y0 + 1, 0x50A8C4E8);
 
         // Витиеватая золотая рамка: штрихи по верху и низу, сплошные бока.
-        for (int x = x0; x < x0 + BAR_W; x += 4) {
-            context.fill(x, y0 - 1, Math.min(x + 3, x0 + BAR_W + 1), y0, 0xDCE8C86A);
-            context.fill(x, y0 + BAR_H, Math.min(x + 3, x0 + BAR_W + 1), y0 + BAR_H + 1, 0xDCE8C86A);
+        for (int x = -halfW; x < halfW; x += 4) {
+            context.fill(x, -halfH - 1, Math.min(x + 3, halfW + 1), -halfH, withAlpha(0xDCE8C86A, alpha));
+            context.fill(x, halfH, Math.min(x + 3, halfW + 1), halfH + 1, withAlpha(0xDCE8C86A, alpha));
         }
-        context.fill(x0 - 1, y0, x0, y0 + BAR_H, 0xDCE8C86A);
-        context.fill(x0 + BAR_W, y0, x0 + BAR_W + 1, y0 + BAR_H, 0xDCE8C86A);
+        context.fill(-halfW - 1, -halfH, -halfW, halfH, withAlpha(0xDCE8C86A, alpha));
+        context.fill(halfW, -halfH, halfW + 1, halfH, withAlpha(0xDCE8C86A, alpha));
 
         // Позолота: ромбики по краям и в углах панели.
-        drawDiamond(context, x0 + 3, y0 + BAR_H / 2, 2, 0xE6E8C86A);
-        drawDiamond(context, x0 + BAR_W - 3, y0 + BAR_H / 2, 2, 0xE6E8C86A);
-        drawDiamond(context, x0 + 3, y0 + 1, 1, 0xE6FFE9A0);
-        drawDiamond(context, x0 + BAR_W - 3, y0 + 1, 1, 0xE6FFE9A0);
-        drawDiamond(context, x0 + 3, y0 + BAR_H - 1, 1, 0xE6FFE9A0);
-        drawDiamond(context, x0 + BAR_W - 3, y0 + BAR_H - 1, 1, 0xE6FFE9A0);
+        drawDiamond(context, -halfW + 3, 0, 2, withAlpha(0xE6E8C86A, alpha));
+        drawDiamond(context, halfW - 3, 0, 2, withAlpha(0xE6E8C86A, alpha));
+        drawDiamond(context, -halfW + 3, -halfH + 1, 1, withAlpha(0xE6FFE9A0, alpha));
+        drawDiamond(context, halfW - 3, -halfH + 1, 1, withAlpha(0xE6FFE9A0, alpha));
+        drawDiamond(context, -halfW + 3, halfH - 1, 1, withAlpha(0xE6FFE9A0, alpha));
+        drawDiamond(context, halfW - 3, halfH - 1, 1, withAlpha(0xE6FFE9A0, alpha));
 
         // Число HP — ровно над полосой, с тем же зазором, по той же оси.
         TextRenderer tr = client.textRenderer;
         String text = Math.round(health) + "/" + Math.round(maxHealth);
-        context.drawText(tr, text, x0 + (BAR_W - tr.getWidth(text)) / 2, y0 - UI_GAP - 9, 0xFFE8C86A, true);
+        context.drawText(tr, text, -tr.getWidth(text) / 2, -halfH - UI_GAP - 9, withAlpha(0xFFE8C86A, alpha), true);
+        m.popMatrix();
+    }
+
+    /** Ширина полосы HP — как ширина текста окна диалога (та же формула). */
+    private static int dialogueWidth(int screenW) {
+        return Math.max(160, Math.min(440, (int) (screenW * 0.62f) - 44));
+    }
+
+    /** Наложить прозрачность на цвет (ARGB). */
+    private static int withAlpha(int argb, float alpha) {
+        int a = (int) ((argb >>> 24) * alpha);
+        return (a << 24) | (argb & 0x00FFFFFF);
     }
 
     /** Цвет полоски HP противника: тёмно-синий при полном здоровье,

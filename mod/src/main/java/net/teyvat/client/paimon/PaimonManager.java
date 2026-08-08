@@ -422,6 +422,9 @@ public final class PaimonManager {
     /** Квест «Познакомиться с Паймон»: сообщаем серверу, что знакомство завершилось,
      *  и показываем всплывающее окно с золотым текстом и символом выполненного задания. */
     private static void reportQuestMeetPaimon() {
+        // Локально помечаем квест выполненным сразу: полоса HP героя и другие
+        // элементы появляются после конца знакомства, не дожидаясь ответа сервера.
+        QuestStateClient.markCompleted(Quests.MEET_PAIMON);
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.getNetworkHandler() != null) {
             ClientPlayNetworking.send(new QuestEventPayload(Quests.MEET_PAIMON));
