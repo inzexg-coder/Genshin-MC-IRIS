@@ -38,7 +38,7 @@ public final class HealthOverlay {
     private static final int BAR_W = 44;
     private static final int BAR_H = 6;
     /** Равный зазор между дугой стамины, полосой HP и текстом над ней. */
-    private static final int UI_GAP = 5;
+    private static final int UI_GAP = 10;
 
     /** Радиус, в котором видны полоски HP противников. */
     private static final double MOB_RANGE = 48.0;
@@ -91,9 +91,9 @@ public final class HealthOverlay {
         }
     }
 
-    /** Полоса HP героя: синее заполнение с тонкой золотой узорчатой границей.
-     *  Композиция слева внизу: дуга стамины, над ней полоса HP, над ней число —
-     *  все с одинаковым зазором, ничего не наезжает на диалоговое окно. */
+    /** Полоса HP героя: тёмно-синяя как в заметках путешественника, с тонкой
+     *  золотой узорчатой границей. Композиция слева внизу: дуга стамины,
+     *  над ней полоса HP, над ней число — все с одинаковым зазором. */
     private static void renderPlayerBar(DrawContext context, MinecraftClient client) {
         int h = context.getScaledWindowHeight();
         int x0 = ARC_CX - BAR_W / 2;
@@ -102,14 +102,15 @@ public final class HealthOverlay {
         float maxHealth = client.player.getMaxHealth();
         int fill = (int) (BAR_W * Math.max(0f, Math.min(1f, health / maxHealth)));
 
-        // Синяя панель: небесный градиент поверх тёмно-синей подложки.
-        context.fill(x0, y0, x0 + BAR_W, y0 + BAR_H, 0xE614202E);
+        // Тёмно-синяя подложка (глубже цвета панели заметок).
+        context.fill(x0, y0, x0 + BAR_W, y0 + BAR_H, 0xFF070B14);
         if (fill > 0) {
-            context.fill(x0, y0, x0 + fill, y0 + BAR_H / 2, 0xE679B8FF);
-            context.fill(x0, y0 + BAR_H / 2, x0 + fill, y0 + BAR_H, 0xE62E6FD4);
+            // Заполнение в цвете заметок: чуть светлее сверху, темнее снизу.
+            context.fill(x0, y0, x0 + fill, y0 + BAR_H / 2, 0xE61B2338);
+            context.fill(x0, y0 + BAR_H / 2, x0 + fill, y0 + BAR_H, 0xE614202E);
         }
-        // Блик по верхнему краю заполнения.
-        context.fill(x0, y0, x0 + fill, y0 + 1, 0xC0FFFFFF);
+        // Тонкий стальной блик по верхнему краю заполнения.
+        context.fill(x0, y0, x0 + fill, y0 + 1, 0x50A8C4E8);
 
         // Тонкая золотая узорчатая граница: штрихи по верху и низу, сплошные бока.
         for (int x = x0; x < x0 + BAR_W; x += 4) {
@@ -127,6 +128,16 @@ public final class HealthOverlay {
         TextRenderer tr = client.textRenderer;
         String text = Math.round(health) + "/" + Math.round(maxHealth);
         context.drawText(tr, text, x0 + (BAR_W - tr.getWidth(text)) / 2, y0 - UI_GAP - 9, 0xFFE8C86A, true);
+    }
+
+    /** Цвет полоски HP противника: тёмно-синий при полном здоровье,
+     *  голубеет по мере потери HP (синяя => голубая). */
+    private static int hpBlue(float frac) {
+        float t = 1f - Math.max(0f, Math.min(1f, frac));
+        int r = (int) (0x1B + (0x79 - 0x1B) * t);
+        int g = (int) (0x23 + (0xB8 - 0x23) * t);
+        int b = (int) (0x38 + (0xFF - 0x38) * t);
+        return (0xE6 << 24) | (r << 16) | (g << 8) | b;
     }
 
     /** Маленький ромб-орнамент (повёрнутый квадрат) в стиле Селестии. */
@@ -172,11 +183,12 @@ public final class HealthOverlay {
                 float frac = Math.max(0f, Math.min(1f, mob.getHealth() / mob.getMaxHealth()));
                 int x0 = (int) (screen.x - MOB_BAR_W / 2.0);
                 int y0 = (int) screen.y;
-                context.fill(x0 - 1, y0 - 1, x0 + MOB_BAR_W + 1, y0 + MOB_BAR_H + 1, 0xB0000000);
-                context.fill(x0, y0, x0 + MOB_BAR_W, y0 + MOB_BAR_H, 0xC01B2338);
+                context.fill(x0 - 1, y0 - 1, x0 + MOB_BAR_W + 1, y0 + MOB_BAR_H + 1, 0xB0070B14);
+                context.fill(x0, y0, x0 + MOB_BAR_W, y0 + MOB_BAR_H, 0xC014202E);
                 int fillW = (int) (MOB_BAR_W * frac);
                 if (fillW > 0) {
-                    context.fill(x0, y0, x0 + fillW, y0 + MOB_BAR_H, 0xE6E0453A);
+                    // Полное HP — тёмно-синий как в заметках, с потерей HP голубеет.
+                    context.fill(x0, y0, x0 + fillW, y0 + MOB_BAR_H, hpBlue(frac));
                 }
             }
         }
