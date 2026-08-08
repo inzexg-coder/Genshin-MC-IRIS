@@ -56,6 +56,10 @@ public final class TeyvatConfig {
     /** Уровни мобов: растут с расстоянием от спавна мира. */
     public MobLevels mob_levels = new MobLevels();
 
+    /** Ограничения мира на тестовый период: без ломания блоков, без атак
+     *  мирных мобов, без спавна монстров. */
+    public World world = new World();
+
     /** Настройки зума. */
     public static class Zoom {
         /** Множитель FOV при полном зуме: меньше = сильнее (0.2 = пятикратный зум). */
@@ -152,6 +156,16 @@ public final class TeyvatConfig {
         public int cap = 90;
     }
 
+    /** Ограничения мира (временные, для тестов). */
+    public static class World {
+        /** Запретить игрокам ломать блоки вообще. */
+        public boolean no_block_breaking = true;
+        /** Запретить игрокам атаковать мирных мобов. */
+        public boolean no_attack_peaceful = true;
+        /** Спавнить только мирных мобов (без враждебных и нейтральных). */
+        public boolean only_peaceful_spawns = true;
+    }
+
     private static TeyvatConfig instance;
 
     public static TeyvatConfig get() {
@@ -189,6 +203,9 @@ public final class TeyvatConfig {
                     }
                     if (cfg.mob_levels == null) {
                         cfg.mob_levels = new MobLevels();
+                    }
+                    if (cfg.world == null) {
+                        cfg.world = new World();
                     }
                 }
             } catch (Exception ignored) {

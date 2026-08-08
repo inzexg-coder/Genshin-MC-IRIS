@@ -13,6 +13,9 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.decoration.ArmorStandEntity;
+import net.minecraft.entity.passive.FishEntity;
+import net.minecraft.entity.passive.PassiveEntity;
+import net.minecraft.entity.passive.SquidEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -62,6 +65,13 @@ public class TeyvatMod implements ModInitializer {
     /** Радиус (в блоках), в котором игроку приходят уровни мобов (чуть больше радиуса отрисовки). */
     private static final double MOB_LEVEL_SYNC_RANGE = 64.0;
 
+    /** Мирные мобы: домашние/пассивные животные и водные создания. */
+    private static boolean isPeacefulMob(LivingEntity entity) {
+        return entity instanceof PassiveEntity
+                || entity instanceof FishEntity
+                || entity instanceof SquidEntity;
+    }
+
     @Override
     public void onInitialize() {
         TeyvatOceanEdge.register();
@@ -107,6 +117,23 @@ public class TeyvatMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(QuestEventPayload.ID, (payload, context) -> {
             if (context.player() != null) {
                 TeyvatQuests.complete(context.player(), payload.questId());
+            }
+        });
+
+        // Запрет атаковать мирных мобов (по флагу world.no_attack_peaceful):
+        // отменяем урон, если его источник — игрок (включая стрелы и т.п.).
+        // ALLOW_DAMAGE вызывается внутри damage() — не должен бросать исключений.
+        ServerLivingEntityEvents.ALLOW_DAMAGE.register((entity, source, amount) -> {
+            try {
+                if (!TeyvatConfig.get().world.no_attack_peaceful) {
+                    return true;
+                }
+                if (source.getAttacker() instanceof PlayerEntity || source.getSource() instanceof PlayerEntity) {
+                    return !isPeacefulMob(entity);
+                }
+                return true;
+            } catch (Exception e) {
+                return true;
             }
         });
 

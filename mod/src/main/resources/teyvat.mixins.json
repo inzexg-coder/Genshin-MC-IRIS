@@ -25,6 +25,7 @@
     "common.HungerManagerMixin",
     "common.LivingEntityMixin",
     "common.ServerPlayerEntityMixin",
+    "common.SpawnHelperMixin",
     "common.RegenerationStatusEffectMixin",
     "common.InstantHealthOrDamageStatusEffectMixin"
   ]

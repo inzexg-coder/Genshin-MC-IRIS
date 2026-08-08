@@ -1,5 +1,6 @@
 package net.teyvat.client.paimon;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.OverlayTexture;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.render.VertexConsumer;
@@ -20,9 +21,16 @@ import java.util.List;
  */
 public class PaimonEntityRenderer extends EntityRenderer<PaimonEntity, PaimonRenderState> {
     private static final Identifier TEXTURE = Identifier.of("teyvat", "textures/entity/paimon.png");
-    /** Мягкая светящаяся текстура для золотого шлейфа. */
+    /** Мягкая светящаяся текстура для шлейфа. */
     private static final Identifier TRAIL_GLOW = Identifier.of("teyvat", "textures/misc/trail_glow.png");
     private static final float SCALE = 0.65f;
+
+    /** День — золотой шлейф. */
+    private static final float[] COLOR_DAY = {1.0f, 0.92f, 0.70f};
+    /** Ночь — голубой шлейф. */
+    private static final float[] COLOR_NIGHT = {0.45f, 0.68f, 1.0f};
+    /** Закат и рассвет — розовый шлейф. */
+    private static final float[] COLOR_DUSK = {1.0f, 0.55f, 0.75f};
 
     private final PaimonEntityModel model;
 
@@ -61,8 +69,9 @@ public class PaimonEntityRenderer extends EntityRenderer<PaimonEntity, PaimonRen
         if (state.trailBase != null && !state.trail.isEmpty()) {
             Vec3d camLocal = cameraState.pos.subtract(state.trailBase);
             RenderLayer trailLayer = RenderLayer.getEntityTranslucentEmissive(TRAIL_GLOW);
+            float[] rgb = trailColor();
             queue.submitCustom(matrices, trailLayer, (entry, consumer) ->
-                    drawGoldenTrail(entry, consumer, camLocal, state.trail));
+                    drawTrailRibbon(entry, consumer, camLocal, state.trail, rgb));
         }
         matrices.push();
         matrices.translate(0.0f, 1.0f, 0.0f);
@@ -86,16 +95,77 @@ public class PaimonEntityRenderer extends EntityRenderer<PaimonEntity, PaimonRen
         super.render(state, matrices, queue, cameraState);
     }
 
-    /** Светящиеся золотые пятна вдоль пути: свежие — ярче и крупнее. */
-    private static void drawGoldenTrail(MatrixStack.Entry entry, VertexConsumer consumer,
-                                        Vec3d camLocal, List<Vec3d> trail) {
-        int count = trail.size();
-        for (int i = 0; i < count; i++) {
-            float t = (i + 1) / (float) count;
-            float size = 0.08f + 0.22f * t;
-            float alpha = 0.05f + 0.27f * t;
-            drawBillboard(entry, consumer, camLocal, trail.get(i), size, alpha);
+    /** Цвет шлейфа по времени суток: день — золотой, закат/рассвет — розовый, ночь — голубой. */
+    private static float[] trailColor() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null) {
+            return COLOR_DAY;
         }
+        long t = ((client.world.getTimeOfDay() % 24000L) + 24000L) % 24000L;
+        if (t >= 13500L && t < 22500L) {
+            return COLOR_NIGHT;
+        }
+        if (t >= 11500L && t < 13500L) {
+            return COLOR_DUSK;
+        }
+        if (t >= 22500L || t < 1000L) {
+            return COLOR_DUSK;
+        }
+        return COLOR_DAY;
+    }
+
+    /** Непрерывный шлейф-лента: точки пути соединяются целостной полосой,
+     *  повёрнутой к камере, с плавным сужением от хвоста к Паймон.
+     *  Длинные сегменты подразбиваются, чтобы лента была гладкой. */
+    private static void drawTrailRibbon(MatrixStack.Entry entry, VertexConsumer consumer,
+                                        Vec3d camLocal, List<Vec3d> trail, float[] rgb) {
+        int count = trail.size();
+        if (count < 2) {
+            return;
+        }
+        for (int i = 0; i < count - 1; i++) {
+            Vec3d a = trail.get(i);
+            Vec3d b = trail.get(i + 1);
+            Vec3d seg = b.subtract(a);
+            double len = seg.length();
+            if (len < 1.0e-5) {
+                continue;
+            }
+            Vec3d dir = seg.multiply(1.0 / len);
+            Vec3d right = dir.crossProduct(camLocal.subtract(a));
+            if (right.lengthSquared() < 1.0e-6) {
+                right = new Vec3d(0.0, 0.0, 1.0);
+            } else {
+                right = right.normalize();
+            }
+            int steps = Math.max(1, Math.min(8, (int) Math.ceil(len / 0.12)));
+            for (int s = 0; s < steps; s++) {
+                double k0 = s / (double) steps;
+                double k1 = (s + 1) / (double) steps;
+                Vec3d p0 = a.add(seg.multiply(k0));
+                Vec3d p1 = a.add(seg.multiply(k1));
+                float t0 = (float) ((i + k0) / (count - 1));
+                float t1 = (float) ((i + k1) / (count - 1));
+                float w0 = 0.05f + 0.25f * t0;
+                float w1 = 0.05f + 0.25f * t1;
+                float a0 = 0.06f + 0.30f * t0;
+                float a1 = 0.06f + 0.30f * t1;
+                ribbonQuad(entry, consumer, p0, p1, right, w0, w1, a0, a1, t0, t1, rgb);
+            }
+        }
+    }
+
+    /** Один сегмент ленты: четыре вершины, ширина перпендикулярно направлению и взгляду. */
+    private static void ribbonQuad(MatrixStack.Entry entry, VertexConsumer consumer,
+                                   Vec3d p0, Vec3d p1, Vec3d right,
+                                   float w0, float w1, float a0, float a1,
+                                   float u0, float u1, float[] rgb) {
+        Vec3d r0 = right.multiply(w0);
+        Vec3d r1 = right.multiply(w1);
+        vertex(entry, consumer, (float) (p0.x - r0.x), (float) (p0.y - r0.y), (float) (p0.z - r0.z), 0f, u0, a0, rgb);
+        vertex(entry, consumer, (float) (p0.x + r0.x), (float) (p0.y + r0.y), (float) (p0.z + r0.z), 1f, u0, a0, rgb);
+        vertex(entry, consumer, (float) (p1.x + r1.x), (float) (p1.y + r1.y), (float) (p1.z + r1.z), 1f, u1, a1, rgb);
+        vertex(entry, consumer, (float) (p1.x - r1.x), (float) (p1.y - r1.y), (float) (p1.z - r1.z), 0f, u1, a1, rgb);
     }
 
     /** Один билборд, всегда повёрнутый к камере. */
@@ -115,23 +185,23 @@ public class PaimonEntityRenderer extends EntityRenderer<PaimonEntity, PaimonRen
         float x = (float) p.x, y = (float) p.y, z = (float) p.z;
         float rx = (float) (right.x * size), ry = (float) (right.y * size), rz = (float) (right.z * size);
         float ux = (float) (up.x * size), uy = (float) (up.y * size), uz = (float) (up.z * size);
-        // Бледное золото (1.0, 0.92, 0.70), прозрачное по краям пути.
-        quad(entry, consumer, x, y, z, rx, ry, rz, ux, uy, uz, alpha);
+        // Цвет шлейфа по времени суток, прозрачный по краям пути.
+        quad(entry, consumer, x, y, z, rx, ry, rz, ux, uy, uz, alpha, COLOR_DAY);
     }
 
     private static void quad(MatrixStack.Entry entry, VertexConsumer consumer,
                              float x, float y, float z, float rx, float ry, float rz,
-                             float ux, float uy, float uz, float alpha) {
-        vertex(entry, consumer, x - rx - ux, y - ry - uy, z - rz - uz, 0f, 0f, alpha);
-        vertex(entry, consumer, x + rx - ux, y + ry - uy, z + rz - uz, 1f, 0f, alpha);
-        vertex(entry, consumer, x + rx + ux, y + ry + uy, z + rz + uz, 1f, 1f, alpha);
-        vertex(entry, consumer, x - rx + ux, y - ry + uy, z - rz + uz, 0f, 1f, alpha);
+                             float ux, float uy, float uz, float alpha, float[] rgb) {
+        vertex(entry, consumer, x - rx - ux, y - ry - uy, z - rz - uz, 0f, 0f, alpha, rgb);
+        vertex(entry, consumer, x + rx - ux, y + ry - uy, z + rz - uz, 1f, 0f, alpha, rgb);
+        vertex(entry, consumer, x + rx + ux, y + ry + uy, z + rz + uz, 1f, 1f, alpha, rgb);
+        vertex(entry, consumer, x - rx + ux, y - ry + uy, z - rz + uz, 0f, 1f, alpha, rgb);
     }
 
     private static void vertex(MatrixStack.Entry entry, VertexConsumer consumer,
-                               float x, float y, float z, float u, float v, float alpha) {
+                               float x, float y, float z, float u, float v, float alpha, float[] rgb) {
         consumer.vertex(entry, x, y, z)
-                .color(1.0f, 0.92f, 0.70f, alpha)
+                .color(rgb[0], rgb[1], rgb[2], alpha)
                 .texture(u, v)
                 .overlay(OverlayTexture.DEFAULT_UV)
                 .light(0xF0, 0xF0)
