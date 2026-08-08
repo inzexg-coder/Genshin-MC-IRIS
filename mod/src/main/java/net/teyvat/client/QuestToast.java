@@ -20,7 +20,7 @@ import org.joml.Matrix3x2fStack;
  */
 public class QuestToast implements Toast {
     /** Сколько миллисекунд окно полностью видно до начала скрытия (3 секунды). */
-    private static final long VISIBLE_MS = 3000;
+    private static final long VISIBLE_MS = 4500;
     /** Длительность анимации появления внутренних элементов. */
     private static final long POP_MS = 520;
     /** Минимальная ширина окна (под компактный текст). */

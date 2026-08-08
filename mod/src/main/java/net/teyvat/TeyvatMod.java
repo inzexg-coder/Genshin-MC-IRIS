@@ -2,14 +2,20 @@ package net.teyvat;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.command.TeyvatCommand;
+import net.teyvat.config.TeyvatConfig;
+import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.BeachGuard;
 import net.teyvat.server.TeyvatQuests;
@@ -54,6 +60,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(QuestEventPayload.ID, QuestEventPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceSyncPayload.ID, TravelerChoiceSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(QuestStatePayload.ID, QuestStatePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(DamageNumberPayload.ID, DamageNumberPayload.CODEC);
         CommandRegistrationCallback.EVENT.register(TeyvatCommand::register);
         ServerLifecycleEvents.SERVER_STARTED.register(TeyvatSpawn::prepare);
         LOGGER.info("Teyvat mod initialized: {} blocks registered", TeyvatBlocks.ALL_BLOCKS.size());
@@ -81,8 +88,24 @@ public class TeyvatMod implements ModInitializer {
             }
         });
 
+        // Числа урона: когда игрок бьёт живую сущность, сервер шлёт ему урон.
+        ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, amount, originalAmount, blocked) -> {
+            if (amount <= 0f || !TeyvatConfig.get().health.show_damage_numbers) {
+                return;
+            }
+            if (source.getAttacker() instanceof ServerPlayerEntity attacker && attacker.isAlive()) {
+                ServerPlayNetworking.send(attacker, new DamageNumberPayload(entity.getId(), amount));
+            }
+        });
+
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity player = handler.getPlayer();
+            // Здоровье героя как в Genshin: 912 HP (атрибут сохраняется между смертями).
+            var healthAttr = player.getAttributeInstance(EntityAttributes.MAX_HEALTH);
+            if (healthAttr != null) {
+                healthAttr.setBaseValue(TeyvatConfig.get().health.max_health);
+            }
+            player.setHealth(player.getMaxHealth());
             player.sendMessage(Text.literal(
                     "§b[Teyvat] §fМод загружен. Блоки: вкладка §e«Блоки Тейвата»§f в креативе."), false);
 

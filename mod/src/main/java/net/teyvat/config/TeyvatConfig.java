@@ -39,6 +39,9 @@ public final class TeyvatConfig {
     /** Паймон-компаньон. */
     public Paimon paimon = new Paimon();
 
+    /** Здоровье как в Genshin: 912 HP, реген только во сне, урон от падения по высоте. */
+    public Health health = new Health();
+
     /** Зум по кнопке (клавиша C по умолчанию). */
     public Zoom zoom = new Zoom();
 
@@ -80,6 +83,20 @@ public final class TeyvatConfig {
         public String free_look_mode = "hold";
     }
 
+    /** Настройки здоровья как в Genshin. */
+    public static class Health {
+        /** Максимальное здоровье героя: как у путешественника в Genshin. */
+        public float max_health = 912f;
+        /** Высота падения, с которой начинается урон (блоки, ~7–8 м безопасны). */
+        public float fall_damage_threshold = 7f;
+        /** Урон за каждый блок выше порога (очков HP). */
+        public float fall_damage_per_block = 35f;
+        /** Показывать полоски HP над противниками. */
+        public boolean show_mob_bars = true;
+        /** Показывать числа урона при атаке противников. */
+        public boolean show_damage_numbers = true;
+    }
+
     /** Настройки Паймон. */
     public static class Paimon {
         /** Показывать Паймон после выбора путешественника. */
@@ -112,6 +129,9 @@ public final class TeyvatConfig {
                     }
                     if (cfg.paimon == null) {
                         cfg.paimon = new Paimon();
+                    }
+                    if (cfg.health == null) {
+                        cfg.health = new Health();
                     }
                     if (cfg.zoom == null) {
                         cfg.zoom = new Zoom();

@@ -15,11 +15,13 @@ import net.teyvat.client.TravelerChoiceScreen;
 import net.teyvat.client.CameraController;
 import net.teyvat.client.ZoomController;
 import net.teyvat.client.TravelerNotesScreen;
+import net.teyvat.client.HealthOverlay;
 import net.teyvat.client.StaminaController;
 import net.teyvat.client.paimon.PaimonEntityRenderer;
 import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.client.paimon.PaimonManager;
 import net.teyvat.client.QuestStateClient;
+import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.network.QuestStatePayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
@@ -74,6 +76,12 @@ public class TeyvatClient implements ClientModInitializer {
                 }
             }
             PaimonManager.tick();
+        });
+
+        // Числа урона от сервера: всплывают над целью атаки.
+        ClientPlayNetworking.registerGlobalReceiver(DamageNumberPayload.ID, (payload, context) -> {
+            context.client().execute(() ->
+                    HealthOverlay.addDamageNumber(payload.entityId(), payload.amount()));
         });
 
         // /teyvat notes: сервер просит клиент открыть экран.

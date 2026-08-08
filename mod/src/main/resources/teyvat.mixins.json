@@ -9,6 +9,7 @@
     "client.ChatHudMixin",
     "client.ChatScreenMixin",
     "client.GameRendererMixin",
+    "client.GameRendererAccessor",
     "client.CameraMixin",
     "client.CameraAccessor",
     "client.MouseMixin",
@@ -18,6 +19,10 @@
     "defaultRequire": 1
   },
   "common": [
-    "common.HungerManagerMixin"
+    "common.HungerManagerMixin",
+    "common.LivingEntityMixin",
+    "common.ServerPlayerEntityMixin",
+    "common.RegenerationStatusEffectMixin",
+    "common.InstantHealthOrDamageStatusEffectMixin"
   ]
 }

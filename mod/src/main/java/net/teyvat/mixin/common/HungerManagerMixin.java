@@ -5,12 +5,13 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Голод отключён полностью: истощение не копится, сытость держится полной,
- * урон от голода невозможен, реген здоровья работает всегда. Есть можно,
- * но это не обязательно.
+ * урон от голода невозможен. Есть можно, но это не обязательно.
+ * Здоровье само не восстанавливается — только сон (как в Genshin).
  */
 @Mixin(HungerManager.class)
 public abstract class HungerManagerMixin {
@@ -26,5 +27,12 @@ public abstract class HungerManagerMixin {
         HungerManager self = (HungerManager) (Object) this;
         self.setFoodLevel(20);
         self.setSaturationLevel(5.0f);
+    }
+
+    /** Естественный реген по сытости отключён: здоровье лечится только сном. */
+    @Redirect(method = "update",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/server/network/ServerPlayerEntity;heal(F)V"))
+    private void teyvat$noNaturalRegen(ServerPlayerEntity player, float amount) {
+        // намеренно ничего не делаем
     }
 }
