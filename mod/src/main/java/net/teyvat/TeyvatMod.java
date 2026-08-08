@@ -28,6 +28,7 @@ import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.entity.HydroSlimeEntity;
 import net.teyvat.entity.HydroSlimeProjectileEntity;
 import net.teyvat.item.TeyvatItems;
+import net.teyvat.particle.TeyvatParticles;
 import net.teyvat.command.TeyvatCommand;
 import net.teyvat.config.TeyvatConfig;
 import net.teyvat.network.DamageNumberPayload;
@@ -90,6 +91,7 @@ public class TeyvatMod implements ModInitializer {
         PaimonEntity.register();
         HydroSlimeEntity.register();
         HydroSlimeProjectileEntity.register();
+        TeyvatParticles.register();
         TeyvatItems.register();
         FabricDefaultAttributeRegistry.register(HydroSlimeEntity.TYPE, HydroSlimeEntity.createAttributes());
         TeyvatBlocks.register();

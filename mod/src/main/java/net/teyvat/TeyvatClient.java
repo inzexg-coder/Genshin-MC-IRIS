@@ -5,6 +5,8 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.particle.v1.FabricSpriteProvider;
+import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
@@ -16,6 +18,7 @@ import net.teyvat.client.CameraController;
 import net.teyvat.client.ZoomController;
 import net.teyvat.client.TravelerNotesScreen;
 import net.teyvat.client.HealthOverlay;
+import net.teyvat.client.WaterSplashParticle;
 import net.teyvat.client.StaminaController;
 import net.teyvat.client.hydro.HydroSlimeEntityRenderer;
 import net.teyvat.client.hydro.HydroSlimeProjectileRenderer;
@@ -28,6 +31,7 @@ import net.teyvat.client.ProgressionClient;
 import net.teyvat.client.ProgressionToast;
 import net.teyvat.client.QuestClient;
 import net.teyvat.client.QuestStateClient;
+import net.teyvat.particle.TeyvatParticles;
 import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.ExpGainPayload;
 import net.teyvat.network.MobLevelSyncPayload;
@@ -68,6 +72,10 @@ public class TeyvatClient implements ClientModInitializer {
         // Рендеры Гидро слайма и его водяного шара.
         EntityRendererRegistry.register(HydroSlimeEntity.TYPE, HydroSlimeEntityRenderer::new);
         EntityRendererRegistry.register(HydroSlimeProjectileEntity.TYPE, HydroSlimeProjectileRenderer::new);
+
+        // Кастомный всплеск воды при смерти слайма: кольцо на текстуре water_splash_ring.
+        ParticleFactoryRegistry.getInstance().register(TeyvatParticles.WATER_SPLASH,
+                (FabricSpriteProvider spriteProvider) -> new WaterSplashParticle.Factory(spriteProvider));
 
         // Клавиша открывает заметки в любом режиме игры (клиентская сторона).
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

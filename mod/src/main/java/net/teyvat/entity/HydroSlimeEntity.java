@@ -29,6 +29,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.teyvat.item.TeyvatItems;
+import net.teyvat.particle.TeyvatParticles;
 import net.teyvat.progression.MobLevels;
 import net.teyvat.server.SlimeTraining;
 
@@ -210,8 +211,11 @@ public class HydroSlimeEntity extends HostileEntity {
                 SlimeTraining.onSlimeKilled(serverWorld, this);
             }
             Vec3d p = new Vec3d(this.getX(), this.getY(), this.getZ());
+            // Кастомный всплеск: расширяющиеся водные кольца + капли ванильного всплеска.
+            serverWorld.spawnParticles(TeyvatParticles.WATER_SPLASH, p.x, p.y + 0.55, p.z,
+                    10, 0.35, 0.35, 0.35, 0.0);
             serverWorld.spawnParticles(ParticleTypes.SPLASH, p.x, p.y + 0.5, p.z,
-                    26, 0.45, 0.45, 0.45, 0.06);
+                    14, 0.45, 0.45, 0.45, 0.06);
             serverWorld.playSound(null, this.getBlockPos(), SoundEvents.ENTITY_GENERIC_SPLASH,
                     SoundCategory.HOSTILE, 1.0f, 1.2f);
         }

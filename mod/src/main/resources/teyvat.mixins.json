@@ -27,6 +27,7 @@
     "common.ServerPlayerEntityMixin",
     "common.SpawnHelperMixin",
     "common.RegenerationStatusEffectMixin",
-    "common.InstantHealthOrDamageStatusEffectMixin"
+    "common.InstantHealthOrDamageStatusEffectMixin",
+    "common.PlayerInventoryMixin"
   ]
 }
