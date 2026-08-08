@@ -7,6 +7,8 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Конфиг мода: config/teyvat.json (создаётся автоматически при первом запуске).
@@ -47,6 +49,12 @@ public final class TeyvatConfig {
 
     /** Teyvat Camera — кастомная камера от 3-го лица в стиле Genshin. */
     public Camera camera = new Camera();
+
+    /** Прогрессия как в Genshin: Ранг Приключений, уровни персонажей, анти-фарм. */
+    public Progression progression = new Progression();
+
+    /** Уровни мобов: растут с расстоянием от спавна мира. */
+    public MobLevels mob_levels = new MobLevels();
 
     /** Настройки зума. */
     public static class Zoom {
@@ -107,6 +115,43 @@ public final class TeyvatConfig {
         public boolean third_person_after_intro = true;
     }
 
+    /** Прогрессия игрока: Ранг Приключений, опыт, ростера персонажей. */
+    public static class Progression {
+        /** Потолок Ранга Приключений. */
+        public int max_ar = 60;
+        /** Потолок уровня персонажа. */
+        public int max_char_level = 90;
+        /** Опыт на следующий ранг: expNeed(ar) = round(base * ar^power) — с каждым уровнем тяжелее. */
+        public float ar_exp_base = 100f;
+        public float ar_exp_power = 1.6f;
+        /** Опыт на следующий уровень персонажа: expNeed(lvl) = round(base * lvl^power). */
+        public float char_exp_base = 200f;
+        public float char_exp_power = 1.5f;
+        /** Анти-фарм: первые N убийств одного типа моба за сессию дают полный опыт. */
+        public boolean antifarm_enabled = true;
+        public int antifarm_first_kills = 10;
+        /** На сколько падает множитель опыта за каждое убийство сверх лимита. */
+        public float antifarm_decay_per_kill = 0.1f;
+        /** Ниже этого множителя опыт не опускается. */
+        public float antifarm_min_multiplier = 0.1f;
+        /** Базовый опыт за убийство (если тип не задан в mob_xp). */
+        public int mob_xp_default = 5;
+        /** Опыт по типам мобов: "minecraft:zombie": 8 (каждого пропишем позже). */
+        public Map<String, Integer> mob_xp = new HashMap<>();
+    }
+
+    /** Уровни мобов: назначаются при спавне, растут от расстояния до спавна мира. */
+    public static class MobLevels {
+        /** Включает назначение уровней мобам (отключить для тестов). */
+        public boolean enabled = true;
+        /** Базовый уровень моба у спавна мира. */
+        public int base = 1;
+        /** Прирост уровня за блок расстояния от спавна. */
+        public double per_block = 0.002;
+        /** Потолок уровня моба. */
+        public int cap = 90;
+    }
+
     private static TeyvatConfig instance;
 
     public static TeyvatConfig get() {
@@ -138,6 +183,12 @@ public final class TeyvatConfig {
                     }
                     if (cfg.camera == null) {
                         cfg.camera = new Camera();
+                    }
+                    if (cfg.progression == null) {
+                        cfg.progression = new Progression();
+                    }
+                    if (cfg.mob_levels == null) {
+                        cfg.mob_levels = new MobLevels();
                     }
                 }
             } catch (Exception ignored) {

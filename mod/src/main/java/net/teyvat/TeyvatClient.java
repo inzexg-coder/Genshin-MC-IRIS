@@ -20,9 +20,13 @@ import net.teyvat.client.StaminaController;
 import net.teyvat.client.paimon.PaimonEntityRenderer;
 import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.client.paimon.PaimonManager;
+import net.teyvat.client.ProgressionClient;
+import net.teyvat.client.ProgressionToast;
 import net.teyvat.client.QuestStateClient;
 import net.teyvat.network.DamageNumberPayload;
+import net.teyvat.network.ExpGainPayload;
 import net.teyvat.network.NotesOpenPayload;
+import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestStatePayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.network.TravelerChoiceSyncPayload;
@@ -78,10 +82,21 @@ public class TeyvatClient implements ClientModInitializer {
             PaimonManager.tick();
         });
 
-        // Числа урона от сервера: всплывают над целью атаки.
+        // Числа урона от сервера: всплывают над целью атаки, уровень моба — на полоску HP.
         ClientPlayNetworking.registerGlobalReceiver(DamageNumberPayload.ID, (payload, context) -> {
             context.client().execute(() ->
-                    HealthOverlay.addDamageNumber(payload.entityId(), payload.amount()));
+                    HealthOverlay.addDamageNumber(payload.entityId(), payload.amount(), payload.mobLevel()));
+        });
+
+        // Прогрессия: ранг, опыт, примогемы, ростера персонажей — для HUD и меню.
+        ClientPlayNetworking.registerGlobalReceiver(ProgressionSyncPayload.ID, (payload, context) -> {
+            context.client().execute(() -> ProgressionClient.set(
+                    payload.ar(), payload.exp(), payload.expToNext(), payload.primogems(), payload.rosterJson()));
+        });
+
+        // Опыт получен: золотой тост «+X опыта» / «Ранг Приключений повышен!».
+        ClientPlayNetworking.registerGlobalReceiver(ExpGainPayload.ID, (payload, context) -> {
+            context.client().execute(() -> ProgressionToast.show(payload.amount(), payload.rankUp()));
         });
 
         // /teyvat notes: сервер просит клиент открыть экран.

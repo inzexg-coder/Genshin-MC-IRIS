@@ -70,13 +70,15 @@ public final class HealthOverlay {
     /** Запись всплывающего числа урона. */
     private record DamageNumber(float amount, long startTick) {}
 
-    /** Полоска HP моба: тик первой атаки (попап) и тик последней атаки (таймаут). */
-    private record MobBarState(long firstHitTick, long lastHitTick) {}
+    /** Полоска HP моба: тик первой атаки (попап), тик последней атаки (таймаут)
+     *  и уровень моба (для надписи «Ур. X» над полоской). */
+    private record MobBarState(long firstHitTick, long lastHitTick, int level) {}
     /** id сущности → состояние её полоски HP (появляется только при атаке). */
     private static final Map<Integer, MobBarState> MOB_BARS = new HashMap<>();
 
-    /** Сервер прислал урон: кладём число в очередь сущности. */
-    public static void addDamageNumber(int entityId, float amount) {
+    /** Сервер прислал урон: кладём число в очередь сущности и показываем
+     *  полоску HP моба с его уровнем. */
+    public static void addDamageNumber(int entityId, float amount, int mobLevel) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null) {
             return;
@@ -89,8 +91,8 @@ public final class HealthOverlay {
         queue.addLast(new DamageNumber(amount, now));
         // Атака моба: полоска HP появляется попапом и держится, пока бой не затих.
         MOB_BARS.compute(entityId, (k, state) -> state == null
-                ? new MobBarState(now, now)
-                : new MobBarState(state.firstHitTick(), now));
+                ? new MobBarState(now, now, mobLevel)
+                : new MobBarState(state.firstHitTick(), now, mobLevel));
     }
 
     /** Рисуется поверх мира после HUD-слоя. */
@@ -344,6 +346,12 @@ public final class HealthOverlay {
                 if (alpha <= 0.01f) {
                     continue;
                 }
+                // Над полоской — уровень моба (имя добавим вместе со своими мобами).
+                String levelText = "Ур. " + state.level();
+                int levelW = client.textRenderer.getWidth(levelText);
+                context.drawText(client.textRenderer, levelText, (int) screen.x - levelW / 2,
+                        (int) screen.y - 11, withAlpha(0xFFE8C86A, alpha), true);
+
                 // Рисуем вокруг центра полоски, с масштабом попапа.
                 Matrix3x2fStack m = context.getMatrices();
                 m.pushMatrix();

@@ -2,6 +2,7 @@ package net.teyvat;
 
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
@@ -10,12 +11,15 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.decoration.ArmorStandEntity;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.command.TeyvatCommand;
 import net.teyvat.config.TeyvatConfig;
 import net.teyvat.network.DamageNumberPayload;
+import net.teyvat.network.ExpGainPayload;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.BeachGuard;
 import net.teyvat.server.TeyvatQuests;
@@ -26,7 +30,11 @@ import net.teyvat.worldgen.TeyvatXEdge;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.network.TravelerChoicePayload;
 import net.teyvat.network.QuestEventPayload;
+import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestStatePayload;
+import net.teyvat.progression.MobLevels;
+import net.teyvat.progression.MobXp;
+import net.teyvat.progression.ProgressionStore;
 import net.teyvat.quest.Quests;
 import net.teyvat.network.TravelerChoiceSyncPayload;
 import org.slf4j.Logger;
@@ -60,6 +68,8 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(QuestEventPayload.ID, QuestEventPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceSyncPayload.ID, TravelerChoiceSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(QuestStatePayload.ID, QuestStatePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ProgressionSyncPayload.ID, ProgressionSyncPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ExpGainPayload.ID, ExpGainPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(DamageNumberPayload.ID, DamageNumberPayload.CODEC);
         CommandRegistrationCallback.EVENT.register(TeyvatCommand::register);
         ServerLifecycleEvents.SERVER_STARTED.register(TeyvatSpawn::prepare);
@@ -73,6 +83,8 @@ public class TeyvatMod implements ModInitializer {
             }
             player.addCommandTag(CHOICE_TAG_PREFIX + choice);
             TRAVELER_CHOICES.put(player.getUuid(), choice);
+            // Первый персонаж в ростере — выбранный путешественник.
+            ProgressionStore.seedTraveler(player, choice);
             for (ServerPlayerEntity other : player.getEntityWorld().getServer().getPlayerManager().getPlayerList()) {
                 ServerPlayNetworking.send(other, new TravelerChoiceSyncPayload(player.getUuid(), choice));
             }
@@ -88,14 +100,35 @@ public class TeyvatMod implements ModInitializer {
             }
         });
 
-        // Числа урона: когда игрок бьёт живую сущность, сервер шлёт ему урон.
+        // Числа урона: когда игрок бьёт живую сущность, сервер шлёт ему урон
+        // и уровень моба (для полоски HP над головой).
         ServerLivingEntityEvents.AFTER_DAMAGE.register((entity, source, amount, originalAmount, blocked) -> {
             if (amount <= 0f || !TeyvatConfig.get().health.show_damage_numbers) {
                 return;
             }
             if (source.getAttacker() instanceof ServerPlayerEntity attacker && attacker.isAlive()) {
-                ServerPlayNetworking.send(attacker, new DamageNumberPayload(entity.getId(), amount));
+                ServerPlayNetworking.send(attacker,
+                        new DamageNumberPayload(entity.getId(), amount, MobLevels.getLevel(entity)));
             }
+        });
+
+        // Уровни мобов: назначаются при загрузке в мир, растут от расстояния до спавна.
+        ServerEntityEvents.ENTITY_LOAD.register(MobLevels::onEntityLoad);
+
+        // Опыт за убийства с анти-фармом: прогресс в NBT игрока, тост на экран.
+        ServerLivingEntityEvents.AFTER_DEATH.register((entity, damageSource) -> {
+            if (entity instanceof PlayerEntity || entity instanceof ArmorStandEntity) {
+                return;
+            }
+            if (!(damageSource.getAttacker() instanceof ServerPlayerEntity player)) {
+                return;
+            }
+            long xp = MobXp.xpForKill(player, entity);
+            if (xp <= 0) {
+                return;
+            }
+            boolean rankUp = ProgressionStore.addArExp(player, xp);
+            ServerPlayNetworking.send(player, new ExpGainPayload(xp, rankUp));
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
@@ -141,12 +174,19 @@ public class TeyvatMod implements ModInitializer {
                     TeyvatQuests.isCompleted(player, Quests.TRY_ZOOM),
                     TeyvatQuests.isCompleted(player, Quests.TRY_SPRINT),
                     TeyvatQuests.isCompleted(player, Quests.TRY_DASH)));
+            // Прогрессия: ранг, опыт, примогемы, ростера персонажей.
+            ProgressionStore.sync(player);
         });
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
                 TeyvatSpawn.welcome(handler.getPlayer(), server));
 
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
-                TRAVELER_CHOICES.remove(handler.getPlayer().getUuid()));
+        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
+            TRAVELER_CHOICES.remove(handler.getPlayer().getUuid());
+            ProgressionStore.onDisconnect(handler.getPlayer());
+            MobXp.onDisconnect(handler.getPlayer());
+        });
+
+        ServerLifecycleEvents.SERVER_STOPPING.register(server -> MobXp.resetSession());
     }
 }
