@@ -13,6 +13,7 @@ import net.minecraft.block.ShapeContext;
 import net.minecraft.util.TypeFilter;
 import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.RaycastContext;
@@ -44,10 +45,10 @@ public final class HealthOverlay {
 
     /** Радиус, в котором видны полоски HP противников. */
     private static final double MOB_RANGE = 48.0;
-    /** Полоска HP противника — маленькая, над головой, в золотой рамке:
-     *  в полтора раза короче и вдвое тоньше полосы героя. */
-    private static final int MOB_BAR_W = 23;
-    private static final int MOB_BAR_H = 2;
+    /** Полоска HP противника — маленькая, над головой, с тонкой золотой рамкой:
+     *  непрозрачная тёмная подложка, чтобы читалась на любом фоне (как в Genshin). */
+    private static final int MOB_BAR_W = 26;
+    private static final int MOB_BAR_H = 3;
     /** Сколько тиков полоска видна после последней атаки моба (5 секунд). */
     private static final long MOB_BAR_VISIBLE_TICKS = 100;
     /** Затухание полоски перед скрытием, тики. */
@@ -330,11 +331,22 @@ public final class HealthOverlay {
                             camPos.x + MOB_RANGE, camPos.y + MOB_RANGE, camPos.z + MOB_RANGE),
                     e -> e != client.player && !e.isPlayer() && e.isAlive()
                             && !(e instanceof ArmorStandEntity));
+            // Точка мирового спавна для клиентского расчёта уровня-фолбэка.
+            BlockPos worldSpawn = client.world.getSpawnPoint().getPos();
             for (LivingEntity mob : mobs) {
                 MobBarState state = MOB_BARS.get(mob.getId());
-                // Уровень: из синка сервера (виден у всех мобов) или из пакета урона.
+                // Уровень: из синка сервера (у всех мобов), затем из пакета урона,
+                // а если синка ещё нет — считаем по формуле от спавна мира.
                 Integer syncedLevel = MOB_LEVELS.get(mob.getId());
-                int level = syncedLevel != null ? syncedLevel : (state != null ? state.level() : -1);
+                int level = -1;
+                if (syncedLevel != null) {
+                    level = syncedLevel;
+                } else if (state != null) {
+                    level = state.level();
+                }
+                if (level < 0) {
+                    level = fallbackLevel(client, worldSpawn, mob.getBlockPos());
+                }
                 Vec3d head = mob.getLerpedPos(tickDelta).add(0.0, mob.getHeight() + 0.5, 0.0);
                 // Не показываем сквозь блоки и тела игроков.
                 if (!hasLineOfSight(client, camPos, head)) {
@@ -376,15 +388,22 @@ public final class HealthOverlay {
                 m.scale((float) scale, (float) scale);
                 int halfW = MOB_BAR_W / 2;
                 int halfH = MOB_BAR_H / 2;
-                // Золотая рамка с ромбиками по краям — витиеватая позолота.
-                context.fill(-halfW - 1, -halfH - 1, halfW + 1, halfH + 1, withAlpha(0xCCE8C86A, alpha));
-                context.fill(-halfW, -halfH, halfW, halfH, withAlpha(0xCC070B14, alpha));
-                drawDiamond(context, -halfW, 0, 1, withAlpha(0xDCE8C86A, alpha));
-                drawDiamond(context, halfW, 0, 1, withAlpha(0xDCE8C86A, alpha));
+                // Мягкая тень за полоской, чтобы отделить её от фона.
+                context.fill(-halfW - 2, -halfH - 2, halfW + 2, halfH + 2, withAlpha(0x77000000, alpha));
+                // Непрозрачная тёмная кайма.
+                context.fill(-halfW - 1, -halfH - 1, halfW + 1, halfH + 1, withAlpha(0xFF0A0F1E, alpha));
+                // Тонкая золотая рамка (как в Genshin — аккуратно, без ромбиков).
+                context.fill(-halfW - 1, -halfH - 1, halfW + 1, -halfH, withAlpha(0xFFE8C86A, alpha));
+                context.fill(-halfW - 1, halfH, halfW + 1, halfH + 1, withAlpha(0xFFE8C86A, alpha));
+                context.fill(-halfW - 1, -halfH, -halfW, halfH, withAlpha(0xFFE8C86A, alpha));
+                context.fill(halfW, -halfH, halfW + 1, halfH, withAlpha(0xFFE8C86A, alpha));
+                context.fill(-halfW, -halfH, halfW, halfH, withAlpha(0xE60B1322, alpha));
                 int fillW = (int) ((MOB_BAR_W - 2) * frac);
                 if (fillW > 0) {
                     // Полное HP — тёмно-синий как в заметках, с потерей HP голубеет.
                     context.fill(-halfW + 1, -halfH + 1, -halfW + 1 + fillW, halfH, withAlpha(hpBlue(frac), alpha));
+                    // Тонкий светлый блик по верхнему краю заполнения.
+                    context.fill(-halfW + 1, -halfH + 1, -halfW + 1 + fillW, -halfH + 2, withAlpha(0x55FFFFFF, alpha));
                 }
                 m.popMatrix();
             }
@@ -450,18 +469,45 @@ public final class HealthOverlay {
         }
     }
 
-    /** Подпись уровня моба «Ур. X»: мелкая золотая, выше полоски HP.
-     *  Рисуется всегда, пока моб в поле зрения. */
+    /** Подпись уровня моба «Ур. X»: мелкая золотая с тёмным контуром, выше полоски HP.
+     *  Рисуется всегда, пока моб в поле зрения. Контур нужен, чтобы подпись
+     *  не сливалась с ярким фоном (как имя врага в Genshin). */
     private static void drawMobLevelLabel(DrawContext context, MinecraftClient client, Vec3d screen, int level) {
         String text = "Ур. " + level;
         TextRenderer tr = client.textRenderer;
         int w = tr.getWidth(text);
         Matrix3x2fStack m = context.getMatrices();
         m.pushMatrix();
-        m.translate((int) screen.x, (int) screen.y - 17);
-        m.scale(0.6f, 0.6f);
+        m.translate((int) screen.x, (int) screen.y - 19);
+        m.scale(0.65f, 0.65f);
+        int outline = 0xFF05070D;
+        for (int ox = -1; ox <= 1; ox++) {
+            for (int oy = -1; oy <= 1; oy++) {
+                if (ox == 0 && oy == 0) {
+                    continue;
+                }
+                context.drawText(tr, text, -w / 2 + ox * 2, oy * 2, outline, false);
+            }
+        }
         context.drawText(tr, text, -w / 2, 0, 0xFFE8C86A, true);
         m.popMatrix();
+    }
+
+    /** Клиентский фолбэк уровня: та же формула, что на сервере (расстояние от
+     *  мирового спавна). Используется, пока синк уровня ещё не пришёл, чтобы
+     *  подпись была у всех мобов без исключения. */
+    private static int fallbackLevel(MinecraftClient client, BlockPos worldSpawn, BlockPos pos) {
+        try {
+            TeyvatConfig.MobLevels cfg = TeyvatConfig.get().mob_levels;
+            if (cfg == null || !cfg.enabled) {
+                return 1;
+            }
+            double dist = Math.sqrt(pos.getSquaredDistance(worldSpawn));
+            int level = cfg.base + (int) Math.floor(dist * cfg.per_block);
+            return Math.max(1, Math.min(cfg.cap, level));
+        } catch (Exception e) {
+            return 1;
+        }
     }
 
     /** Мир → экран. null, если точка за камерой или вне экрана (с запасом). */

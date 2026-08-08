@@ -11,14 +11,15 @@ import net.minecraft.util.math.MathHelper;
 import org.joml.Matrix3x2fStack;
 
 /**
- * Тост прогрессии в стиле заметок: «+X опыта», при повышении ранга —
- * «Ранг Приключений повышен!». Золотая тема с ромбом, как у заданий.
+ * Уведомление об опыте: без панели-фона — только значок опыта (маленькая
+ * золотая сфера с бликом) и текст. Намеренно не похоже на остальные
+ * уведомления (задания и заметки с ромбами на тёмных панелях).
  */
 public class ProgressionToast implements Toast {
     private static final long VISIBLE_MS = 3000;
     private static final long POP_MS = 520;
-    private static final int HEIGHT = 30;
-    private static final int RIGHT_MARGIN = 8;
+    private static final int HEIGHT = 20;
+    private static final int RIGHT_MARGIN = 10;
 
     private final String title;
     private final String subtitle;
@@ -38,10 +39,10 @@ public class ProgressionToast implements Toast {
         }
         TextRenderer tr = MinecraftClient.getInstance().textRenderer;
         int w = tr != null ? tr.getWidth(this.title) : 80;
-        this.width = Math.max(150, 46 + w + 12);
+        this.width = Math.max(130, 26 + w + 14);
     }
 
-    /** Показать тост получения опыта. */
+    /** Показать уведомление о получении опыта. */
     public static void show(long amount, boolean rankUp) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client != null && client.getToastManager() != null) {
@@ -56,7 +57,7 @@ public class ProgressionToast implements Toast {
 
     @Override
     public void update(ToastManager manager, long showTime) {
-        // На паузе мир стоит — тост замирает.
+        // На паузе мир стоит — уведомление замирает.
         if (!MinecraftClient.getInstance().isPaused()) {
             this.showTime = showTime;
         }
@@ -85,8 +86,6 @@ public class ProgressionToast implements Toast {
     @Override
     public void draw(DrawContext context, TextRenderer textRenderer, long showTime) {
         long st = this.showTime;
-        int w = getWidth();
-        int h = getHeight();
         float popT = MathHelper.clamp((float) st / POP_MS, 0.0f, 1.0f);
         float fadeIn = MathHelper.clamp((float) st / 180.0f, 0.0f, 1.0f);
         float fadeOut = MathHelper.clamp((VISIBLE_MS + 600 - st) / 600.0f, 0.0f, 1.0f);
@@ -95,36 +94,33 @@ public class ProgressionToast implements Toast {
             return;
         }
 
-        int panelA = (int) (0xF2 * alpha);
-        int accentA = (int) (255 * alpha);
-        context.fill(0, 0, w, h, (panelA << 24) | 0x1B2338);
-        context.fill(0, 0, w, 1, (accentA << 24) | 0xFFE8C86A);
-        context.fill(0, h - 1, w, h, (accentA << 24) | 0xFFE8C86A);
-        context.fill(0, 0, 1, h, (accentA << 24) | 0xFFE8C86A);
-        context.fill(w - 1, 0, w, h, (accentA << 24) | 0xFFE8C86A);
-        context.fill(1, 1, w - 1, 2, (accentA << 24) | 0xFFE8C86A);
-
-        // Золотой ромб со свечением и пульсом, как у выполненного задания.
-        int badgeCx = 20;
-        int badgeCy = h / 2;
-        float badgeScale = easeOutBack(popT);
-        float pulse = 0.55f + 0.45f * (float) Math.sin(st / 150.0 * Math.PI * 2.0);
+        // Значок опыта: золотая сфера с тёмным ободом и бликом (без панели).
+        int iconCx = 9;
+        int iconCy = HEIGHT / 2;
+        float iconScale = easeOutBack(popT);
+        int a = (int) (255 * alpha);
         Matrix3x2fStack m = context.getMatrices();
         m.pushMatrix();
-        m.translate(badgeCx, badgeCy);
-        m.scale(badgeScale, badgeScale);
-        int glowA = (int) (70.0f * alpha * pulse);
-        context.fill(-14, -14, 14, 14, (glowA << 24) | 0xFFFFD97A);
-        m.rotate((float) Math.PI / 4.0f);
-        context.fill(-10, -10, 10, 10, (accentA << 24) | 0xFFE8C86A);
-        context.fill(-8, -8, 8, 8, (panelA << 24) | 0x1B2338);
+        m.translate(iconCx, iconCy);
+        m.scale(iconScale, iconScale);
+        drawOrb(context, 0, 0, 6, (a << 24) | 0xFF9A7B2D);
+        drawOrb(context, 0, 0, 4, (a << 24) | 0xFFE8C86A);
+        drawOrb(context, -1, -1, 1, (a << 24) | 0xFFFFF3C4);
         m.popMatrix();
 
-        float slide = (1.0f - easeOutCubic(popT)) * 4.0f;
+        float slide = (1.0f - easeOutCubic(popT)) * 5.0f;
         int textA = (int) (255 * alpha);
-        context.drawText(textRenderer, this.title, 38, (int) (6 + slide), (textA << 24) | 0xFFE8C86A, true);
+        context.drawText(textRenderer, this.title, 22, (int) (4 + slide), (textA << 24) | 0xFFE8C86A, true);
         if (!this.subtitle.isEmpty()) {
-            context.drawText(textRenderer, this.subtitle, 38, (int) (16 + slide), (textA << 24) | 0xFFD8D2C4, true);
+            context.drawText(textRenderer, this.subtitle, 22, (int) (14 + slide), (textA << 24) | 0xFFD8D2C4, true);
+        }
+    }
+
+    /** Маленький круг заливкой по строкам — для значка опыта. */
+    private static void drawOrb(DrawContext context, int cx, int cy, int r, int color) {
+        for (int dy = -r; dy <= r; dy++) {
+            int dx = (int) Math.floor(Math.sqrt(r * r - dy * dy));
+            context.fill(cx - dx, cy + dy, cx + dx + 1, cy + dy + 1, color);
         }
     }
 
