@@ -11,7 +11,7 @@ import net.teyvat.TeyvatMod;
 import java.util.List;
 
 /**
- * Предметы Тейвата: слизь слайма (3 тира), мора.
+ * Предметы Тейвата: слизь слайма (3 тира), мора, яйцо призыва гидро слайма.
  * Тир дропа зависит от уровня слайма: слизь — 1+ ур,
  * выделения — 40+ ур, концентрат — 60+ ур.
  */
@@ -21,8 +21,12 @@ public final class TeyvatItems {
     public static final Item SLIME_CONCENTRATE = register("slime_concentrate");
     public static final Item MORA = register("mora");
 
+    /** Яйцо призыва гидро слайма для тестов и творческого режима. */
+    public static final Item HYDRO_SLIME_SPAWN_EGG = registerSpawnEgg();
+
     public static final List<Item> ALL = List.of(
-            SLIME_CONDENSATE, SLIME_SECRETIONS, SLIME_CONCENTRATE, MORA);
+            SLIME_CONDENSATE, SLIME_SECRETIONS, SLIME_CONCENTRATE, MORA,
+            HYDRO_SLIME_SPAWN_EGG);
 
     private TeyvatItems() {}
 
@@ -30,6 +34,14 @@ public final class TeyvatItems {
         Identifier id = Identifier.of(TeyvatMod.MOD_ID, name);
         return Registry.register(Registries.ITEM, id,
                 new Item(new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, id))));
+    }
+
+    /** Раскраска яйца уже в текстуре, без двойного тинта. */
+    private static Item registerSpawnEgg() {
+        Identifier id = Identifier.of(TeyvatMod.MOD_ID, "hydro_slime_spawn_egg");
+        return Registry.register(Registries.ITEM, id,
+                new HydroSlimeSpawnEggItem(
+                        new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, id))));
     }
 
     public static void register() {
