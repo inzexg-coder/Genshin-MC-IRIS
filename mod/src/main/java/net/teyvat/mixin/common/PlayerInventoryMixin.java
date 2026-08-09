@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * Подбор лута как в Genshin: добыча никогда не попадает в руку (выбранный слот
  * хотбара). Сначала заполняются все остальные слоты; если свободно только в руке —
  * предмет остаётся лежать на земле (insertStack вернёт false).
- * Заодно при удачном подборе шлём клиенту уведомление «ресурс получен».
+ * При удачном подборе сразу шлём клиенту уведомление «ресурс получен».
  */
 @Mixin(PlayerInventory.class)
 public abstract class PlayerInventoryMixin {
@@ -30,7 +30,9 @@ public abstract class PlayerInventoryMixin {
     @Shadow
     private int selectedSlot;
 
-    /** Сколько предметов было в стаке до вставки — для подсчёта подобранного. */
+    /** Id предмета и размер стака до вставки — для уведомления о подборе. */
+    @Unique
+    private String teyvat_pickupId;
     @Unique
     private int teyvat_pickupAmount;
 
@@ -40,6 +42,9 @@ public abstract class PlayerInventoryMixin {
         if (stack.isEmpty()) {
             return;
         }
+        // Запоминаем, что и сколько подбирается (до мутаций стака ниже).
+        this.teyvat_pickupId = Registries.ITEM.getId(stack.getItem()).toString();
+        this.teyvat_pickupAmount = stack.getCount();
         int selected = this.selectedSlot;
         if (selected < 0 || selected >= this.main.size()) {
             return;
@@ -62,6 +67,8 @@ public abstract class PlayerInventoryMixin {
                     stack.decrement(room);
                 }
                 if (stack.isEmpty()) {
+                    // Всё добрали в существующие стаки — уведомляем сразу.
+                    this.teyvat_notifyPickup();
                     cir.setReturnValue(true);
                     return;
                 }
@@ -73,6 +80,7 @@ public abstract class PlayerInventoryMixin {
             if (i != selected && this.main.get(i).isEmpty()) {
                 inventory.setStack(i, stack.copy());
                 stack.setCount(0);
+                this.teyvat_notifyPickup();
                 cir.setReturnValue(true);
                 return;
             }
@@ -82,28 +90,14 @@ public abstract class PlayerInventoryMixin {
         cir.setReturnValue(false);
     }
 
-    /** Запоминаем размер стака до вставки. */
-    @Inject(method = "insertStack(Lnet/minecraft/item/ItemStack;)Z",
-            at = @At("HEAD"))
-    private void teyvat_capturePickupAmount(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
-        this.teyvat_pickupAmount = stack.getCount();
-    }
-
-    /** Подбор удался — уведомляем клиент о полученном ресурсе. */
-    @Inject(method = "insertStack(Lnet/minecraft/item/ItemStack;)Z",
-            at = @At("RETURN"))
-    private void teyvat_notifyResource(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
-        if (!Boolean.TRUE.equals(cir.getReturnValue())) {
-            return;
-        }
-        int gained = this.teyvat_pickupAmount - stack.getCount();
-        if (gained <= 0 || stack.isEmpty()) {
-            return;
-        }
+    /** Клиенту: «ресурс получен» (текущий подбор, сохранённый в HEAD). */
+    @Unique
+    private void teyvat_notifyPickup() {
         PlayerInventory inventory = (PlayerInventory) (Object) this;
-        if (inventory.player instanceof ServerPlayerEntity serverPlayer) {
-            ServerPlayNetworking.send(serverPlayer,
-                    new ResourceGainPayload(Registries.ITEM.getId(stack.getItem()).toString(), gained));
+        if (!(inventory.player instanceof ServerPlayerEntity serverPlayer)) {
+            return;
         }
+        ServerPlayNetworking.send(serverPlayer,
+                new ResourceGainPayload(this.teyvat_pickupId, this.teyvat_pickupAmount));
     }
 }
