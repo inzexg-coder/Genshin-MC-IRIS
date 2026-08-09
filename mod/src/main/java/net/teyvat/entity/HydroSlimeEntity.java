@@ -8,6 +8,9 @@ import net.minecraft.entity.ai.goal.Goal;
 import net.minecraft.entity.ai.goal.LookAroundGoal;
 import net.minecraft.entity.ai.goal.LookAtEntityGoal;
 import net.minecraft.entity.ai.goal.SwimGoal;
+import net.minecraft.entity.data.DataTracker;
+import net.minecraft.entity.data.TrackedData;
+import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
@@ -58,6 +61,11 @@ public class HydroSlimeEntity extends HostileEntity {
     private UUID ownerUuid;
     /** Бой включён: до объявления задания слайм неуязвим даже для владельца. */
     private boolean combatReady;
+    /** Тик анимации смерти: -1 = жив, 0+ = распад в воду. Синхронизируется на клиент. */
+    private static final TrackedData<Integer> DEATH_ANIM = DataTracker.registerData(
+            HydroSlimeEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    /** Длительность анимации распада в тиках (набухание → взрыв). */
+    private static final int DEATH_ANIM_TOTAL = 9;
 
     public static void register() {
         if (TYPE == null) {
@@ -80,6 +88,17 @@ public class HydroSlimeEntity extends HostileEntity {
     }
 
     @Override
+    protected void initDataTracker(DataTracker.Builder builder) {
+        super.initDataTracker(builder);
+        builder.add(DEATH_ANIM, -1);
+    }
+
+    /** Тик анимации смерти (-1 — слайм жив). */
+    public int getDeathAnimTicks() {
+        return this.dataTracker.get(DEATH_ANIM);
+    }
+
+    @Override
     protected void initGoals() {
         this.goalSelector.add(1, new SwimGoal(this));
         this.goalSelector.add(2, new HydroSlimeHopGoal(this));
@@ -89,6 +108,13 @@ public class HydroSlimeEntity extends HostileEntity {
 
     @Override
     public void tick() {
+        if (this.getDeathAnimTicks() >= 0) {
+            // Распад в воду: тело замирает и набухает, эффекты крутит сервер.
+            if (this.getEntityWorld() instanceof ServerWorld serverWorld) {
+                this.tickDeathAnimation(serverWorld, this.getDeathAnimTicks());
+            }
+            return;
+        }
         super.tick();
         if (!this.getEntityWorld().isClient()) {
             this.hopCooldown--;
@@ -258,42 +284,74 @@ public class HydroSlimeEntity extends HostileEntity {
             if (this.ownerUuid != null) {
                 SlimeTraining.onSlimeKilled(serverWorld, this);
             }
+            // Слайм замирает, вскипает пузырями, набухает — и взрывается фонтаном воды.
+            this.setVelocity(Vec3d.ZERO);
+            this.dataTracker.set(DEATH_ANIM, 0);
             Vec3d p = new Vec3d(this.getX(), this.getY(), this.getZ());
-            // Всплеск в духе Genshin: слайм рассыпается в воду — широкое кольцо,
-            // две волны ряби, три яруса брызг, пузыри и дымка.
-            serverWorld.spawnParticles(TeyvatParticles.WATER_SPLASH, p.x, p.y + 0.6, p.z,
-                    1, 0.0, 0.0, 0.0, 0.0);
-            serverWorld.spawnParticles(TeyvatParticles.WATER_RIPPLE, p.x, p.y + 0.64, p.z,
-                    1, 0.0, 0.0, 0.0, 0.0);
-            serverWorld.spawnParticles(TeyvatParticles.WATER_RIPPLE, p.x, p.y + 0.7, p.z,
-                    1, 0.0, 0.0, 0.0, 0.0);
-            // Брызги взлетают вверх и падают дугой (скорости задаёт сама частица).
-            serverWorld.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.2, p.z,
-                    20, 0.0, 0.0, 0.0, 0.0);
-            serverWorld.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.55, p.z,
-                    22, 0.0, 0.0, 0.0, 0.0);
-            serverWorld.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.9, p.z,
-                    18, 0.0, 0.0, 0.0, 0.0);
-            // Пузыри: слайм «вскипает» водой.
-            serverWorld.spawnParticles(ParticleTypes.BUBBLE, p.x, p.y + 0.35, p.z,
-                    26, 0.7, 0.6, 0.7, 0.12);
-            serverWorld.spawnParticles(ParticleTypes.BUBBLE_POP, p.x, p.y + 0.6, p.z,
-                    12, 0.6, 0.5, 0.6, 0.06);
-            // Мягкая дымка-облачко в центре всплеска.
-            serverWorld.spawnParticles(TeyvatParticles.WATER_MIST, p.x, p.y + 0.35, p.z,
-                    12, 0.0, 0.0, 0.0, 0.0);
-            serverWorld.spawnParticles(ParticleTypes.SPLASH, p.x, p.y + 0.5, p.z,
-                    22, 0.7, 0.6, 0.7, 0.1);
-            serverWorld.playSound(null, this.getBlockPos(), SoundEvents.ENTITY_GENERIC_SPLASH,
-                    SoundCategory.HOSTILE, 1.1f, 1.05f);
-            serverWorld.playSound(null, this.getBlockPos(), SoundEvents.BLOCK_BUBBLE_COLUMN_UPWARDS_AMBIENT,
-                    SoundCategory.HOSTILE, 0.7f, 1.6f);
+            serverWorld.spawnParticles(ParticleTypes.BUBBLE, p.x, p.y + 0.4, p.z,
+                    18, 0.6, 0.6, 0.6, 0.12);
+            serverWorld.playSound(null, this.getBlockPos(),
+                    SoundEvents.BLOCK_BUBBLE_COLUMN_UPWARDS_AMBIENT,
+                    SoundCategory.HOSTILE, 0.8f, 1.4f);
         }
         super.onDeath(damageSource);
-        // Убираем тело сразу: вместо ванильного «замирания» остаётся только водный взрыв.
-        if (this.getEntityWorld() instanceof ServerWorld) {
+    }
+
+    /** Кадр анимации распада: тело набухает, затем взрыв в фонтан воды. */
+    private void tickDeathAnimation(ServerWorld world, int tick) {
+        Vec3d p = new Vec3d(this.getX(), this.getY(), this.getZ());
+        if (tick == 3) {
+            // Набухание: мелкие брызги срываются с тела, по земле расходится первая рябь.
+            world.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.4, p.z,
+                    10, 0.0, 0.0, 0.0, 0.0);
+            world.spawnParticles(TeyvatParticles.WATER_RIPPLE, p.x, p.y + 0.05, p.z,
+                    1, 0.0, 0.0, 0.0, 0.0);
+        } else if (tick == 6) {
+            // Тело уже набухло: пузыри вскипают сильнее, брызги бьют выше.
+            world.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.6, p.z,
+                    16, 0.0, 0.0, 0.0, 0.0);
+            world.spawnParticles(ParticleTypes.BUBBLE, p.x, p.y + 0.4, p.z,
+                    14, 0.6, 0.6, 0.6, 0.1);
+        }
+        int next = tick + 1;
+        this.dataTracker.set(DEATH_ANIM, next);
+        if (next >= DEATH_ANIM_TOTAL) {
+            this.burst(world, p);
             this.discard();
         }
+    }
+
+    /** Взрыв слайма: широкое кольцо, фонтан брызг, пузыри, дымка и звук всплеска. */
+    private void burst(ServerWorld world, Vec3d p) {
+        // Кольцо-всплеск и рябь на земле.
+        world.spawnParticles(TeyvatParticles.WATER_SPLASH, p.x, p.y + 0.55, p.z,
+                1, 0.0, 0.0, 0.0, 0.0);
+        world.spawnParticles(TeyvatParticles.WATER_RIPPLE, p.x, p.y + 0.05, p.z,
+                2, 0.0, 0.0, 0.0, 0.0);
+        // Фонтан: три яруса брызг, взлетают вверх и падают дугой.
+        world.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.15, p.z,
+                24, 0.0, 0.0, 0.0, 0.0);
+        world.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.5, p.z,
+                26, 0.0, 0.0, 0.0, 0.0);
+        world.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.9, p.z,
+                20, 0.0, 0.0, 0.0, 0.0);
+        // Радиальные брызги во все стороны (скорость каждой задаёт серверный пакет).
+        world.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.5, p.z,
+                28, 0.9, 0.5, 0.9, 0.55);
+        // Пузыри вскипают и лопаются.
+        world.spawnParticles(ParticleTypes.BUBBLE, p.x, p.y + 0.35, p.z,
+                24, 0.8, 0.7, 0.8, 0.14);
+        world.spawnParticles(ParticleTypes.BUBBLE_POP, p.x, p.y + 0.7, p.z,
+                12, 0.6, 0.5, 0.6, 0.06);
+        // Дымка и ванильные брызги довершают всплеск.
+        world.spawnParticles(TeyvatParticles.WATER_MIST, p.x, p.y + 0.4, p.z,
+                14, 0.0, 0.0, 0.0, 0.0);
+        world.spawnParticles(ParticleTypes.SPLASH, p.x, p.y + 0.5, p.z,
+                26, 0.8, 0.6, 0.8, 0.12);
+        world.playSound(null, this.getBlockPos(), SoundEvents.ENTITY_GENERIC_SPLASH,
+                SoundCategory.HOSTILE, 1.25f, 0.95f);
+        world.playSound(null, this.getBlockPos(), SoundEvents.BLOCK_BUBBLE_COLUMN_UPWARDS_AMBIENT,
+                SoundCategory.HOSTILE, 0.7f, 1.6f);
     }
 
     /** Прыжки: каждый раз, когда слайм на земле и кулдаун истёк. */

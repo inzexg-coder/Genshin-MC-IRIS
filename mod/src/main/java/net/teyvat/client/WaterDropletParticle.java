@@ -20,14 +20,18 @@ public class WaterDropletParticle extends BillboardParticle {
                                    SpriteProvider spriteProvider) {
         super(world, x, y, z, velocityX, velocityY, velocityZ, spriteProvider.getFirst());
         this.spriteProvider = spriteProvider;
-        this.scale = 0.14f + this.random.nextFloat() * 0.12f;
-        this.maxAge = 20 + this.random.nextInt(16);
-        this.gravityStrength = 0.85f;
+        this.scale = 0.16f + this.random.nextFloat() * 0.14f;
+        this.maxAge = 24 + this.random.nextInt(18);
+        this.gravityStrength = 0.9f;
         this.setColor(0.66f, 0.88f, 1.0f);
         this.setAlpha(0.95f);
-        this.velocityX = (this.random.nextFloat() - 0.5f) * 0.55f;
-        this.velocityY = 0.35f + this.random.nextFloat() * 0.55f;
-        this.velocityZ = (this.random.nextFloat() - 0.5f) * 0.55f;
+        // Если сервер задал скорость (радиальный всплеск) — летим по ней,
+        // иначе — случайный фонтан вверх с небольшим разлётом.
+        if (velocityX == 0.0 && velocityY == 0.0 && velocityZ == 0.0) {
+            this.velocityX = (this.random.nextFloat() - 0.5f) * 0.7f;
+            this.velocityY = 0.5f + this.random.nextFloat() * 0.8f;
+            this.velocityZ = (this.random.nextFloat() - 0.5f) * 0.7f;
+        }
     }
 
     @Override

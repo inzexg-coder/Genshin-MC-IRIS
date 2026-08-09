@@ -21,19 +21,19 @@ public class WaterSplashParticle extends BillboardParticle {
                                   SpriteProvider spriteProvider) {
         super(world, x, y, z, velocityX, velocityY, velocityZ, spriteProvider.getFirst());
         this.spriteProvider = spriteProvider;
-        this.scale = 0.55f;
-        this.maxAge = 32;
+        this.scale = 0.7f;
+        this.maxAge = 36;
         this.gravityStrength = 0.0f;
         this.setColor(0.62f, 0.87f, 1.0f);
-        this.setAlpha(0.85f);
+        this.setAlpha(0.9f);
     }
 
     @Override
     public void tick() {
         super.tick();
         float progress = this.age / (float) this.maxAge;
-        this.scale = 0.55f + progress * 2.0f;
-        this.setAlpha(Math.max(0.0f, 0.95f - progress * 0.95f));
+        this.scale = 0.7f + progress * 2.6f;
+        this.setAlpha(Math.max(0.0f, 1.0f - progress));
         this.updateSprite(this.spriteProvider);
     }
 

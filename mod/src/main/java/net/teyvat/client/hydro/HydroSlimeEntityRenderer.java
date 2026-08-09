@@ -50,6 +50,11 @@ public class HydroSlimeEntityRenderer extends EntityRenderer<HydroSlimeEntity, H
         }
         float vy = (float) entity.getVelocity().y;
         state.stretch = MathHelper.clamp(vy * 1.1f, 0.0f, 1.0f);
+        // Анимация смерти: тело набухает перед взрывом в фонтан воды.
+        int deathAnim = entity.getDeathAnimTicks();
+        state.scale = deathAnim >= 0
+                ? 1.4f + 0.35f * Math.min(deathAnim / 8.0f, 1.0f)
+                : 1.4f;
     }
 
     @Override
