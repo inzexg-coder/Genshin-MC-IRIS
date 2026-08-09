@@ -19,6 +19,9 @@ import net.teyvat.client.ZoomController;
 import net.teyvat.client.TravelerNotesScreen;
 import net.teyvat.client.HealthOverlay;
 import net.teyvat.client.WaterSplashParticle;
+import net.teyvat.client.WaterDropletParticle;
+import net.teyvat.client.WaterRippleParticle;
+import net.teyvat.client.WaterMistParticle;
 import net.teyvat.client.StaminaController;
 import net.teyvat.client.hydro.HydroSlimeEntityRenderer;
 import net.teyvat.client.hydro.HydroSlimeProjectileRenderer;
@@ -73,9 +76,16 @@ public class TeyvatClient implements ClientModInitializer {
         EntityRendererRegistry.register(HydroSlimeEntity.TYPE, HydroSlimeEntityRenderer::new);
         EntityRendererRegistry.register(HydroSlimeProjectileEntity.TYPE, HydroSlimeProjectileRenderer::new);
 
-        // Кастомный всплеск воды при смерти слайма: кольцо на текстуре water_splash_ring.
+        // Кастомный всплеск воды при смерти слайма: кольцо на текстуре water_splash.
         ParticleFactoryRegistry.getInstance().register(TeyvatParticles.WATER_SPLASH,
                 (FabricSpriteProvider spriteProvider) -> new WaterSplashParticle.Factory(spriteProvider));
+        // Брызги, рябь и дымка — слои одного водного всплеска.
+        ParticleFactoryRegistry.getInstance().register(TeyvatParticles.WATER_DROPLET,
+                (FabricSpriteProvider spriteProvider) -> new WaterDropletParticle.Factory(spriteProvider));
+        ParticleFactoryRegistry.getInstance().register(TeyvatParticles.WATER_RIPPLE,
+                (FabricSpriteProvider spriteProvider) -> new WaterRippleParticle.Factory(spriteProvider));
+        ParticleFactoryRegistry.getInstance().register(TeyvatParticles.WATER_MIST,
+                (FabricSpriteProvider spriteProvider) -> new WaterMistParticle.Factory(spriteProvider));
 
         // Клавиша открывает заметки в любом режиме игры (клиентская сторона).
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

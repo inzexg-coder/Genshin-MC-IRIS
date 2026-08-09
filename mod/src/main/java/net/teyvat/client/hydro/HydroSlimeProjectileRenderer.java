@@ -14,7 +14,7 @@ import net.teyvat.entity.HydroSlimeProjectileEntity;
 /** Рендер водяного шара: маленькая полупрозрачная капля. */
 public class HydroSlimeProjectileRenderer extends EntityRenderer<HydroSlimeProjectileEntity, HydroSlimeProjectileRenderState> {
     private static final Identifier TEXTURE = Identifier.of("teyvat", "textures/entity/hydro_slime_projectile.png");
-    private static final float SCALE = 0.32f;
+    private static final float SCALE = 0.45f;
 
     private final HydroSlimeProjectileModel model;
 

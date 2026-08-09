@@ -20,8 +20,8 @@ import java.util.UUID;
  *  переживает перезаход и перезапуск сервера. */
 public final class SlimeTraining {
     private static final int SLIME_COUNT = 3;
-    private static final double SPAWN_MIN_DIST = 2.5;
-    private static final double SPAWN_MAX_DIST = 4.5;
+    private static final double SPAWN_MIN_DIST = 6.0;
+    private static final double SPAWN_MAX_DIST = 9.0;
     /** Радиус поиска живых слаймов тренировки (вокруг игрока/слайма). */
     private static final double SEARCH_RADIUS = 512.0;
 

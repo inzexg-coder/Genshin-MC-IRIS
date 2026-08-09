@@ -18,6 +18,7 @@ import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+import net.teyvat.particle.TeyvatParticles;
 
 /**
  * Водяной шар Гидро слайма: медленный снаряд с гравитацией,
@@ -44,8 +45,17 @@ public class HydroSlimeProjectileEntity extends SnowballEntity {
         super(type, world);
     }
 
-    public HydroSlimeProjectileEntity(World world, LivingEntity owner) {
-        super(world, owner, net.minecraft.item.ItemStack.EMPTY);
+    /** Лёгкий водяной след за летящей сферой: капли и дымка. */
+    @Override
+    public void tick() {
+        super.tick();
+        if (this.getEntityWorld() instanceof ServerWorld serverWorld && this.age % 3 == 0) {
+            Vec3d pos = new Vec3d(this.getX(), this.getY(), this.getZ());
+            serverWorld.spawnParticles(TeyvatParticles.WATER_MIST, pos.x, pos.y, pos.z,
+                    1, 0.0, 0.0, 0.0, 0.0);
+            serverWorld.spawnParticles(TeyvatParticles.WATER_DROPLET, pos.x, pos.y, pos.z,
+                    1, 0.0, 0.0, 0.0, 0.0);
+        }
     }
 
     @Override
@@ -65,10 +75,17 @@ public class HydroSlimeProjectileEntity extends SnowballEntity {
         }
         if (this.getEntityWorld() instanceof ServerWorld serverWorld) {
             Vec3d p = new Vec3d(this.getX(), this.getY(), this.getZ());
+            // Всплеск при попадании: рябь, брызги и дымка, как при смерти слайма, но меньше.
+            serverWorld.spawnParticles(TeyvatParticles.WATER_RIPPLE, p.x, p.y, p.z,
+                    1, 0.0, 0.0, 0.0, 0.0);
+            serverWorld.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y, p.z,
+                    7, 0.0, 0.0, 0.0, 0.0);
+            serverWorld.spawnParticles(TeyvatParticles.WATER_MIST, p.x, p.y, p.z,
+                    2, 0.0, 0.0, 0.0, 0.0);
             serverWorld.spawnParticles(ParticleTypes.SPLASH, p.x, p.y, p.z,
-                    10, 0.25, 0.25, 0.25, 0.05);
+                    8, 0.3, 0.3, 0.3, 0.05);
             serverWorld.playSound(null, this.getBlockPos(), SoundEvents.ENTITY_GENERIC_SPLASH,
-                    SoundCategory.HOSTILE, 0.8f, 1.5f);
+                    SoundCategory.HOSTILE, 0.9f, 1.5f);
             this.discard();
         }
     }

@@ -10,7 +10,7 @@ import net.minecraft.client.render.entity.model.EntityModel;
 
 /**
  * Модель Гидро слайма — два куба в стиле Hoyocraft: внешнее тело 14×10×14
- * и внутреннее «ядро» 10×8×10, оба на текстуре 64×64 (uv 0,0 и 0,24).
+ * и внутреннее «ядро» 10×8×10, оба на текстуре 96×64 (uv 0,0 и 0,24).
  * Низ внешнего куба стоит на земле, внутренний смещён вверх на 1 пиксель.
  */
 public class HydroSlimeEntityModel extends EntityModel<HydroSlimeRenderState> {
@@ -32,6 +32,6 @@ public class HydroSlimeEntityModel extends EntityModel<HydroSlimeRenderState> {
                 ModelPartBuilder.create().uv(0, 24).cuboid(-5.0f, 1.0f, -5.0f, 10.0f, 8.0f, 10.0f),
                 ModelTransform.NONE);
 
-        return TexturedModelData.of(data, 64, 64);
+        return TexturedModelData.of(data, 96, 64);
     }
 }

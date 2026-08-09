@@ -9,10 +9,10 @@ import net.minecraft.client.model.ModelTransform;
 import net.minecraft.client.model.TexturedModelData;
 import net.minecraft.client.render.entity.model.EntityModel;
 
-/** Маленькая водяная капля — модель снаряда Гидро слайма. */
+/** Водяная сфера Гидро слайма: плотный шар с бликом, текстура 32×32. */
 public class HydroSlimeProjectileModel extends EntityModel<HydroSlimeProjectileRenderState> {
-    private static final int TEXTURE_WIDTH = 16;
-    private static final int TEXTURE_HEIGHT = 16;
+    private static final int TEXTURE_WIDTH = 32;
+    private static final int TEXTURE_HEIGHT = 32;
 
     public HydroSlimeProjectileModel(ModelPart root) {
         super(root);
@@ -21,19 +21,19 @@ public class HydroSlimeProjectileModel extends EntityModel<HydroSlimeProjectileR
     public static TexturedModelData getTexturedModelData() {
         ModelData data = new ModelData();
         ModelPartData root = data.getRoot();
-        ModelPartBuilder builder = ModelPartBuilder.create();
-        builder.uv(0, 0).cuboid(-1.8f, -2.0f, -1.8f, 3.6f, 3.0f, 3.6f, new Dilation(0.02f));
-        builder.uv(0, 0).cuboid(-1.2f, -3.6f, -1.2f, 2.4f, 1.8f, 2.4f, new Dilation(0.02f));
-        root.addChild("orb", builder, ModelTransform.origin(0.0f, 0.0f, 0.0f));
-        // Блик на капле.
-        ModelPartBuilder hl = ModelPartBuilder.create();
-        hl.uv(12, 0).cuboid(-0.5f, -3.0f, -1.9f, 1.0f, 1.0f, 0.4f);
-        root.addChild("highlight", hl, ModelTransform.origin(0.0f, 0.0f, 0.0f));
+        // Шар: куб с лёгким расширением, каждая грань несёт градиент сферы.
+        root.addChild("orb",
+                ModelPartBuilder.create().uv(0, 0).cuboid(-1.7f, -1.7f, -1.7f, 3.4f, 3.4f, 3.4f, new Dilation(0.04f)),
+                ModelTransform.origin(0.0f, 0.0f, 0.0f));
+        // Объёмный блик на верхней передней грани.
+        root.addChild("highlight",
+                ModelPartBuilder.create().uv(0, 0).cuboid(-0.55f, -2.35f, -1.85f, 1.1f, 0.9f, 0.45f),
+                ModelTransform.origin(0.0f, 0.0f, 0.0f));
         return TexturedModelData.of(data, TEXTURE_WIDTH, TEXTURE_HEIGHT);
     }
 
     @Override
     public void setAngles(HydroSlimeProjectileRenderState state) {
-        // капля вращается вместе с направлением полёта — достаточно yaw/pitch рендера
+        // сфера вращается вместе с направлением полёта — достаточно yaw/pitch рендера
     }
 }

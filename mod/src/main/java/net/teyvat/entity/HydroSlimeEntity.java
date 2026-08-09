@@ -52,6 +52,8 @@ public class HydroSlimeEntity extends HostileEntity {
 
     /** Тики до следующего прыжка (считаем на сервере). */
     private int hopCooldown = 20;
+    /** Тики до следующего выстрела водяным шаром. */
+    private int shootCooldown = 30;
     /** Владелец тренировочного слайма (null — обычный слайм мира). */
     private UUID ownerUuid;
     /** Бой включён: до объявления задания слайм неуязвим даже для владельца. */
@@ -80,10 +82,9 @@ public class HydroSlimeEntity extends HostileEntity {
     @Override
     protected void initGoals() {
         this.goalSelector.add(1, new SwimGoal(this));
-        this.goalSelector.add(2, new HydroSlimeShootGoal(this));
-        this.goalSelector.add(3, new HydroSlimeHopGoal(this));
-        this.goalSelector.add(4, new LookAtEntityGoal(this, PlayerEntity.class, 10.0f));
-        this.goalSelector.add(5, new LookAroundGoal(this));
+        this.goalSelector.add(2, new HydroSlimeHopGoal(this));
+        this.goalSelector.add(3, new LookAtEntityGoal(this, PlayerEntity.class, 10.0f));
+        this.goalSelector.add(4, new LookAroundGoal(this));
     }
 
     @Override
@@ -91,14 +92,57 @@ public class HydroSlimeEntity extends HostileEntity {
         super.tick();
         if (!this.getEntityWorld().isClient()) {
             this.hopCooldown--;
-            // Тренировочный слайм всегда прыгает к своему владельцу.
-            if (this.ownerUuid != null && this.getEntityWorld() instanceof ServerWorld serverWorld) {
-                ServerPlayerEntity owner = serverWorld.getServer().getPlayerManager().getPlayer(this.ownerUuid);
-                if (owner != null && owner.isAlive()) {
-                    this.setTarget(owner);
+            ServerWorld serverWorld = (ServerWorld) this.getEntityWorld();
+            // Цель: владелец (тренировка) или ближайший игрок поблизости.
+            LivingEntity target = this.getTarget();
+            if (target == null || !target.isAlive()) {
+                target = this.findTarget(serverWorld);
+                if (target != null) {
+                    this.setTarget(target);
+                }
+            }
+            if (target != null && target.isAlive()) {
+                // Слайм всегда смотрит на свою цель (глазами к игроку), а не летит боком.
+                double dx = target.getX() - this.getX();
+                double dz = target.getZ() - this.getZ();
+                float yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0f);
+                this.setYaw(yaw);
+                this.setHeadYaw(yaw);
+                this.setBodyYaw(yaw);
+                // Стрельба водяными шарами по цели в радиусе видимости.
+                if ((!this.isTraining() || this.combatReady)
+                        && this.squaredDistanceTo(target) <= 20.0 * 20.0
+                        && --this.shootCooldown <= 0) {
+                    if (this.getVisibilityCache().canSee(target)) {
+                        this.shootAt(target);
+                    }
+                    this.shootCooldown = 30 + this.random.nextInt(20);
                 }
             }
         }
+    }
+
+    /** Ищет цель: владельца тренировочного слайма, иначе ближайшего игрока. */
+    private LivingEntity findTarget(ServerWorld world) {
+        if (this.ownerUuid != null) {
+            ServerPlayerEntity owner = world.getServer().getPlayerManager().getPlayer(this.ownerUuid);
+            if (owner != null && owner.isAlive()) {
+                return owner;
+            }
+        }
+        LivingEntity nearest = null;
+        double best = 20.0 * 20.0;
+        for (ServerPlayerEntity player : world.getPlayers()) {
+            if (!player.isAlive() || player.isSpectator()) {
+                continue;
+            }
+            double d = this.squaredDistanceTo(player);
+            if (d < best) {
+                best = d;
+                nearest = player;
+            }
+        }
+        return nearest;
     }
 
     /** Тренировочный слайм: принадлежит игроку и бьётся только им. */
@@ -178,7 +222,11 @@ public class HydroSlimeEntity extends HostileEntity {
     /** Выстрел водяным шаром в цель. */
     void shootAt(LivingEntity target) {
         World world = this.getEntityWorld();
-        HydroSlimeProjectileEntity projectile = new HydroSlimeProjectileEntity(world, this);
+        // Важно: спавним с собственным типом сущности, иначе клиент рендерит
+        // ванильный снежок (конструктор SnowballEntity(World, owner, stack)
+        // жёстко ставит EntityType.SNOWBALL).
+        HydroSlimeProjectileEntity projectile = new HydroSlimeProjectileEntity(HydroSlimeProjectileEntity.TYPE, world);
+        projectile.setOwner(this);
         Vec3d eye = this.getEyePos();
         projectile.setPosition(eye.x, eye.y - 0.15, eye.z);
         Vec3d aim = target.getEyePos().subtract(new Vec3d(projectile.getX(), projectile.getY(), projectile.getZ())).normalize().multiply(0.62);
@@ -211,51 +259,40 @@ public class HydroSlimeEntity extends HostileEntity {
                 SlimeTraining.onSlimeKilled(serverWorld, this);
             }
             Vec3d p = new Vec3d(this.getX(), this.getY(), this.getZ());
-            // Кастомный всплеск: расширяющиеся водные кольца + капли ванильного всплеска.
-            serverWorld.spawnParticles(TeyvatParticles.WATER_SPLASH, p.x, p.y + 0.55, p.z,
-                    10, 0.35, 0.35, 0.35, 0.0);
+            // Всплеск в духе Genshin: слайм рассыпается в воду — широкое кольцо,
+            // две волны ряби, три яруса брызг, пузыри и дымка.
+            serverWorld.spawnParticles(TeyvatParticles.WATER_SPLASH, p.x, p.y + 0.6, p.z,
+                    1, 0.0, 0.0, 0.0, 0.0);
+            serverWorld.spawnParticles(TeyvatParticles.WATER_RIPPLE, p.x, p.y + 0.64, p.z,
+                    1, 0.0, 0.0, 0.0, 0.0);
+            serverWorld.spawnParticles(TeyvatParticles.WATER_RIPPLE, p.x, p.y + 0.7, p.z,
+                    1, 0.0, 0.0, 0.0, 0.0);
+            // Брызги взлетают вверх и падают дугой (скорости задаёт сама частица).
+            serverWorld.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.2, p.z,
+                    20, 0.0, 0.0, 0.0, 0.0);
+            serverWorld.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.55, p.z,
+                    22, 0.0, 0.0, 0.0, 0.0);
+            serverWorld.spawnParticles(TeyvatParticles.WATER_DROPLET, p.x, p.y + 0.9, p.z,
+                    18, 0.0, 0.0, 0.0, 0.0);
+            // Пузыри: слайм «вскипает» водой.
+            serverWorld.spawnParticles(ParticleTypes.BUBBLE, p.x, p.y + 0.35, p.z,
+                    26, 0.7, 0.6, 0.7, 0.12);
+            serverWorld.spawnParticles(ParticleTypes.BUBBLE_POP, p.x, p.y + 0.6, p.z,
+                    12, 0.6, 0.5, 0.6, 0.06);
+            // Мягкая дымка-облачко в центре всплеска.
+            serverWorld.spawnParticles(TeyvatParticles.WATER_MIST, p.x, p.y + 0.35, p.z,
+                    12, 0.0, 0.0, 0.0, 0.0);
             serverWorld.spawnParticles(ParticleTypes.SPLASH, p.x, p.y + 0.5, p.z,
-                    14, 0.45, 0.45, 0.45, 0.06);
+                    22, 0.7, 0.6, 0.7, 0.1);
             serverWorld.playSound(null, this.getBlockPos(), SoundEvents.ENTITY_GENERIC_SPLASH,
-                    SoundCategory.HOSTILE, 1.0f, 1.2f);
+                    SoundCategory.HOSTILE, 1.1f, 1.05f);
+            serverWorld.playSound(null, this.getBlockPos(), SoundEvents.BLOCK_BUBBLE_COLUMN_UPWARDS_AMBIENT,
+                    SoundCategory.HOSTILE, 0.7f, 1.6f);
         }
         super.onDeath(damageSource);
-    }
-
-    /** Стрельба водяными шарами по игроку в радиусе видимости. */
-    private static class HydroSlimeShootGoal extends Goal {
-        private final HydroSlimeEntity slime;
-        private int cooldown = 30;
-
-        HydroSlimeShootGoal(HydroSlimeEntity slime) {
-            this.slime = slime;
-        }
-
-        @Override
-        public boolean canStart() {
-            if (this.slime.isTraining()) {
-                return false;
-            }
-            LivingEntity target = this.slime.getTarget();
-            return target != null && target.isAlive()
-                    && this.slime.squaredDistanceTo(target) <= 16.0 * 16.0;
-        }
-
-        @Override
-        public void tick() {
-            LivingEntity target = this.slime.getTarget();
-            if (target == null || !target.isAlive()) {
-                return;
-            }
-            this.slime.getLookControl().lookAt(target, 20.0f, 20.0f);
-            if (--this.cooldown <= 0) {
-                if (this.slime.getVisibilityCache().canSee(target)) {
-                    this.slime.shootAt(target);
-                    this.cooldown = 45 + this.slime.random.nextInt(25);
-                } else {
-                    this.cooldown = 10;
-                }
-            }
+        // Убираем тело сразу: вместо ванильного «замирания» остаётся только водный взрыв.
+        if (this.getEntityWorld() instanceof ServerWorld) {
+            this.discard();
         }
     }
 

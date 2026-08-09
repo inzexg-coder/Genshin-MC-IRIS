@@ -7,6 +7,8 @@ import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.util.math.MatrixStack;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.RotationAxis;
@@ -35,7 +37,17 @@ public class HydroSlimeEntityRenderer extends EntityRenderer<HydroSlimeEntity, H
     public void updateRenderState(HydroSlimeEntity entity, HydroSlimeRenderState state, float tickDelta) {
         super.updateRenderState(entity, state, tickDelta);
         state.light = this.getLight(entity, tickDelta);
-        state.yaw = entity.getLerpedYaw(tickDelta);
+        // Слайм всегда повёрнут лицом к игроку: серверный yaw часто перебивается
+        // прыжком (движение по velocity), поэтому считаем поворот на клиенте.
+        PlayerEntity player = MinecraftClient.getInstance().player;
+        if (player != null && !player.isRemoved()
+                && entity.squaredDistanceTo(player) < 40.0 * 40.0) {
+            double dx = player.getX() - entity.getX();
+            double dz = player.getZ() - entity.getZ();
+            state.yaw = (float) (Math.toDegrees(Math.atan2(dz, dx)) - 90.0f);
+        } else {
+            state.yaw = entity.getLerpedYaw(tickDelta);
+        }
         float vy = (float) entity.getVelocity().y;
         state.stretch = MathHelper.clamp(vy * 1.1f, 0.0f, 1.0f);
     }

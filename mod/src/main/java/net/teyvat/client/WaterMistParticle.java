@@ -3,37 +3,40 @@ package net.teyvat.client;
 import net.minecraft.client.particle.BillboardParticle;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleFactory;
-import net.minecraft.client.particle.ParticleTextureSheet;
 import net.minecraft.client.particle.SpriteProvider;
 import net.minecraft.client.world.ClientWorld;
 import net.minecraft.particle.SimpleParticleType;
 import net.minecraft.util.math.random.Random;
 
 /**
- * Всплеск воды: кольцо расширяется из точки гибели слайма и плавно тает.
- * Текстура кольца — assets/teyvat/textures/particle/water_splash.png.
+ * Водяная дымка: мягкое полупрозрачное облачко, медленно поднимается и расплывается.
  */
-public class WaterSplashParticle extends BillboardParticle {
+public class WaterMistParticle extends BillboardParticle {
     private final SpriteProvider spriteProvider;
+    private final float startScale;
 
-    protected WaterSplashParticle(ClientWorld world, double x, double y, double z,
-                                  double velocityX, double velocityY, double velocityZ,
-                                  SpriteProvider spriteProvider) {
+    protected WaterMistParticle(ClientWorld world, double x, double y, double z,
+                                double velocityX, double velocityY, double velocityZ,
+                                SpriteProvider spriteProvider) {
         super(world, x, y, z, velocityX, velocityY, velocityZ, spriteProvider.getFirst());
         this.spriteProvider = spriteProvider;
-        this.scale = 0.55f;
-        this.maxAge = 32;
-        this.gravityStrength = 0.0f;
-        this.setColor(0.62f, 0.87f, 1.0f);
-        this.setAlpha(0.85f);
+        this.startScale = 0.5f + this.random.nextFloat() * 0.35f;
+        this.scale = this.startScale;
+        this.maxAge = 40 + this.random.nextInt(20);
+        this.gravityStrength = -0.012f;
+        this.setColor(0.85f, 0.94f, 1.0f);
+        this.setAlpha(0.32f);
+        this.velocityX = (this.random.nextFloat() - 0.5f) * 0.08f;
+        this.velocityY = 0.02f + this.random.nextFloat() * 0.05f;
+        this.velocityZ = (this.random.nextFloat() - 0.5f) * 0.08f;
     }
 
     @Override
     public void tick() {
         super.tick();
         float progress = this.age / (float) this.maxAge;
-        this.scale = 0.55f + progress * 2.0f;
-        this.setAlpha(Math.max(0.0f, 0.95f - progress * 0.95f));
+        this.scale = this.startScale + progress * 1.4f;
+        this.setAlpha(Math.max(0.0f, 0.32f - progress * 0.32f));
         this.updateSprite(this.spriteProvider);
     }
 
@@ -54,7 +57,7 @@ public class WaterSplashParticle extends BillboardParticle {
                                        double x, double y, double z,
                                        double velocityX, double velocityY, double velocityZ,
                                        Random random) {
-            return new WaterSplashParticle(world, x, y, z, velocityX, velocityY, velocityZ,
+            return new WaterMistParticle(world, x, y, z, velocityX, velocityY, velocityZ,
                     this.spriteProvider);
         }
     }
