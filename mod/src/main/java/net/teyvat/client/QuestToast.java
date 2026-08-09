@@ -27,7 +27,7 @@ public class QuestToast implements Toast {
     /** Минимальная ширина окна (под компактный текст). */
     private static final int MIN_WIDTH = 150;
     /** Высота окна. */
-    private static final int HEIGHT = 30;
+    static final int HEIGHT = 30;
     /** Отступ от правого края экрана, чтобы окно не прилипало к границе. */
     private static final int RIGHT_MARGIN = 8;
 
@@ -74,6 +74,15 @@ public class QuestToast implements Toast {
      *  (с учётом затухания). Следующий урок ждёт, пока оно не исчезнет. */
     public static boolean isLastCompletionVisible() {
         return lastCompletedToast != null && lastCompletedToast.showTime < VISIBLE_MS + 600;
+    }
+
+    /** Висит ли на экране хоть одно уведомление задания (новое или выполненное).
+     *  Колонка опыта и ресурсов опускается ниже, чтобы ничего не наслаивалось. */
+    public static boolean isAnyVisible() {
+        if (activeNewQuest != null && activeNewQuest.getVisibility() == Visibility.SHOW) {
+            return true;
+        }
+        return isLastCompletionVisible();
     }
 
     /** Превращает видимое окно «Новое задание» в «Задание выполнено».

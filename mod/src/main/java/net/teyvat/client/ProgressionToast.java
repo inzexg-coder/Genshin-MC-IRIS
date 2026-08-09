@@ -16,7 +16,7 @@ import org.joml.Matrix3x2fStack;
  * уведомления (задания и заметки с ромбами на тёмных панелях).
  */
 public class ProgressionToast implements Toast {
-    private static final long VISIBLE_MS = 3000;
+    static final long VISIBLE_MS = 3000;
     private static final long POP_MS = 520;
     private static final int HEIGHT = 20;
     private static final int RIGHT_MARGIN = 10;
@@ -42,12 +42,15 @@ public class ProgressionToast implements Toast {
         this.width = Math.max(130, 26 + w + 14);
     }
 
-    /** Показать уведомление о получении опыта. */
+    /** Показать уведомление о получении опыта: теперь живёт в своей колонке
+     *  уведомлений (под окном задания), а не в ToastManager. */
     public static void show(long amount, boolean rankUp) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client != null && client.getToastManager() != null) {
-            client.getToastManager().add(new ProgressionToast(amount, rankUp));
-        }
+        NotificationStack.showExp(amount, rankUp);
+    }
+
+    /** Сколько миллисекунд окно на экране (заморожено на паузе). */
+    long getElapsed() {
+        return this.showTime;
     }
 
     @Override

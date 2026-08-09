@@ -1,11 +1,16 @@
 package net.teyvat.mixin.common;
 
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.registry.Registries;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.collection.DefaultedList;
+import net.teyvat.network.ResourceGainPayload;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
@@ -14,6 +19,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * Подбор лута как в Genshin: добыча никогда не попадает в руку (выбранный слот
  * хотбара). Сначала заполняются все остальные слоты; если свободно только в руке —
  * предмет остаётся лежать на земле (insertStack вернёт false).
+ * Заодно при удачном подборе шлём клиенту уведомление «ресурс получен».
  */
 @Mixin(PlayerInventory.class)
 public abstract class PlayerInventoryMixin {
@@ -23,6 +29,10 @@ public abstract class PlayerInventoryMixin {
 
     @Shadow
     private int selectedSlot;
+
+    /** Сколько предметов было в стаке до вставки — для подсчёта подобранного. */
+    @Unique
+    private int teyvat_pickupAmount;
 
     @Inject(method = "insertStack(Lnet/minecraft/item/ItemStack;)Z",
             at = @At("HEAD"), cancellable = true)
@@ -70,5 +80,30 @@ public abstract class PlayerInventoryMixin {
 
         // 3) Место есть только в руке — не подбираем, предмет остаётся на земле.
         cir.setReturnValue(false);
+    }
+
+    /** Запоминаем размер стака до вставки. */
+    @Inject(method = "insertStack(Lnet/minecraft/item/ItemStack;)Z",
+            at = @At("HEAD"))
+    private void teyvat_capturePickupAmount(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
+        this.teyvat_pickupAmount = stack.getCount();
+    }
+
+    /** Подбор удался — уведомляем клиент о полученном ресурсе. */
+    @Inject(method = "insertStack(Lnet/minecraft/item/ItemStack;)Z",
+            at = @At("RETURN"))
+    private void teyvat_notifyResource(ItemStack stack, CallbackInfoReturnable<Boolean> cir) {
+        if (!Boolean.TRUE.equals(cir.getReturnValue())) {
+            return;
+        }
+        int gained = this.teyvat_pickupAmount - stack.getCount();
+        if (gained <= 0 || stack.isEmpty()) {
+            return;
+        }
+        PlayerInventory inventory = (PlayerInventory) (Object) this;
+        if (inventory.player instanceof ServerPlayerEntity serverPlayer) {
+            ServerPlayNetworking.send(serverPlayer,
+                    new ResourceGainPayload(Registries.ITEM.getId(stack.getItem()).toString(), gained));
+        }
     }
 }

@@ -18,6 +18,7 @@ import net.teyvat.client.CameraController;
 import net.teyvat.client.ZoomController;
 import net.teyvat.client.TravelerNotesScreen;
 import net.teyvat.client.HealthOverlay;
+import net.teyvat.client.NotificationStack;
 import net.teyvat.client.WaterSplashParticle;
 import net.teyvat.client.WaterDropletParticle;
 import net.teyvat.client.WaterRippleParticle;
@@ -39,6 +40,7 @@ import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.ExpGainPayload;
 import net.teyvat.network.MobLevelSyncPayload;
 import net.teyvat.network.NotesOpenPayload;
+import net.teyvat.network.ResourceGainPayload;
 import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestCompletePayload;
 import net.teyvat.network.QuestStatePayload;
@@ -92,6 +94,7 @@ public class TeyvatClient implements ClientModInitializer {
             ZoomController.tick();
             CameraController.tick();
             StaminaController.tick();
+            NotificationStack.tick();
             while (OPEN_NOTES.wasPressed()) {
                 if (client.currentScreen == null) {
                     client.setScreen(new TravelerNotesScreen());
@@ -131,6 +134,12 @@ public class TeyvatClient implements ClientModInitializer {
         // Опыт получен: золотой тост «+X опыта» / «Ранг Приключений повышен!».
         ClientPlayNetworking.registerGlobalReceiver(ExpGainPayload.ID, (payload, context) -> {
             context.client().execute(() -> ProgressionToast.show(payload.amount(), payload.rankUp()));
+        });
+
+        // Ресурс подобран: уведомление «+N Название» в колонке под опытом.
+        ClientPlayNetworking.registerGlobalReceiver(ResourceGainPayload.ID, (payload, context) -> {
+            context.client().execute(() ->
+                    NotificationStack.showResource(payload.itemId(), payload.count()));
         });
 
         // /teyvat notes: сервер просит клиент открыть экран.

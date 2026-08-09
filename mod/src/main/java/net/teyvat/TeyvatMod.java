@@ -47,6 +47,7 @@ import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.network.TravelerChoicePayload;
 import net.teyvat.network.QuestEventPayload;
 import net.teyvat.network.QuestCompletePayload;
+import net.teyvat.network.ResourceGainPayload;
 import net.teyvat.network.SlimeTrainingSpawnPayload;
 import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestStatePayload;
@@ -107,6 +108,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(ProgressionSyncPayload.ID, ProgressionSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ExpGainPayload.ID, ExpGainPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(DamageNumberPayload.ID, DamageNumberPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ResourceGainPayload.ID, ResourceGainPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(MobLevelSyncPayload.ID, MobLevelSyncPayload.CODEC);
         CommandRegistrationCallback.EVENT.register(TeyvatCommand::register);
         ServerLifecycleEvents.SERVER_STARTED.register(TeyvatSpawn::prepare);
