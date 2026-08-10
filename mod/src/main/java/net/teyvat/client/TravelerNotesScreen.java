@@ -99,7 +99,7 @@ public class TravelerNotesScreen extends Screen {
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {}
     }
 
-    /** Скриншот: шириной в текстовую колонку, сверху страницы. */
+    /** Скриншот: в колонку текста (высота ограничена, см. rebuild), сверху страницы. */
     private final class ShotRow implements Row {
         private final String id;
 
@@ -152,7 +152,18 @@ public class TravelerNotesScreen extends Screen {
         // картинки — рамка совпадает с колонкой, без letterbox-полей.
         imgW = bodyW;
         NativeImage shot = screenshot(t.id());
-        imgH = shot == null ? imgW * IMG_H / IMG_W : Math.max(1, imgW * shot.getHeight() / shot.getWidth());
+        // Ширина скриншота — колонка текста, но высота ограничена половиной видимой
+        // области: иначе картинка (0.57 высоты при горизонтальных кадрах) вытесняет
+        // весь текст за нижний край и экран выглядит пустым.
+        float aspect = shot == null ? IMG_W / (float) IMG_H : shot.getWidth() / (float) shot.getHeight();
+        int naturalH = Math.max(1, Math.round(imgW / aspect));
+        int maxH = Math.max(48, Math.round(bodyH * 0.45f));
+        if (naturalH > maxH) {
+            imgH = maxH;
+            imgW = Math.max(1, Math.round(maxH * aspect));
+        } else {
+            imgH = naturalH;
+        }
         int wrapW = Math.max(40, (int) (bodyW / TEXT_SCALE));
 
         rows.clear();
@@ -364,7 +375,7 @@ public class TravelerNotesScreen extends Screen {
         ctx.fill(sbX0, HEADER_H + PAD, sbX1, sidebarBottom(), PANEL);
 
         // Список вкладок не выходит за пределы панели (и золотой границы) при прокрутке.
-        ctx.enableScissor(PAD, sidebarTop(), sidebarW, sidebarBottom() - sidebarTop());
+        ctx.enableScissor(PAD, sidebarTop(), PAD + sidebarW, sidebarBottom());
         for (int i = 0; i < tabs.size(); i++) {
             int ty = sidebarTop() + i * (TAB_H + TAB_GAP) - sidebarScroll;
             if (ty + TAB_H < sidebarTop() || ty > sidebarBottom()) {
@@ -423,7 +434,7 @@ public class TravelerNotesScreen extends Screen {
         drawPageTitle(ctx, t, color);
 
         ctx.disableScissor();
-        ctx.enableScissor(ix0, bodyTop, ix1 - ix0, bodyBottom - bodyTop);
+        ctx.enableScissor(ix0, bodyTop, ix1, bodyBottom);
         int y = bodyTop - (int) scroll;
         for (Row r : rows) {
             if (y + r.height() >= bodyTop && y <= bodyBottom) {
