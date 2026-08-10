@@ -5,7 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Вся информация о моде для экрана «Заметки путешественника»: вкладка о сборке и набор «Селестия». */
+/** Вся информация о моде для экрана «О сборке»: вкладка о сборке и набор «Селестия». */
 public final class TravelerNotesContent {
     public static final int C_HEADER = 0xFFFFE9A8;
     public static final int C_BODY = 0xFFE8E4D8;
@@ -81,7 +81,7 @@ public final class TravelerNotesContent {
                 c("/column 100 64 100 5"),
                 b("Пять колонн в ряд (шаг 3–5 блоков, count 1–64)."),
                 c("/teyvat notes"),
-                b("Открыть эти заметки."),
+                b("Открыть «О сборке» — только для администраторов мира/сервера (или Shift+N)."),
                 c("/give @p teyvat:marble_arch"),
                 b("Все 30 блоков — префикс teyvat:, есть в творческой вкладке «Блоки Тейвата»."),
                 empty(),

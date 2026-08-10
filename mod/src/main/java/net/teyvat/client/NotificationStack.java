@@ -89,7 +89,7 @@ public final class NotificationStack {
     /** Рисует колонку под уведомлением задания. */
     public static void render(DrawContext context) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null) {
+        if (client.player == null || client.currentScreen != null) {
             return;
         }
         int screenW = context.getScaledWindowWidth();

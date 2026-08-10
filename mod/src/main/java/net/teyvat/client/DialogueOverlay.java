@@ -87,7 +87,7 @@ public final class DialogueOverlay {
             return;
         }
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.textRenderer == null) {
+        if (client.textRenderer == null || client.currentScreen != null) {
             return;
         }
         int w = context.getScaledWindowWidth();

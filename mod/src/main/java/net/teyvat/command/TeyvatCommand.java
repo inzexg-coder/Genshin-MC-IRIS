@@ -30,7 +30,9 @@ public final class TeyvatCommand {
         dispatcher.register(column);
         dispatcher.register(CommandManager.literal("teyvat")
                 .then(column)
-                .then(CommandManager.literal("notes").executes(TeyvatCommand::openNotes))
+                .then(CommandManager.literal("notes")
+                        .requires(src -> src.hasPermissionLevel(2))
+                        .executes(TeyvatCommand::openNotes))
                 .then(CommandManager.literal("choose").executes(TeyvatCommand::openChoice))
                 .then(progression()));
     }
@@ -153,7 +155,7 @@ public final class TeyvatCommand {
         if (player != null) {
             ServerPlayNetworking.send(player, new NotesOpenPayload());
             ctx.getSource().sendFeedback(() -> Text.literal(
-                    "§e[Teyvat] §fЗаметки путешественника открыты. Клавиша по умолчанию: §bN§f (меняется в «Управление»)."),
+                    "§e[Teyvat] §f«О сборке» открыта. Shift+N — снова открыть (только админ)."),
                     false);
         }
         return 1;

@@ -6,7 +6,7 @@ import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 import net.teyvat.TeyvatMod;
 
-/** Пустой S2C-пакет: сервер просит клиент открыть «Заметки путешественника». */
+/** Пустой S2C-пакет: сервер (проверив права администратора) просит клиент открыть «О сборке». */
 public record NotesOpenPayload() implements CustomPayload {
     public static final CustomPayload.Id<NotesOpenPayload> ID =
             new CustomPayload.Id<>(Identifier.of(TeyvatMod.MOD_ID, "open_notes"));

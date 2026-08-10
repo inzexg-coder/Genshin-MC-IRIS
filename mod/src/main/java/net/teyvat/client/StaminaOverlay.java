@@ -1,5 +1,6 @@
 package net.teyvat.client;
 
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.util.math.MathHelper;
 import org.joml.Matrix3x2fStack;
@@ -45,7 +46,7 @@ public final class StaminaOverlay {
 
     /** Рисуется поверх мира (после HUD-слоя) — дуга внизу по центру. */
     public static void render(DrawContext context) {
-        if (alpha <= 0.01f) {
+        if (alpha <= 0.01f || MinecraftClient.getInstance().currentScreen != null) {
             return;
         }
         float stamina = StaminaController.getStamina();

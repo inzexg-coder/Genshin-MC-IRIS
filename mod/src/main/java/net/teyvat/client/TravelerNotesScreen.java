@@ -1,50 +1,86 @@
 package net.teyvat.client;
 
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.input.KeyInput;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.Items;
-import net.minecraft.registry.Registries;
+import net.minecraft.client.texture.NativeImage;
+import net.minecraft.resource.Resource;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.Util;
+import net.teyvat.TeyvatMod;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Random;
 import java.util.function.Consumer;
 
-import static net.teyvat.client.TravelerNotesContent.*;
+import static net.teyvat.client.TravelerGuideContent.*;
 
 /**
- * «Заметки путешественника»: две вкладки — «О сборке» и «Селестия»
- * (блоки от простого крафта к сложному: описание, рецепт по центру).
- * Доступно в любом режиме игры: клавиша N или /teyvat notes.
+ * «Заметки путешественника» — гид по игре. Вёрстка по образцу книг-гидов
+ * (Patchouli): фиксированные поля, единая сетка отступов, текст стандартного
+ * размера, перенос строго по колонке — ничего не выходит за рамки. Слева список
+ * вкладок с эмблемами и акцентными цветами, справа страница-карточка: заголовок,
+ * текст урока и скриншот (assets/teyvat/textures/gui/notes/<id>.png, добавим позже).
+ * Длинный текст прокручивается, но не уменьшается.
+ * Открывается клавишей N. «О сборке» — отдельный экран для администраторов (Shift+N).
  */
 public class TravelerNotesScreen extends Screen {
+    // --- Единая сетка: все отступы кратны 2, поля одинаковы со всех сторон. ---
     private static final int HEADER_H = 34;
-    private static final int TAB_H = 26;
     private static final int FOOTER_H = 24;
-    private static final int PAD = 14;
-    private static final int LINE_H = 11;
+    private static final int PAD = 12;          // отступ области от краёв экрана
+    private static final int CARD_MARGIN = 6;   // рамка карточки внутри области
+    private static final int CARD_PAD = 14;     // единый внутренний отступ карточки
+    private static final int TITLE_H = 22;      // строка заголовка
+    private static final int TITLE_GAP = 8;     // заголовок -> контент
+    private static final int LINE_H = 12;       // шаг строки текста
+    private static final int PARA_GAP = 6;      // между абзацами
+    private static final int PAGE_NUM_H = 12;   // полоса номера страницы внизу
+    private static final int IMG_W = 210;       // скриншоты горизонтальные
+    private static final int IMG_H = 120;
+    private static final int IMG_GAP = 14;
+    private static final float TEXT_SCALE = 1.0f;
+    private static final float TITLE_SCALE = 1.25f;
 
-    private final List<String> tabs = List.of("О сборке", "Селестия");
-    private int tab = 0;
+    private static final int TAB_H = 30;
+    private static final int TAB_GAP = 4;
+    private static final long SLIDE_MS = 220;
 
-    private int contentX0;
-    private int contentX1;
-    private int contentY0;
-    private int contentY1;
-    private int contentW;
-    private int viewH;
+    private static final int BG = 0xFF0F1420;
+    private static final int PANEL = 0xFF12182A;
+    private static final int CARD = 0xFF151C31;
+    private static final int CARD_INNER = 0xFF11172A;
+    private static final int GOLD = 0xFFE8C86A;
+    private static final int GOLD_DIM = 0xFF8C7440;
+    private static final int LINE = 0xFF3A4A6A;
+
+    private final List<GuideTab> tabs = tabs();
+    private int selected = 0;
+    private int sidebarScroll = 0;
+    private float scroll = 0;
+    private boolean dragging = false;
+    private long slideStart = 0;
+
+    private int sidebarW;
+    private int cardX0, cardX1, cardY0, cardY1;
+    private int ix0, ix1, iy0, iy1;
+    private int bodyTop, bodyBottom, bodyH, bodyW;
+    private int imgW, imgH;
 
     private final List<Row> rows = new ArrayList<>();
-    private int contentH = 0;
-    private double scroll = 0;
-    private boolean dragging = false;
-    private Text hoverTooltip = null;
+    private float rowsH;
+    private static final Map<String, NativeImage> shots = new HashMap<>();
 
     private interface Row {
         int height();
@@ -54,7 +90,7 @@ public class TravelerNotesScreen extends Screen {
     private record TextRow(String text, int color) implements Row {
         public int height() { return LINE_H; }
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
-            ctx.drawText(MinecraftClient.getInstance().textRenderer, text, x, y, color, true);
+            drawScaled(ctx, text, x, y, TEXT_SCALE, color);
         }
     }
 
@@ -63,105 +99,20 @@ public class TravelerNotesScreen extends Screen {
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {}
     }
 
-    /** Название блока (золотом). Превью теперь справа от сеток крафта. */
-    private record NameRow(String name) implements Row {
-        public int height() { return LINE_H; }
-        public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
-            ctx.drawText(MinecraftClient.getInstance().textRenderer, name, x, y, C_GOLD, true);
+    /** Скриншот: шириной в текстовую колонку, сверху страницы. */
+    private final class ShotRow implements Row {
+        private final String id;
+
+        ShotRow(String id) {
+            this.id = id;
         }
-    }
 
-    /** Ячейка крафта: 26px, шаг 28px — сетка крупнее прежней (18px). */
-    private static final int CELL = 26;
-    private static final int PITCH = 28;
-
-    /** Все крафты блока: по центру контента, увеличенные. */
-    private record CraftSection(List<CraftGrid> grids, String itemId) implements Row {
         public int height() {
-            int h = 0;
-            for (CraftGrid g : grids) {
-                h += 14 + gridH(g.pattern()) + 10;
-            }
-            return h;
+            return imgH;
         }
+
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
-            int availW = MinecraftClient.getInstance().getWindow().getScaledWidth() - 2 * PAD - 8;
-            int maxBlockW = 0;
-            for (CraftGrid g : grids) {
-                int cols = g.pattern()[0].length();
-                maxBlockW = Math.max(maxBlockW, cols * PITCH - 2 + 18 + CELL);
-            }
-            int gx = x + Math.max(0, (availW - maxBlockW) / 2);
-            int gy = y;
-            for (CraftGrid g : grids) {
-                drawGrid(ctx, g, gx, gy, mouseX, mouseY, tooltip, maxBlockW);
-                gy += 14 + gridH(g.pattern()) + 10;
-            }
-        }
-    }
-
-    private static int gridH(String[] pattern) {
-        return pattern.length * CELL + (pattern.length - 1) * 2;
-    }
-
-    private static void cell(DrawContext ctx, int cx, int cy, int borderColor, int bg) {
-        ctx.fill(cx, cy, cx + CELL, cy + CELL, bg);
-        ctx.fill(cx, cy, cx + CELL, cy + 1, borderColor);
-        ctx.fill(cx, cy + CELL - 1, cx + CELL, cy + CELL, borderColor);
-        ctx.fill(cx, cy, cx + 1, cy + CELL, borderColor);
-        ctx.fill(cx + CELL - 1, cy, cx + CELL, cy + CELL, borderColor);
-    }
-
-    private static void drawGrid(DrawContext ctx, CraftGrid grid, int x, int y, int mouseX, int mouseY,
-                                 Consumer<Text> tooltip, int blockW) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        ctx.drawText(client.textRenderer, grid.title(), x + (blockW - client.textRenderer.getWidth(grid.title())) / 2,
-                y + 2, C_GOLD, true);
-        int gy = y + 14;
-        String[] pattern = grid.pattern();
-        int cols = pattern[0].length();
-        for (int r = 0; r < pattern.length; r++) {
-            for (int cIdx = 0; cIdx < cols; cIdx++) {
-                char key = pattern[r].charAt(cIdx);
-                Slot slot = grid.keys().get(key);
-                int cx = x + cIdx * PITCH;
-                int cy = gy + r * PITCH;
-                boolean hovered = slot != null && mouseX >= cx && mouseX < cx + CELL && mouseY >= cy && mouseY < cy + CELL;
-                if (slot == null) {
-                    cell(ctx, cx, cy, 0xFF141A2A, 0xFF12182A);
-                } else {
-                    cell(ctx, cx, cy, hovered ? 0xFFE8C86A : 0xFF3A4A6A, 0xFF1B2338);
-                    Item item = itemOf(slot.item());
-                    if (item != Items.AIR) {
-                        ctx.drawItem(new ItemStack(item), cx + (CELL - 16) / 2, cy + (CELL - 16) / 2);
-                    }
-                    if (slot.count() > 1) {
-                        ctx.drawText(client.textRenderer, String.valueOf(slot.count()),
-                                cx + CELL - 12, cy + CELL - 10, 0xFFFFFFFF, true);
-                    }
-                    if (hovered) {
-                        tooltip.accept(item.getName());
-                    }
-                }
-            }
-        }
-        int gridW = cols * PITCH - 2;
-        int gMid = gy + gridH(pattern) / 2 - 4;
-        ctx.drawText(client.textRenderer, "→", x + gridW + 6, gMid, C_GOLD, true);
-        int rx = x + gridW + 18;
-        int ry = gy + gridH(pattern) / 2 - CELL / 2; // ровно напротив среднего ряда
-        boolean rh = mouseX >= rx && mouseX < rx + CELL && mouseY >= ry && mouseY < ry + CELL;
-        cell(ctx, rx, ry, rh ? 0xFFFFFFFF : 0xFFE8C86A, 0xFF1B2338);
-        Item result = itemOf(grid.result());
-        if (result != Items.AIR) {
-            ctx.drawItem(new ItemStack(result), rx + (CELL - 16) / 2, ry + (CELL - 16) / 2);
-            if (grid.resultCount() > 1) {
-                ctx.drawText(client.textRenderer, String.valueOf(grid.resultCount()),
-                        rx + CELL - 12, ry + CELL - 10, 0xFFFFFFFF, true);
-            }
-            if (rh) {
-                tooltip.accept(result.getName());
-            }
+            drawShot(ctx, x + (bodyW - imgW) / 2, y, id, imgW, imgH);
         }
     }
 
@@ -177,69 +128,74 @@ public class TravelerNotesScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        contentX0 = PAD;
-        contentX1 = this.width - PAD - 8;
-        contentY0 = HEADER_H + TAB_H + 6;
-        contentY1 = this.height - FOOTER_H - 4;
-        contentW = contentX1 - contentX0;
-        viewH = contentY1 - contentY0;
         rebuild();
     }
 
-    private static Item itemOf(String id) {
-        return Registries.ITEM.get(Identifier.of(id));
-    }
-
     private void rebuild() {
+        sidebarW = Math.min(148, Math.max(108, (int) (this.width * 0.18f)));
+        cardX0 = PAD + sidebarW + PAD + CARD_MARGIN;
+        cardX1 = this.width - PAD - 8 - CARD_MARGIN;
+        cardY0 = HEADER_H + PAD + CARD_MARGIN;
+        cardY1 = this.height - FOOTER_H - PAD - CARD_MARGIN;
+        ix0 = cardX0 + CARD_PAD;
+        ix1 = cardX1 - CARD_PAD;
+        iy0 = cardY0 + CARD_PAD;
+        iy1 = cardY1 - CARD_PAD;
+        bodyTop = iy0 + TITLE_H + TITLE_GAP;
+        bodyBottom = iy1 - PAGE_NUM_H;
+        bodyH = bodyBottom - bodyTop;
+        bodyW = ix1 - ix0;
+
+        GuideTab t = tabs.get(selected);
+
+        // Скриншот всегда на всю ширину колонки текста, высота строго по пропорции
+        // картинки — рамка совпадает с колонкой, без letterbox-полей.
+        imgW = bodyW;
+        NativeImage shot = screenshot(t.id());
+        imgH = shot == null ? imgW * IMG_H / IMG_W : Math.max(1, imgW * shot.getHeight() / shot.getWidth());
+        int wrapW = Math.max(40, (int) (bodyW / TEXT_SCALE));
+
         rows.clear();
-        if (tab == 0) {
-            for (Line l : about()) {
-                addLine(l);
+        rows.add(new ShotRow(t.id()));
+        rows.add(new GapRow(IMG_GAP));
+        for (int pi = 0; pi < t.paragraphs().size(); pi++) {
+            if (pi > 0) {
+                rows.add(new GapRow(PARA_GAP));
             }
-        } else {
-            for (Line l : celestiaIntro()) {
-                addLine(l);
-            }
-            rows.add(new GapRow(10));
-            for (BlockEntry e : blocks()) {
-                rows.add(new NameRow(e.name()));
-                rows.add(new GapRow(3));
-                for (String desc : e.description()) {
-                    wrapIntoRows(desc, C_DESC);
-                }
-                rows.add(new GapRow(6));
-                rows.add(new CraftSection(e.crafts(), e.id()));
-                rows.add(new GapRow(14));
+            for (String line : wrap(t.paragraphs().get(pi), wrapW)) {
+                rows.add(new TextRow(line, C_BODY));
             }
         }
-        rows.add(new GapRow(18)); // нижний отступ, чтобы контент не упирался в край
-        contentH = 0;
+        rows.add(new GapRow(6));
+
+        rowsH = 0;
         for (Row r : rows) {
-            contentH += r.height();
+            rowsH += r.height();
         }
         clampScroll();
     }
 
-    private void addLine(Line l) {
-        if (l.wrap()) {
-            wrapIntoRows(l.text(), l.color());
-        } else {
-            rows.add(new TextRow(l.text(), l.color()));
+    /** Название вкладки: до двух строк мелким шрифтом; вторая строка с «…», если длиннее. */
+    private List<String> tabLines(String name, int maxW) {
+        List<String> ls = wrap(name, maxW);
+        List<String> out = new ArrayList<>();
+        out.add(ls.get(0));
+        if (ls.size() > 1) {
+            String second = ls.get(1);
+            if (ls.size() > 2) {
+                while (!second.isEmpty() && textRenderer.getWidth(second + "…") > maxW) {
+                    second = second.substring(0, second.length() - 1);
+                }
+                second += "…";
+            }
+            out.add(second);
         }
+        return out;
     }
 
-    private void wrapIntoRows(String text, int color) {
-        for (String part : wrap(text, contentW)) {
-            rows.add(new TextRow(part, color));
-        }
-    }
-
+    /** Перенос с обрезкой длинных слов — строка никогда не шире maxWidth. */
     private List<String> wrap(String text, int maxWidth) {
         List<String> out = new ArrayList<>();
-        if (textRenderer.getWidth(text) <= maxWidth) {
-            out.add(text);
-            return out;
-        }
         StringBuilder cur = new StringBuilder();
         for (String word : text.split(" ")) {
             if (cur.isEmpty()) {
@@ -251,21 +207,49 @@ public class TravelerNotesScreen extends Screen {
                 cur.setLength(0);
                 cur.append(word);
             }
+            // Слово длиннее колонки — режем по символам.
+            while (textRenderer.getWidth(cur.toString()) > maxWidth) {
+                int cut = cur.length();
+                while (cut > 0 && textRenderer.getWidth(cur.substring(0, cut)) > maxWidth) {
+                    cut--;
+                }
+                if (cut <= 0) {
+                    cut = 1;
+                }
+                out.add(cur.substring(0, cut));
+                cur.delete(0, cut);
+            }
         }
-        if (!cur.isEmpty()) {
+        if (cur.length() > 0) {
             out.add(cur.toString());
         }
         return out;
     }
 
     private void clampScroll() {
-        double max = Math.max(0, contentH - viewH);
-        scroll = Math.max(0, Math.min(scroll, max));
+        double max = Math.max(0, rowsH - bodyH);
+        scroll = (float) Math.max(0, Math.min(scroll, max));
+    }
+
+    private int sidebarTop() {
+        return HEADER_H + PAD;
+    }
+
+    private int sidebarBottom() {
+        return this.height - FOOTER_H - PAD;
+    }
+
+    private int maxSidebarScroll() {
+        return Math.max(0, tabs.size() * (TAB_H + TAB_GAP) - (sidebarBottom() - sidebarTop()));
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        scroll -= verticalAmount * 18;
+        if (mouseX >= PAD && mouseX <= PAD + sidebarW) {
+            sidebarScroll = (int) Math.max(0, Math.min(sidebarScroll + (int) (verticalAmount * -18), maxSidebarScroll()));
+            return true;
+        }
+        scroll -= (float) (verticalAmount * 18);
         clampScroll();
         return true;
     }
@@ -275,19 +259,22 @@ public class TravelerNotesScreen extends Screen {
         double mouseX = click.x();
         double mouseY = click.y();
         int button = click.button();
+        int sbX0 = PAD;
+        int sbX1 = PAD + sidebarW;
         for (int i = 0; i < tabs.size(); i++) {
-            int tx = 10 + i * 140;
-            if (mouseX >= tx && mouseX <= tx + 130 && mouseY >= HEADER_H + 2 && mouseY <= HEADER_H + TAB_H - 2) {
-                if (tab != i) {
-                    tab = i;
+            int ty = sidebarTop() + i * (TAB_H + TAB_GAP) - sidebarScroll;
+            if (mouseX >= sbX0 && mouseX <= sbX1 && mouseY >= ty && mouseY <= ty + TAB_H) {
+                if (selected != i) {
+                    selected = i;
                     scroll = 0;
+                    slideStart = Util.getMeasuringTimeMs();
                     rebuild();
                 }
                 return true;
             }
         }
-        int sbX = contentX1 + 4;
-        if (button == 0 && mouseX >= sbX && mouseX <= sbX + 5 && mouseY >= contentY0 && mouseY <= contentY1) {
+        int sbX = cardX1 - 8;
+        if (button == 0 && mouseX >= sbX && mouseX <= sbX + 3 && mouseY >= bodyTop && mouseY <= bodyBottom) {
             dragging = true;
             return true;
         }
@@ -305,7 +292,7 @@ public class TravelerNotesScreen extends Screen {
     @Override
     public boolean mouseDragged(Click click, double offsetX, double offsetY) {
         if (dragging) {
-            scroll += offsetY * (contentH / (double) Math.max(1, viewH));
+            scroll += (float) (offsetY * (rowsH / (float) Math.max(1, bodyH)));
             clampScroll();
             return true;
         }
@@ -315,89 +302,318 @@ public class TravelerNotesScreen extends Screen {
     @Override
     public boolean keyPressed(KeyInput key) {
         switch (key.key()) {
-            case 264: // Down
-                scroll += 18;
-                clampScroll();
-                return true;
-            case 265: // Up
-                scroll -= 18;
-                clampScroll();
-                return true;
-            case 266: // PageUp
-                scroll -= viewH;
-                clampScroll();
-                return true;
-            case 267: // PageDown
-                scroll += viewH;
-                clampScroll();
-                return true;
-            case 268: // Home
-                scroll = 0;
-                return true;
-            case 269: // End
-                scroll = Double.MAX_VALUE;
-                clampScroll();
-                return true;
-            default:
-                return super.keyPressed(key);
+            case 264: scroll += 18; clampScroll(); return true;
+            case 265: scroll -= 18; clampScroll(); return true;
+            case 266: scroll -= bodyH; clampScroll(); return true;
+            case 267: scroll += bodyH; clampScroll(); return true;
+            case 268: scroll = 0; return true;
+            case 269: scroll = Float.MAX_VALUE; clampScroll(); return true;
+            default: return super.keyPressed(key);
         }
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Полностью непрозрачный фон — мир/хотбар позади не просвечивают
-        context.fill(0, 0, this.width, this.height, 0xFF0F1420);
+        context.fill(0, 0, this.width, this.height, BG);
+        drawStars(context);
+        drawHeader(context);
+        drawSidebar(context, mouseX, mouseY);
+        drawPage(context, mouseX, mouseY);
+        drawFooter(context);
+    }
 
-        context.fill(0, 0, this.width, HEADER_H, 0xFF1B2338);
-        context.fill(0, HEADER_H, this.width, HEADER_H + 1, 0xFF3A4A6A);
+    private void drawHeader(DrawContext ctx) {
+        ctx.fill(0, 0, this.width, HEADER_H, 0xFF1B2338);
+        ctx.fill(0, HEADER_H, this.width, HEADER_H + 1, LINE);
         String title = "「Заметки путешественника」";
-        context.drawText(this.textRenderer, title,
+        ctx.drawText(this.textRenderer, title,
                 (this.width - this.textRenderer.getWidth(title)) / 2,
-                (HEADER_H - 9) / 2, C_GOLD, true);
-        String ver = "Teyvat 0.9.50";
-        context.drawText(this.textRenderer, ver, this.width - this.textRenderer.getWidth(ver) - 10,
+                (HEADER_H - 9) / 2, GOLD, true);
+        String ver = modVersion();
+        ctx.drawText(this.textRenderer, ver, this.width - this.textRenderer.getWidth(ver) - 10,
                 (HEADER_H - 9) / 2, C_HINT, true);
+    }
 
-        for (int i = 0; i < tabs.size(); i++) {
-            int tx = 10 + i * 140;
-            boolean sel = tab == i;
-            boolean hover = mouseX >= tx && mouseX <= tx + 130 && mouseY >= HEADER_H + 2 && mouseY <= HEADER_H + TAB_H - 2;
-            context.fill(tx, HEADER_H + 2, tx + 130, HEADER_H + TAB_H - 2, sel ? 0xFF222C44 : (hover ? 0xFF1A2338 : 0x00000000));
-            if (sel) {
-                context.fill(tx, HEADER_H + TAB_H - 3, tx + 130, HEADER_H + TAB_H - 2, C_GOLD);
+    private void drawFooter(DrawContext ctx) {
+        ctx.fill(0, this.height - FOOTER_H, this.width, this.height, 0xFF1B2338);
+        ctx.fill(0, this.height - FOOTER_H - 1, this.width, this.height - FOOTER_H, LINE);
+        String hint = "Колесо / стрелки — прокрутка · N — заметки · Shift+N — «О сборке» (только админ)";
+        ctx.drawText(this.textRenderer, hint, 12, this.height - 17, C_HINT, true);
+    }
+
+    private void drawStars(DrawContext ctx) {
+        Random rnd = new Random(20260810L);
+        long now = Util.getMeasuringTimeMs();
+        for (int i = 0; i < 70; i++) {
+            int x = rnd.nextInt(Math.max(1, this.width));
+            int y = rnd.nextInt(Math.max(1, this.height));
+            if (y < HEADER_H + 6 || y > this.height - FOOTER_H - 6) {
+                continue;
             }
-            context.drawText(this.textRenderer, tabs.get(i),
-                    tx + (130 - this.textRenderer.getWidth(tabs.get(i))) / 2,
-                    HEADER_H + 9, sel ? C_GOLD : C_HINT, true);
+            int size = rnd.nextInt(2) + 1;
+            float tw = 0.5f + 0.5f * (float) Math.sin(now / 1100.0 + i * 1.73);
+            int a = (int) (14 + 16 * tw);
+            ctx.fill(x, y, x + size, y + size, (a << 24) | 0xFFFFFF);
         }
-        context.fill(0, HEADER_H + TAB_H, this.width, HEADER_H + TAB_H + 1, 0xFF3A4A6A);
+    }
 
-        hoverTooltip = null;
-        context.enableScissor(contentX0, contentY0, contentX1, contentY1);
-        int y = contentY0 - (int) scroll;
+    /** Список вкладок: единые отступы, эмблема + название, акцентный цвет. */
+    private void drawSidebar(DrawContext ctx, int mouseX, int mouseY) {
+        int sbX0 = PAD;
+        int sbX1 = PAD + sidebarW;
+        ctx.fill(sbX0, HEADER_H + PAD, sbX1, sidebarBottom(), PANEL);
+
+        // Список вкладок не выходит за пределы панели (и золотой границы) при прокрутке.
+        ctx.enableScissor(PAD, sidebarTop(), sidebarW, sidebarBottom() - sidebarTop());
+        for (int i = 0; i < tabs.size(); i++) {
+            int ty = sidebarTop() + i * (TAB_H + TAB_GAP) - sidebarScroll;
+            if (ty + TAB_H < sidebarTop() || ty > sidebarBottom()) {
+                continue;
+            }
+            GuideTab t = tabs.get(i);
+            boolean sel = i == selected;
+            boolean hover = mouseX >= sbX0 && mouseX <= sbX1 && mouseY >= ty && mouseY <= ty + TAB_H;
+            ctx.fill(sbX0 + 6, ty, sbX1 - 6, ty + TAB_H, sel ? 0xFF222C44 : (hover ? 0xFF1A2338 : 0x00000000));
+            if (sel) {
+                ctx.fill(sbX0 + 6, ty, sbX0 + 8, ty + TAB_H, GOLD);
+            } else if (hover) {
+                ctx.fill(sbX0 + 6, ty, sbX0 + 7, ty + TAB_H, 0x668C7440);
+            }
+            int iconColor = sel ? t.color() : (t.color() & 0xFFFFFF) | 0x99000000;
+            drawIcon(ctx, sbX0 + 21, ty + TAB_H / 2, t.icon(), iconColor);
+            float ts = 0.85f;
+            int logical = Math.max(30, (int) ((sbX1 - sbX0 - 33) / ts));
+            List<String> tl = tabLines(t.title(), logical);
+            int textH = tl.size() * 8;
+            int ly = ty + (TAB_H - textH) / 2;
+            for (String ln : tl) {
+                drawScaled(ctx, ln, sbX0 + 32, ly, ts, sel ? t.color() : C_HINT);
+                ly += 8;
+            }
+        }
+        ctx.disableScissor();
+        // Золотая граница поверх вкладок при прокрутке.
+        ctx.fill(sbX0, HEADER_H + PAD, sbX1, HEADER_H + PAD + 1, GOLD_DIM);
+        int max = maxSidebarScroll();
+        if (max > 0) {
+            int trackH = sidebarBottom() - sidebarTop();
+            int thumbH = Math.max(14, trackH * trackH / (tabs.size() * (TAB_H + TAB_GAP)));
+            int thumbY = sidebarTop() + (trackH - thumbH) * sidebarScroll / max;
+            ctx.fill(sbX1 - 6, thumbY, sbX1 - 4, thumbY + thumbH, GOLD_DIM);
+        }
+    }
+
+    /** Страница-карточка: рамка, заголовок с линией, текст и скриншот, номер страницы. */
+    private void drawPage(DrawContext ctx, int mouseX, int mouseY) {
+        GuideTab t = tabs.get(selected);
+        int color = t.color();
+
+        ctx.fill(cardX0 - 2, cardY0 - 2, cardX1 + 2, cardY1 + 2, GOLD_DIM);
+        ctx.fill(cardX0 - 1, cardY0 - 1, cardX1 + 1, cardY1 + 1, GOLD);
+        ctx.fill(cardX0, cardY0, cardX1, cardY1, CARD);
+        ctx.fill(cardX0 + 3, cardY0 + 3, cardX1 - 3, cardY1 - 3, CARD_INNER);
+        drawCornerDots(ctx, color);
+
+        long dt = Util.getMeasuringTimeMs() - slideStart;
+        float prog = Math.min(1.0f, dt / (float) SLIDE_MS);
+        float reveal = easeOutCubic(prog);
+        int clipR = cardX0 + (int) ((cardX1 - cardX0) * reveal);
+        ctx.enableScissor(cardX0, cardY0, Math.max(cardX0 + 1, clipR), cardY1);
+
+        drawPageTitle(ctx, t, color);
+
+        ctx.disableScissor();
+        ctx.enableScissor(ix0, bodyTop, ix1 - ix0, bodyBottom - bodyTop);
+        int y = bodyTop - (int) scroll;
         for (Row r : rows) {
-            if (y + r.height() >= contentY0 && y <= contentY1) {
-                r.draw(context, contentX0, y, mouseX, mouseY, t -> hoverTooltip = t);
+            if (y + r.height() >= bodyTop && y <= bodyBottom) {
+                r.draw(ctx, ix0, y, mouseX, mouseY, tt -> {});
             }
             y += r.height();
         }
-        context.disableScissor();
+        ctx.disableScissor();
 
-        if (hoverTooltip != null) {
-            context.drawTooltip(this.textRenderer, hoverTooltip, mouseX + 8, mouseY + 8);
+        if (rowsH > bodyH) {
+            int sbX = cardX1 - 8;
+            ctx.fill(sbX, bodyTop, sbX + 3, bodyBottom, 0x26C9A24B);
+            int thumbH = Math.max(18, (int) (bodyH * bodyH / rowsH));
+            int maxScroll = (int) (rowsH - bodyH);
+            int thumbY = bodyTop + (int) (scroll / (float) Math.max(1, maxScroll) * (bodyH - thumbH));
+            ctx.fill(sbX, thumbY, sbX + 3, thumbY + thumbH, GOLD);
         }
 
-        int sbX = contentX1 + 4;
-        context.fill(sbX, contentY0, sbX + 5, contentY1, 0x66222C44);
-        if (contentH > viewH) {
-            int thumbH = Math.max(18, viewH * viewH / contentH);
-            int thumbY = contentY0 + (int) (scroll / (contentH - viewH) * (viewH - thumbH));
-            context.fill(sbX, thumbY, sbX + 5, thumbY + thumbH, 0xFFE8C86A);
-        }
+        String pageNo = (selected + 1) + " / " + tabs.size();
+        ctx.drawText(this.textRenderer, pageNo, cardX1 - CARD_PAD - this.textRenderer.getWidth(pageNo),
+                cardY1 - CARD_PAD + 2, GOLD_DIM, true);
+    }
 
-        context.fill(0, this.height - FOOTER_H, this.width, this.height, 0xFF1B2338);
-        context.fill(0, this.height - FOOTER_H - 1, this.width, this.height - FOOTER_H, 0xFF3A4A6A);
-        String hint = "Колесо / стрелки — прокрутка · Esc — закрыть · N — открыть · /teyvat notes";
-        context.drawText(this.textRenderer, hint, 12, this.height - 17, C_HINT, true);
+    /** Заголовок: по центру, масштаб ограничен шириной карточки, линия-разделитель. */
+    private void drawPageTitle(DrawContext ctx, GuideTab t, int color) {
+        String title = t.title();
+        int tw0 = this.textRenderer.getWidth(title);
+        float ts = Math.min(TITLE_SCALE, (bodyW - 60f) / Math.max(1, tw0));
+        ts = Math.max(0.75f, ts);
+        int tw = (int) (tw0 * ts);
+        int cx = (ix0 + ix1) / 2;
+        int tx0 = cx - tw / 2;
+        int tx1 = cx + tw / 2;
+        int midY = iy0 + 17;
+
+        if (tx0 - ix0 > 22) {
+            ctx.fill(ix0, midY, tx0 - 12, midY + 1, GOLD_DIM);
+            drawDiamond(ctx, tx0 - 7, midY, 3, color);
+        }
+        if (ix1 - tx1 > 22) {
+            ctx.fill(tx1 + 12, midY, ix1, midY + 1, GOLD_DIM);
+            drawDiamond(ctx, tx1 + 7, midY, 3, color);
+        }
+        var ms = ctx.getMatrices();
+        ms.pushMatrix();
+        ms.translate(tx0, iy0 + 2);
+        ms.scale(ts, ts);
+        ctx.drawText(this.textRenderer, title, 0, 0, color, true);
+        ms.popMatrix();
+    }
+
+    private void drawCornerDots(DrawContext ctx, int color) {
+        int r = 3;
+        int off = 6;
+        drawDiamond(ctx, cardX0 + off, cardY0 + off, r, color);
+        drawDiamond(ctx, cardX1 - off, cardY0 + off, r, color);
+        drawDiamond(ctx, cardX0 + off, cardY1 - off, r, color);
+        drawDiamond(ctx, cardX1 - off, cardY1 - off, r, color);
+    }
+
+    private static void drawDiamond(DrawContext ctx, int cx, int cy, int r, int color) {
+        for (int dy = -r; dy <= r; dy++) {
+            int w = r - Math.abs(dy);
+            ctx.fill(cx - w, cy + dy, cx + w + 1, cy + dy + 1, color);
+        }
+    }
+
+    private static void drawIcon(DrawContext ctx, int cx, int cy, String kind, int color) {
+        switch (kind) {
+            case "diamond" -> drawDiamond(ctx, cx, cy, 6, color);
+            case "circle" -> drawCircle(ctx, cx, cy, 6, color);
+            case "square" -> ctx.fill(cx - 5, cy - 5, cx + 6, cy + 6, color);
+            case "chevrons" -> {
+                for (int k = 0; k < 2; k++) {
+                    int bx = cx - 3 + k * 5;
+                    for (int dy = -3; dy <= 3; dy++) {
+                        int w = 3 - Math.abs(dy);
+                        ctx.fill(bx, cy + dy, bx + w + 1, cy + dy + 1, color);
+                    }
+                }
+            }
+            case "triangle" -> {
+                for (int dy = 0; dy <= 7; dy++) {
+                    int w = dy;
+                    ctx.fill(cx - w, cy - 3 + dy, cx + w + 1, cy - 3 + dy + 1, color);
+                }
+            }
+            case "drop" -> {
+                for (int dy = -4; dy < 0; dy++) {
+                    int w = 1 + (dy + 4);
+                    ctx.fill(cx - w, cy + dy, cx + w + 1, cy + dy + 1, color);
+                }
+                for (int dy = 0; dy <= 5; dy++) {
+                    int w = (int) Math.round(Math.sqrt(16.0 - (dy - 1) * (dy - 1)));
+                    ctx.fill(cx - w, cy + dy, cx + w + 1, cy + dy + 1, color);
+                }
+            }
+            case "coin" -> {
+                drawCircle(ctx, cx, cy, 6, color);
+                ctx.fill(cx - 2, cy - 2, cx + 3, cy + 3, PANEL);
+            }
+            case "star" -> {
+                drawDiamond(ctx, cx, cy, 6, color);
+                for (int dx = -6; dx <= 6; dx++) {
+                    int w = 6 - Math.abs(dx);
+                    ctx.fill(cx + dx, cy - w, cx + dx + 1, cy + w + 1, color);
+                }
+            }
+            case "vial" -> {
+                ctx.fill(cx - 3, cy - 4, cx + 4, cy + 6, color);
+                ctx.fill(cx - 1, cy - 7, cx + 2, cy - 3, color);
+                ctx.fill(cx - 2, cy + 2, cx + 3, cy + 3, PANEL);
+            }
+            default -> drawCircle(ctx, cx, cy, 6, color);
+        }
+    }
+
+    private static void drawCircle(DrawContext ctx, int cx, int cy, int r, int color) {
+        for (int dy = -r; dy <= r; dy++) {
+            int w = (int) Math.round(Math.sqrt(r * r - dy * dy));
+            ctx.fill(cx - w, cy + dy, cx + w + 1, cy + dy + 1, color);
+        }
+    }
+
+    /** Копия картинки для вкладки (кэш на время жизни экрана); null — скриншота нет. */
+    private static NativeImage screenshot(String id) {
+        return shots.computeIfAbsent(id, TravelerNotesScreen::loadScreenshot);
+    }
+
+    private static NativeImage loadScreenshot(String id) {
+        Identifier res = Identifier.of(TeyvatMod.MOD_ID, "textures/gui/notes/" + id + ".png");
+        Optional<Resource> r = MinecraftClient.getInstance().getResourceManager().getResource(res);
+        if (r.isEmpty()) {
+            return null;
+        }
+        try (InputStream in = r.get().getInputStream()) {
+            return NativeImage.read(in);
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    /** Рисует скриншот в рамке; если файла нет — заглушка. */
+    private static void drawShot(DrawContext ctx, int x, int y, String id, int w, int h) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        NativeImage img = screenshot(id);
+        ctx.fill(x - 2, y - 2, x + w + 2, y + h + 2, GOLD);
+        ctx.fill(x - 1, y - 1, x + w + 1, y + h + 1, 0xFF0B0F1C);
+        if (img == null) {
+            ctx.fill(x, y, x + w, y + h, 0xE60B0F1C);
+            String t = "Скриншот скоро появится";
+            int tw = client.textRenderer.getWidth(t);
+            float s = Math.min(1.0f, (w - 8f) / tw);
+            var ms = ctx.getMatrices();
+            ms.pushMatrix();
+            ms.translate(x, y);
+            ms.scale(s, s);
+            ctx.drawText(client.textRenderer, t, (int) ((w / s - tw) / 2f), (int) ((h / s - 9f) / 2f), C_HINT, true);
+            ms.popMatrix();
+            return;
+        }
+        float f = Math.min(w / (float) img.getWidth(), h / (float) img.getHeight());
+        int dw = (int) (img.getWidth() * f);
+        int dh = (int) (img.getHeight() * f);
+        int dx = x + (w - dw) / 2;
+        int dy = y + (h - dh) / 2;
+        ctx.drawTexture(RenderPipelines.GUI_TEXTURED,
+                Identifier.of(TeyvatMod.MOD_ID, "textures/gui/notes/" + id + ".png"),
+                dx, dy, 0.0f, 0.0f, dw, dh, img.getWidth(), img.getHeight(), img.getWidth(), img.getHeight());
+    }
+
+    private static void drawScaled(DrawContext ctx, String text, int x, int y, float s, int color) {
+        var ms = ctx.getMatrices();
+        ms.pushMatrix();
+        ms.translate(x, y);
+        ms.scale(s, s);
+        ctx.drawText(MinecraftClient.getInstance().textRenderer, text, 0, 0, color, true);
+        ms.popMatrix();
+    }
+
+    private static float easeOutCubic(float t) {
+        float u = 1.0f - t;
+        return 1.0f - u * u * u;
+    }
+
+    /** Версия мода из fabric.mod.json (для шапки). */
+    private static String modVersion() {
+        return FabricLoader.getInstance().getModContainer("teyvat")
+                .map(c -> c.getMetadata().getVersion().getFriendlyString())
+                .map(v -> "Teyvat " + v)
+                .orElse("Teyvat");
     }
 }

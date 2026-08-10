@@ -34,6 +34,7 @@ import net.teyvat.config.TeyvatConfig;
 import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.ExpGainPayload;
 import net.teyvat.network.MobLevelSyncPayload;
+import net.teyvat.network.AdminNotesRequestPayload;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.BeachBoundary;
 import net.teyvat.server.BeachGuard;
@@ -102,6 +103,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(TravelerChoicePayload.ID, TravelerChoicePayload.CODEC);
         PayloadTypeRegistry.playC2S().register(QuestEventPayload.ID, QuestEventPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(SlimeTrainingSpawnPayload.ID, SlimeTrainingSpawnPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(AdminNotesRequestPayload.ID, AdminNotesRequestPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(QuestCompletePayload.ID, QuestCompletePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceSyncPayload.ID, TravelerChoiceSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(QuestStatePayload.ID, QuestStatePayload.CODEC);
@@ -110,6 +112,19 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(DamageNumberPayload.ID, DamageNumberPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ResourceGainPayload.ID, ResourceGainPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(MobLevelSyncPayload.ID, MobLevelSyncPayload.CODEC);
+        // Shift+N: «О сборке» — только для администраторов мира/сервера.
+        ServerPlayNetworking.registerGlobalReceiver(AdminNotesRequestPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            if (player == null) {
+                return;
+            }
+            if (player.hasPermissionLevel(2)) {
+                ServerPlayNetworking.send(player, new NotesOpenPayload());
+            } else {
+                player.sendMessage(Text.literal("§e[Teyvat] §f«О сборке» доступно только администраторам мира."), false);
+            }
+        });
+
         CommandRegistrationCallback.EVENT.register(TeyvatCommand::register);
         ServerLifecycleEvents.SERVER_STARTED.register(TeyvatSpawn::prepare);
         LOGGER.info("Teyvat mod initialized: {} blocks registered", TeyvatBlocks.ALL_BLOCKS.size());

@@ -17,6 +17,7 @@ import net.teyvat.client.TravelerChoiceScreen;
 import net.teyvat.client.CameraController;
 import net.teyvat.client.ZoomController;
 import net.teyvat.client.TravelerNotesScreen;
+import net.teyvat.client.AboutPackScreen;
 import net.teyvat.client.HealthOverlay;
 import net.teyvat.client.NotificationStack;
 import net.teyvat.client.WaterSplashParticle;
@@ -40,6 +41,7 @@ import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.ExpGainPayload;
 import net.teyvat.network.MobLevelSyncPayload;
 import net.teyvat.network.NotesOpenPayload;
+import net.teyvat.network.AdminNotesRequestPayload;
 import net.teyvat.network.ResourceGainPayload;
 import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestCompletePayload;
@@ -96,7 +98,19 @@ public class TeyvatClient implements ClientModInitializer {
             StaminaController.tick();
             NotificationStack.tick();
             while (OPEN_NOTES.wasPressed()) {
-                if (client.currentScreen == null) {
+                // Заметки открываются в самом верхнем слое — поверх любого экрана,
+                // кроме уже открытых заметок и обязательного выбора персонажа.
+                if (client.currentScreen instanceof TravelerNotesScreen
+                        || client.currentScreen instanceof TravelerChoiceScreen) {
+                    continue;
+                }
+                var win = client.getWindow();
+                boolean shift = InputUtil.isKeyPressed(win, GLFW.GLFW_KEY_LEFT_SHIFT)
+                        || InputUtil.isKeyPressed(win, GLFW.GLFW_KEY_RIGHT_SHIFT);
+                if (shift) {
+                    // «О сборке» — сервер проверит права администратора и откроет экран.
+                    ClientPlayNetworking.send(new AdminNotesRequestPayload());
+                } else {
                     client.setScreen(new TravelerNotesScreen());
                 }
             }
@@ -142,11 +156,11 @@ public class TeyvatClient implements ClientModInitializer {
                     NotificationStack.showResource(payload.itemId(), payload.count()));
         });
 
-        // /teyvat notes: сервер просит клиент открыть экран.
+        // /teyvat notes и Shift+N: сервер (проверив права) просит открыть «О сборке».
         ClientPlayNetworking.registerGlobalReceiver(NotesOpenPayload.ID, (payload, context) -> {
             context.client().execute(() -> {
                 if (context.client().player != null && context.client().currentScreen == null) {
-                    context.client().setScreen(new TravelerNotesScreen());
+                    context.client().setScreen(new AboutPackScreen());
                 }
             });
         });
