@@ -99,7 +99,7 @@ public class TravelerNotesScreen extends Screen {
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {}
     }
 
-    /** Скриншот: в колонку текста (высота ограничена, см. rebuild), сверху страницы. */
+    /** Скриншот: на всю ширину колонки текста, после текста. */
     private final class ShotRow implements Row {
         private final String id;
 
@@ -152,23 +152,12 @@ public class TravelerNotesScreen extends Screen {
         // картинки — рамка совпадает с колонкой, без letterbox-полей.
         imgW = bodyW;
         NativeImage shot = screenshot(t.id());
-        // Ширина скриншота — колонка текста, но высота ограничена половиной видимой
-        // области: иначе картинка (0.57 высоты при горизонтальных кадрах) вытесняет
-        // весь текст за нижний край и экран выглядит пустым.
-        float aspect = shot == null ? IMG_W / (float) IMG_H : shot.getWidth() / (float) shot.getHeight();
-        int naturalH = Math.max(1, Math.round(imgW / aspect));
-        int maxH = Math.max(48, Math.round(bodyH * 0.45f));
-        if (naturalH > maxH) {
-            imgH = maxH;
-            imgW = Math.max(1, Math.round(maxH * aspect));
-        } else {
-            imgH = naturalH;
-        }
+        imgH = shot == null ? Math.max(1, imgW * IMG_H / IMG_W) : Math.max(1, imgW * shot.getHeight() / shot.getWidth());
         int wrapW = Math.max(40, (int) (bodyW / TEXT_SCALE));
 
         rows.clear();
-        rows.add(new ShotRow(t.id()));
-        rows.add(new GapRow(IMG_GAP));
+        // Текст идёт первым и всегда виден; скриншот — на всю ширину колонки снизу
+        // (иначе картинка вытесняет текст за нижний край карточки).
         for (int pi = 0; pi < t.paragraphs().size(); pi++) {
             if (pi > 0) {
                 rows.add(new GapRow(PARA_GAP));
@@ -177,6 +166,8 @@ public class TravelerNotesScreen extends Screen {
                 rows.add(new TextRow(line, C_BODY));
             }
         }
+        rows.add(new GapRow(IMG_GAP));
+        rows.add(new ShotRow(t.id()));
         rows.add(new GapRow(6));
 
         rowsH = 0;
@@ -393,12 +384,14 @@ public class TravelerNotesScreen extends Screen {
             int iconColor = sel ? t.color() : (t.color() & 0xFFFFFF) | 0x99000000;
             drawIcon(ctx, sbX0 + 21, ty + TAB_H / 2, t.icon(), iconColor);
             float ts = 0.85f;
-            int logical = Math.max(30, (int) ((sbX1 - sbX0 - 33) / ts));
+            int textX = sbX0 + 34;
+            int textMaxW = Math.max(24, sbX1 - textX - 12);
+            int logical = Math.max(30, (int) (textMaxW / ts));
             List<String> tl = tabLines(t.title(), logical);
             int textH = tl.size() * 8;
             int ly = ty + (TAB_H - textH) / 2;
             for (String ln : tl) {
-                drawScaled(ctx, ln, sbX0 + 32, ly, ts, sel ? t.color() : C_HINT);
+                drawScaled(ctx, ln, textX, ly, ts, sel ? t.color() : C_HINT);
                 ly += 8;
             }
         }
