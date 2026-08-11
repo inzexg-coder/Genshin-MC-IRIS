@@ -93,6 +93,10 @@ public final class TeyvatConfig {
         public float scroll_sensitivity = 0.8f;
         /** Режим свободной камеры: disabled / hold (удержание) / toggle (переключатель). */
         public String free_look_mode = "hold";
+        /** Боевая камера: во время ударов герой автоматически переводится в
+         *  3-е лицо (видны удары и развороты на 360°), после комбо — обратно
+         *  в первое лицо. Отключи, чтобы оставаться в первом лице всегда. */
+        public boolean combat_camera = true;
     }
 
     /** Настройки здоровья как в Genshin. */

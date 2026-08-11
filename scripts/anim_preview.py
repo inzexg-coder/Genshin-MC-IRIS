@@ -81,7 +81,13 @@ def mat_mul_vec(m, v):
 def parse_poses(src):
     poses = {}
     for m in re.finditer(r'private static final Pose (\w+) = new Pose\(([^)]*)\);', src):
-        vals = [float(x.rstrip("f")) for x in m.group(2).split(",")]
+        vals = []
+        for x in m.group(2).split(","):
+            x = x.strip()
+            if x == "Float.NaN":
+                vals.append(float("nan"))
+            else:
+                vals.append(float(x.rstrip("f")))
         poses[m.group(1)] = dict(zip(CHANNELS, vals))
     return poses
 
@@ -122,6 +128,8 @@ def ease(kind, t):
         return 1 + c3 * (t - 1) ** 3 + c1 * (t - 1) ** 2
     if kind == 4:  # E_IN_OUT_SINE
         return -(math.cos(math.pi * t) - 1) / 2
+    if kind == 5:  # E_IN_CUBIC — ускорение тяжёлого свинга
+        return t * t * t
     return t  # E_LINEAR
 
 

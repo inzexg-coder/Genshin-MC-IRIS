@@ -24,16 +24,23 @@ import net.teyvat.network.PlayerAttackPayload;
  * широкий замах, удар справа налево и увод клинка за спину (с прокатом).
  * Принципы качества: голова ВСЕГДА смотрит строго вперёд (принудительно
  * после любой позы — не следит за камерой); левая рука держит статичную
- * стойку, ноги стоят ровно — части тела не двигаются сами по себе; углы
- * в физиологичном диапазоне (рука pitch −160°..+60°, roll ±110°) — никаких
- * проворотов на ±360°; каждый клип непрерывен (t=0 = финал предыдущего
- * удара); разворот на 360° делает root ванильной модели (getRootPart().yaw):
- * торс, голова, руки, ноги и клинок поворачиваются как единое целое. Темп
- * замедлен (полный круг ~9 с): длинный медленный замах (~60% клипа),
- * короткий решительный свинг, плавное сопровождение — удары ощущаются
- * сильными. После тапа — фаза восстановления в нейтраль. Удержание ЛКМ
- * продолжает серию. Вне комбо — чистый цикл бега: руки машут противофазно
- * ногам, корпус наклонён и покачивается, лёгкий подскок; в покое — дыхание.
+ * стойку — части тела не двигаются сами по себе; ноги во время ударов
+ * НЕ замораживаются (каналы ног в позах = Float.NaN, ванильный шаг из
+ * setAngles продолжает работать — герой не «плывёт» по земле); углы
+ * в физиологичном диапазоне — никаких проворотов на ±360° у частей;
+ * каждый клип непрерывен (t=0 = финал предыдущего удара); разворот на
+ * 360° делает root ванильной модели (getRootPart().yaw): торс, голова,
+ * руки и клинок поворачиваются как единое целое. Темп замедлен (полный
+ * круг ~9 с): длинный медленный замах (~58% клипа), свинг с УСКОРЕНИЕМ
+ * (E_IN_CUBIC — разгон к пику скорости в момент урона, ~0.70 клипа),
+ * плавное сопровождение с торможением — удары ощущаются тяжёлыми. Между
+ * анимациями — плавные переходы (первые 12% каждого удара смешиваются
+ * с предыдущей позой через prevAppliedPose). Во время комбо камера
+ * автоматически переводится в 3-е лицо (видны удары и разворот), после
+ * серии возвращается в первое. После тапа — фаза восстановления
+ * в нейтраль. Удержание ЛКМ продолжает серию. Вне комбо — чистый цикл
+ * бега: руки машут противофазно ногам, корпус наклонён и покачивается,
+ * лёгкий подскок; в покое — дыхание.
  */
 public final class CombatController {
     /** Текущий удар комбо: 0..HIT_COUNT-1, -1 = атака не идёт. */
@@ -57,6 +64,15 @@ public final class CombatController {
     /** Тиков восстановления после одиночного удара: поза плавно уходит в нейтраль
      *  (без отскока в ванильную стойку между тапами). */
     private static final int RECOVERY_TICKS = 10;
+
+    /** Последняя наложенная поза: из неё плавно «въезжаем» в следующий удар
+     *  (первые ~12% клипа смешиваются с предыдущей позой — без рывков между
+     *  анимациями). */
+    private static Pose prevAppliedPose;
+    private static boolean hasPrevAppliedPose;
+
+    /** Доля клипа, на которой работает смешивание перехода между ударами. */
+    private static final float TRANSITION_BLEND = 0.12f;
 
     private CombatController() {}
 
@@ -262,12 +278,32 @@ public final class CombatController {
         } else {
             model.getRootPart().yaw = 0f;
             applyLocomotion(model, state);
+            // Запоминаем позу бега: из неё первый удар «въедет» без рывка.
+            prevAppliedPose = poseFromModel(model);
+            hasPrevAppliedPose = true;
         }
         // Голова ВСЕГДА смотрит строго вперёд (относительно корпуса): не
         // следит за камерой и не вертится во время ударов и бега.
         model.head.yaw = 0f;
         model.head.pitch = 0f;
         model.head.roll = 0f;
+    }
+
+    /** Прочитать текущие углы модели как позу (для плавных переходов). */
+    private static Pose poseFromModel(PlayerEntityModel m) {
+        return new Pose(
+                m.rightArm.yaw, m.rightArm.pitch, m.rightArm.roll,
+                m.leftArm.yaw, m.leftArm.pitch, m.leftArm.roll,
+                m.body.yaw, m.body.pitch, m.body.roll,
+                Float.NaN, Float.NaN, Float.NaN,
+                m.rightLeg.yaw, m.rightLeg.pitch, m.rightLeg.roll,
+                m.leftLeg.yaw, m.leftLeg.pitch, m.leftLeg.roll);
+    }
+
+    /** Боевая камера: пока идёт комбо или его можно продолжить (2.5 сек после
+     *  последнего удара), камера остаётся за героем — видны удары и развороты. */
+    public static boolean isCombatActive() {
+        return comboStep >= 0 || (lastStep >= 0 && idleTicks < SwordCombo.RESET_TICKS);
     }
 
     /** Эпичная ходьба/бег (стиль Origin Animation): руки машут широко
@@ -341,10 +377,18 @@ public final class CombatController {
         float p = Math.min(1f, (hitTicks + tickDelta) / SwordCombo.DURATION_TICKS[comboStep]);
         Pose pose = CLIPS[comboStep].at(p);
         if (recoveryTicks > 0) {
-            // Плавный уход в нейтраль после последнего удара (голова — за взглядом).
+            // Плавный уход в нейтраль после последнего удара.
             float r = 1f - recoveryTicks / (float) RECOVERY_TICKS;
             pose = relax(pose, easeOutCubic(r));
         }
+        // Плавный переход: первые 12% каждого удара смешиваются с предыдущей
+        // позой (бегом или финалом прошлого удара) — никаких рывков на стыках.
+        if (hasPrevAppliedPose && p < TRANSITION_BLEND) {
+            float w = MathHelper.clamp(p / TRANSITION_BLEND, 0f, 1f);
+            pose = mix(prevAppliedPose, pose, ease(E_IN_OUT_SINE, w));
+        }
+        prevAppliedPose = pose;
+        hasPrevAppliedPose = true;
         applyPoseToModel(model, pose);
         // Разворот: полный оборот делает root модели — торс, голова, руки,
         // ноги и клинок в руке поворачиваются как единое целое (никакого
@@ -391,6 +435,7 @@ public final class CombatController {
     private static final int E_OUT_CUBIC = 2;
     private static final int E_OUT_BACK = 3;
     private static final int E_IN_OUT_SINE = 4;
+    private static final int E_IN_CUBIC = 5;
 
     /** NaN-канал не трогаем (в клипах головы нет: она всегда смотрит по
      *  направлению удара; NaN появляется только в фазе восстановления —
@@ -439,85 +484,86 @@ public final class CombatController {
      *  y/p/r, лев. рука y/p/r, корпус y/p/r, голова y/p/r, прав. нога y/p/r,
      *  лев. нога y/p/r. Углы в радианах, как у ModelPart. */
     // Удар 1: широкий горизонтальный слева направо
-                    private static final Pose hit1_00 = new Pose(0.000000f, -0.436332f, 0.139626f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_01 = new Pose(0.000000f, -1.221730f, -1.308997f, -0.003046f, -0.009139f, -0.001523f, 0.314159f, 0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_02 = new Pose(0.000000f, -1.745329f, -0.698132f, -0.003046f, -0.009139f, -0.001523f, 0.139626f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_03 = new Pose(0.000000f, -1.658063f, -0.139626f, -0.003046f, -0.009139f, -0.001523f, -0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_04 = new Pose(0.000000f, -1.745329f, 0.698132f, -0.003046f, -0.009139f, -0.001523f, -0.244346f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_05 = new Pose(0.000000f, -1.570796f, 1.256637f, -0.003046f, -0.009139f, -0.001523f, -0.314159f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
+                        private static final Pose hit1_00 = new Pose(0.000000f, -0.436332f, 0.139626f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit1_01 = new Pose(0.000000f, -1.221730f, -1.308997f, -0.003046f, -0.009139f, -0.001523f, 0.314159f, 0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit1_02 = new Pose(0.000000f, -1.745329f, -0.698132f, -0.003046f, -0.009139f, -0.001523f, 0.139626f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit1_03 = new Pose(0.000000f, -1.658063f, -0.139626f, -0.003046f, -0.009139f, -0.001523f, -0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit1_04 = new Pose(0.000000f, -1.745329f, 0.698132f, -0.003046f, -0.009139f, -0.001523f, -0.244346f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit1_05 = new Pose(0.000000f, -1.570796f, 1.256637f, -0.003046f, -0.009139f, -0.001523f, -0.314159f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
 
-    private static final Pose hit2_00 = new Pose(0.000000f, -1.570796f, 1.256637f, -0.003046f, -0.009139f, -0.001523f, -0.314159f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_01 = new Pose(0.000000f, -0.261799f, 1.047198f, -0.003046f, -0.009139f, -0.001523f, 0.383972f, 0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_02 = new Pose(0.000000f, 0.383972f, 1.012291f, -0.003046f, -0.009139f, -0.001523f, 0.453786f, 0.139626f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_03 = new Pose(0.000000f, -0.959931f, 0.174533f, -0.003046f, -0.009139f, -0.001523f, 0.139626f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_04 = new Pose(0.000000f, -2.268928f, -0.610865f, -0.003046f, -0.009139f, -0.001523f, -0.314159f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_05 = new Pose(0.000000f, -2.705260f, -0.959931f, -0.003046f, -0.009139f, -0.001523f, -0.436332f, -0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
+    private static final Pose hit2_00 = new Pose(0.000000f, -1.570796f, 1.256637f, -0.003046f, -0.009139f, -0.001523f, -0.314159f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit2_01 = new Pose(0.000000f, -0.261799f, 1.047198f, -0.003046f, -0.009139f, -0.001523f, 0.383972f, 0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit2_02 = new Pose(0.000000f, 0.383972f, 1.012291f, -0.003046f, -0.009139f, -0.001523f, 0.453786f, 0.139626f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit2_03 = new Pose(0.000000f, -0.959931f, 0.174533f, -0.003046f, -0.009139f, -0.001523f, 0.139626f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit2_04 = new Pose(0.000000f, -2.268928f, -0.610865f, -0.003046f, -0.009139f, -0.001523f, -0.314159f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit2_05 = new Pose(0.000000f, -2.705260f, -0.959931f, -0.003046f, -0.009139f, -0.001523f, -0.436332f, -0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
 
-    private static final Pose hit3_00 = new Pose(0.000000f, -2.705260f, -0.959931f, -0.003046f, -0.009139f, -0.001523f, -0.436332f, -0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_01 = new Pose(0.000000f, -2.617994f, -0.436332f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, -0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_02 = new Pose(0.000000f, -2.443461f, -0.174533f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_03 = new Pose(0.000000f, -1.483530f, 0.349066f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.139626f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_04 = new Pose(0.000000f, -0.785398f, 0.959931f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.174533f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_05 = new Pose(0.000000f, -0.698132f, 1.047198f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
+    private static final Pose hit3_00 = new Pose(0.000000f, -2.705260f, -0.959931f, -0.003046f, -0.009139f, -0.001523f, -0.436332f, -0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit3_01 = new Pose(0.000000f, -2.617994f, -0.436332f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, -0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit3_02 = new Pose(0.000000f, -2.443461f, -0.174533f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit3_03 = new Pose(0.000000f, -1.483530f, 0.349066f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.139626f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit3_04 = new Pose(0.000000f, -0.785398f, 0.959931f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.174533f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit3_05 = new Pose(0.000000f, -0.698132f, 1.047198f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
 
-    private static final Pose hit4_00 = new Pose(0.000000f, -0.698132f, 1.047198f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_01 = new Pose(0.000000f, -1.221730f, 1.361357f, -0.003046f, -0.009139f, -0.001523f, 0.314159f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_02 = new Pose(0.000000f, -1.832596f, 0.698132f, -0.003046f, -0.009139f, -0.001523f, 0.174533f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_03 = new Pose(0.000000f, -1.658063f, -0.087266f, -0.003046f, -0.009139f, -0.001523f, -0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_04 = new Pose(0.000000f, -1.745329f, -0.785398f, -0.003046f, -0.009139f, -0.001523f, -0.209440f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_05 = new Pose(0.000000f, -1.570796f, -1.256637f, -0.003046f, -0.009139f, -0.001523f, -0.279253f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
+    private static final Pose hit4_00 = new Pose(0.000000f, -0.698132f, 1.047198f, -0.003046f, -0.009139f, -0.001523f, 0.000000f, 0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit4_01 = new Pose(0.000000f, -1.221730f, 1.361357f, -0.003046f, -0.009139f, -0.001523f, 0.314159f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit4_02 = new Pose(0.000000f, -1.832596f, 0.698132f, -0.003046f, -0.009139f, -0.001523f, 0.174533f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit4_03 = new Pose(0.000000f, -1.658063f, -0.087266f, -0.003046f, -0.009139f, -0.001523f, -0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit4_04 = new Pose(0.000000f, -1.745329f, -0.785398f, -0.003046f, -0.009139f, -0.001523f, -0.209440f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit4_05 = new Pose(0.000000f, -1.570796f, -1.256637f, -0.003046f, -0.009139f, -0.001523f, -0.279253f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
 
-    private static final Pose hit5_00 = new Pose(0.000000f, -1.570796f, -1.256637f, -0.003046f, -0.009139f, -0.001523f, -0.279253f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_01 = new Pose(0.000000f, -1.221730f, 1.483530f, -0.003046f, -0.009139f, -0.001523f, 0.523599f, 0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_02 = new Pose(0.000000f, -2.617994f, 1.832596f, -0.003046f, -0.009139f, -0.001523f, 0.663225f, 0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_03 = new Pose(-0.349066f, -1.570796f, 0.698132f, -0.003046f, -0.009139f, -0.001523f, 0.174533f, 0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_04 = new Pose(-0.523599f, -1.308997f, -0.785398f, -0.003046f, -0.009139f, -0.001523f, -0.261799f, -0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_05 = new Pose(-1.745329f, 1.047198f, 0.698132f, -0.003046f, -0.009139f, -0.001523f, -0.436332f, -0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_06 = new Pose(-1.745329f, 0.959931f, 0.785398f, -0.003046f, -0.009139f, -0.001523f, -0.436332f, -0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
+    private static final Pose hit5_00 = new Pose(0.000000f, -1.570796f, -1.256637f, -0.003046f, -0.009139f, -0.001523f, -0.279253f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit5_01 = new Pose(0.000000f, -1.221730f, 1.483530f, -0.003046f, -0.009139f, -0.001523f, 0.523599f, 0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit5_02 = new Pose(0.000000f, -2.617994f, 1.832596f, -0.003046f, -0.009139f, -0.001523f, 0.663225f, 0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit5_03 = new Pose(-0.349066f, -1.570796f, 0.698132f, -0.003046f, -0.009139f, -0.001523f, 0.174533f, 0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit5_04 = new Pose(-0.523599f, -1.308997f, -0.785398f, -0.003046f, -0.009139f, -0.001523f, -0.261799f, -0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit5_05 = new Pose(-1.745329f, 1.047198f, 0.698132f, -0.003046f, -0.009139f, -0.001523f, -0.436332f, -0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
+    private static final Pose hit5_06 = new Pose(-1.745329f, 0.959931f, 0.785398f, -0.003046f, -0.009139f, -0.001523f, -0.436332f, -0.104720f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN, Float.NaN);
 
     private static final Clip[] CLIPS = {
         new Clip(new Keyframe[] { // hit1
                 new Keyframe(0.000f, 4, hit1_00),
-                new Keyframe(0.340f, 1, hit1_01),
-                new Keyframe(0.550f, 1, hit1_02),
-                new Keyframe(0.680f, 0, hit1_03),
-                new Keyframe(0.800f, 0, hit1_04),
-                new Keyframe(1.000f, 2, hit1_05),
+                new Keyframe(0.360f, 1, hit1_01),
+                new Keyframe(0.580f, 5, hit1_02),
+                new Keyframe(0.700f, 2, hit1_03),
+                new Keyframe(0.840f, 2, hit1_04),
+                new Keyframe(1.000f, 0, hit1_05),
         }),
         new Clip(new Keyframe[] { // hit2
                 new Keyframe(0.000f, 4, hit2_00),
-                new Keyframe(0.300f, 1, hit2_01),
-                new Keyframe(0.500f, 1, hit2_02),
-                new Keyframe(0.640f, 0, hit2_03),
-                new Keyframe(0.780f, 0, hit2_04),
-                new Keyframe(1.000f, 2, hit2_05),
+                new Keyframe(0.320f, 1, hit2_01),
+                new Keyframe(0.540f, 5, hit2_02),
+                new Keyframe(0.700f, 2, hit2_03),
+                new Keyframe(0.840f, 2, hit2_04),
+                new Keyframe(1.000f, 0, hit2_05),
         }),
         new Clip(new Keyframe[] { // hit3
                 new Keyframe(0.000f, 4, hit3_00),
                 new Keyframe(0.300f, 1, hit3_01),
-                new Keyframe(0.550f, 1, hit3_02),
-                new Keyframe(0.700f, 0, hit3_03),
-                new Keyframe(0.840f, 0, hit3_04),
-                new Keyframe(1.000f, 2, hit3_05),
+                new Keyframe(0.560f, 5, hit3_02),
+                new Keyframe(0.700f, 2, hit3_03),
+                new Keyframe(0.840f, 2, hit3_04),
+                new Keyframe(1.000f, 0, hit3_05),
         }),
         new Clip(new Keyframe[] { // hit4
                 new Keyframe(0.000f, 4, hit4_00),
-                new Keyframe(0.300f, 1, hit4_01),
-                new Keyframe(0.520f, 1, hit4_02),
-                new Keyframe(0.660f, 0, hit4_03),
-                new Keyframe(0.800f, 0, hit4_04),
-                new Keyframe(1.000f, 2, hit4_05),
+                new Keyframe(0.320f, 1, hit4_01),
+                new Keyframe(0.540f, 5, hit4_02),
+                new Keyframe(0.700f, 2, hit4_03),
+                new Keyframe(0.840f, 2, hit4_04),
+                new Keyframe(1.000f, 0, hit4_05),
         }),
         new Clip(new Keyframe[] { // hit5
                 new Keyframe(0.000f, 4, hit5_00),
-                new Keyframe(0.220f, 1, hit5_01),
-                new Keyframe(0.380f, 2, hit5_02),
-                new Keyframe(0.520f, 0, hit5_03),
-                new Keyframe(0.660f, 0, hit5_04),
+                new Keyframe(0.240f, 1, hit5_01),
+                new Keyframe(0.400f, 1, hit5_02),
+                new Keyframe(0.580f, 5, hit5_03),
+                new Keyframe(0.700f, 2, hit5_04),
                 new Keyframe(0.840f, 2, hit5_05),
-                new Keyframe(1.000f, 2, hit5_06),
+                new Keyframe(1.000f, 0, hit5_06),
         }),
     };
+
 
 
 
@@ -575,12 +621,24 @@ public final class CombatController {
         if (!Float.isNaN(pose.hRoll())) {
             m.head.roll = pose.hRoll();
         }
-        m.rightLeg.yaw = pose.rlYaw();
-        m.rightLeg.pitch = pose.rlPitch();
-        m.rightLeg.roll = pose.rlRoll();
-        m.leftLeg.yaw = pose.llYaw();
-        m.leftLeg.pitch = pose.llPitch();
-        m.leftLeg.roll = pose.llRoll();
+        if (!Float.isNaN(pose.rlYaw())) {
+            m.rightLeg.yaw = pose.rlYaw();
+        }
+        if (!Float.isNaN(pose.rlPitch())) {
+            m.rightLeg.pitch = pose.rlPitch();
+        }
+        if (!Float.isNaN(pose.rlRoll())) {
+            m.rightLeg.roll = pose.rlRoll();
+        }
+        if (!Float.isNaN(pose.llYaw())) {
+            m.leftLeg.yaw = pose.llYaw();
+        }
+        if (!Float.isNaN(pose.llPitch())) {
+            m.leftLeg.pitch = pose.llPitch();
+        }
+        if (!Float.isNaN(pose.llRoll())) {
+            m.leftLeg.roll = pose.llRoll();
+        }
     }
 
     /** Кривые сегментов. OUT_BACK даёт перелёт ~10% — «хлыстовое» движение меча. */
@@ -599,6 +657,10 @@ public final class CombatController {
             }
             case E_IN_OUT_SINE -> {
                 return (float) (-(Math.cos(Math.PI * t) - 1.0) / 2.0);
+            }
+            case E_IN_CUBIC -> {
+                // Тяжёлый свинг: разгон от замаха к пику скорости (момент урона).
+                return t * t * t;
             }
             default -> {
                 return t;
