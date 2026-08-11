@@ -250,6 +250,8 @@ public final class CameraController {
         // Рывок: лёгкий наклон камеры вниз — тело «заваливается» вперёд,
         // как в Genshin. Мягкий по профилю рывка, без резких скачков.
         camPitch += 2.5f * StaminaController.dashFactor();
+        // Удары мечом: короткий кик камеры вниз на момент разреза — отдача, как в Genshin.
+        camPitch += 2.0f * CombatController.impactKick();
 
         ((CameraAccessor) camera).teyvatSetRotation(camYaw, camPitch);
         ((CameraAccessor) camera).teyvatSetPos(camX, camY, camZ);

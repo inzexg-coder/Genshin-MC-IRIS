@@ -20,6 +20,13 @@ public final class SwordCombo {
     public static final int RESET_TICKS = 50;
     /** Тик, начиная с которого нажатие (или удержание) ЛКМ цепляет следующий удар. */
     public static final int CHAIN_INPUT_TICKS = 2;
+    /** Шаг героя вперёд на момент удара (блоки): герой не стоит на месте,
+     *  а проталкивается в направлении взгляда, как в Genshin. */
+    public static final float[] LUNGE_STRENGTH = {0.14f, 0.14f, 0.2f, 0.55f, 0.42f};
+    /** Вертикальный подброс на ударе (пятый удар — лёгкий прыжок-обрушение). */
+    public static final float[] LUNGE_UP = {0f, 0f, 0f, 0f, 0.18f};
+    /** Отбрасывание цели по ударам (сервер): выпад и обрушение бьют сильнее. */
+    public static final float[] KNOCKBACK = {0.25f, 0.25f, 0.35f, 0.55f, 0.5f};
 
     private SwordCombo() {}
 

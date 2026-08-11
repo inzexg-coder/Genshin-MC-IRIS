@@ -2,11 +2,12 @@ package net.teyvat.client;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 import net.teyvat.combat.SwordCombo;
 import net.teyvat.network.PlayerAttackPayload;
 
@@ -33,6 +34,9 @@ public final class CombatController {
     private static boolean bufferedNext;
     /** Урон по текущему удару отправлен серверу (один раз за удар). */
     private static boolean sentHit;
+    /** Кик от удара 0..1: пульс на момент разреза, затухает за ~0.5 сек.
+     *  Двигает FOV и наклон камеры (как отдача в Genshin). */
+    private static float impactKick;
 
     private CombatController() {}
 
@@ -47,7 +51,9 @@ public final class CombatController {
             if (hitTicks == SwordCombo.DAMAGE_TICKS[comboStep] && !sentHit) {
                 sentHit = true;
                 sendHit(comboStep);
-                spawnSlashParticle(client, client.player);
+                spawnSlashEffects(client, client.player);
+                applyLunge(client.player);
+                impactKick = 1f;
             }
             if (hitTicks >= SwordCombo.DURATION_TICKS[comboStep]) {
                 if (bufferedNext) {
@@ -71,6 +77,8 @@ public final class CombatController {
         } else if (idleTicks <= SwordCombo.RESET_TICKS) {
             idleTicks++;
         }
+        // Отдача затухает сама: пульс виден пару кадров, затем камера успокаивается.
+        impactKick *= 0.84f;
     }
 
     /** ЛКМ нажат (вместо ванильной атаки). Возвращает true, если клик съеден комбо. */
@@ -104,25 +112,71 @@ public final class CombatController {
         }
     }
 
-    /** Полумесяц разреза перед игроком на тике урона (как свип-атака майна). */
-    private static void spawnSlashParticle(MinecraftClient client, PlayerEntity player) {
+    /** Эффекты удара на тике урона: полумесяц-разрез, дуга искр по траектории
+     *  меча и пыль из-под ног на «шагающих» ударах. Работают и по врагам,
+     *  и по воздуху — свинг всегда анимируется. */
+    private static void spawnSlashEffects(MinecraftClient client, ClientPlayerEntity player) {
         ClientWorld world = client.world;
         if (world == null) {
             return;
         }
-        double d = -Math.sin(Math.toRadians(player.getYaw()));
-        double e = Math.cos(Math.toRadians(player.getYaw()));
-        // Полумесяц чуть выше талии, перед игроком: дельты задают его ориентацию.
+        double yaw = Math.toRadians(player.getYaw());
+        double d = -Math.sin(yaw);
+        double e = Math.cos(yaw);
+        // Полумесяц-разрез (ориентируется по дельтам, как ванильная свип-атака).
         world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
                 player.getX() + d * 0.6,
                 player.getY() + 1.0 + comboStep * 0.06,
                 player.getZ() + e * 0.6,
                 d, 0.0, e);
+        // Дуга размаха: штрихи-искры вдоль траектории меча, шире к пятому удару.
+        int count = 9;
+        double radius = 1.7;
+        double height = 0.95 + comboStep * 0.09;
+        float span = 1.05f + comboStep * 0.08f;
+        for (int i = 0; i < count; i++) {
+            float t = (float) i / (count - 1);
+            double ang = yaw + (t - 0.5f) * span;
+            world.addParticleClient(ParticleTypes.END_ROD,
+                    player.getX() - Math.sin(ang) * radius,
+                    player.getY() + height,
+                    player.getZ() + Math.cos(ang) * radius,
+                    -Math.cos(ang) * 1.4, 0.0, -Math.sin(ang) * 1.4);
+        }
+        // Пыль из-под ног на ударах с шагом/выпадом.
+        if (SwordCombo.LUNGE_STRENGTH[comboStep] >= 0.18f) {
+            for (int i = 0; i < 3; i++) {
+                world.addParticleClient(ParticleTypes.POOF,
+                        player.getX() + (world.random.nextDouble() - 0.5) * 0.4,
+                        player.getY() + 0.1,
+                        player.getZ() + (world.random.nextDouble() - 0.5) * 0.4,
+                        0, 0, 0);
+            }
+        }
+    }
+
+    /** Шаг героя вперёд на момент удара: лёгкий толчок по направлению взгляда,
+     *  на пятом ударе — ещё и маленький подброс. Клиентское движение, как у рывка. */
+    private static void applyLunge(ClientPlayerEntity player) {
+        float strength = SwordCombo.LUNGE_STRENGTH[comboStep];
+        float up = SwordCombo.LUNGE_UP[comboStep];
+        if (strength <= 0f && up <= 0f) {
+            return;
+        }
+        float yaw = (float) Math.toRadians(player.getYaw());
+        Vec3d v = player.getVelocity();
+        player.setVelocity(v.x - Math.sin(yaw) * strength, v.y + up, v.z + Math.cos(yaw) * strength);
+        player.velocityModified = true;
     }
 
     /** Идёт ли сейчас удар (для миксина модели). */
     public static boolean isSwinging() {
         return comboStep >= 0;
+    }
+
+    /** Отдача удара 0..1: пульс FOV и наклона камеры на момент разреза. */
+    public static float impactKick() {
+        return impactKick;
     }
 
     /** Номер текущего удара (0..4). */

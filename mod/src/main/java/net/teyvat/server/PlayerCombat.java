@@ -33,8 +33,6 @@ public final class PlayerCombat {
     private static final double FRONT_DOT = 0.45;
     /** Максимальное боковое отклонение цели от луча взгляда. */
     private static final double MAX_LATERAL = 1.4;
-    /** Отбрасывание при попадании. */
-    private static final double KNOCKBACK = 0.35;
     /** Минимальный интервал между ударами (защита от спама пакетами). */
     private static final int MIN_INTERVAL_TICKS = 6;
     /** Тик последней атаки каждого игрока (player.age). */
@@ -90,7 +88,7 @@ public final class PlayerCombat {
             }
             if (target.damage(world, player.getDamageSources().playerAttack(player), amount)) {
                 hitAny = true;
-                target.takeKnockback(KNOCKBACK, dir.x, dir.z);
+                target.takeKnockback(SwordCombo.KNOCKBACK[hitIndex], dir.x, dir.z);
             }
         }
         // Звук удара: свист меча при попадании, пустой замах — тихий.
