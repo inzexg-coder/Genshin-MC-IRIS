@@ -11,15 +11,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 /**
  * Анимация боевки путешественника: после ванильной постановки поз модель
  * локального игрока доворачивается по ключевым кадрам комбо (руки, корпус,
- * голова, ноги). Видно в 3-м лице (Teyvat Camera) — как в Genshin.
+ * голова, ноги; разворот крутит root модели). Вне ударов root сбрасывается.
+ * Видно в 3-м лице (Teyvat Camera) — как в Genshin.
  */
 @Mixin(PlayerEntityModel.class)
 public abstract class PlayerEntityModelMixin {
     @Inject(method = "setAngles", at = @At("TAIL"))
     private void teyvat$applySwordCombo(PlayerEntityRenderState state, CallbackInfo ci) {
-        if (!CombatController.isSwinging() || !CombatController.isLocalPlayer(state.id)) {
-            return;
-        }
-        CombatController.applyPose((PlayerEntityModel) (Object) this);
+        // Вызывается всегда: вне ударов root модели сбрасывается, чтобы
+        // прерванный в воздухе разворот не оставил модель повёрнутой.
+        CombatController.applyPose((PlayerEntityModel) (Object) this, state.id);
     }
 }
