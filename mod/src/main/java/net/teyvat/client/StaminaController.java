@@ -95,11 +95,25 @@ public final class StaminaController {
             return;
         }
 
-        if (freshPress && !dashing && stamina >= DASH_COST) {
+        // Рывок только на земле: в воздухе (как в Genshin) рывка нет.
+        if (freshPress && !dashing && player.isOnGround() && stamina >= DASH_COST) {
             startDash(player);
         }
 
         if (dashing) {
+            if (!player.isOnGround()) {
+                // Сорвался с обрыва во время рывка: бросок гасится, ввод возвращается.
+                dashing = false;
+                dashTicksLeft = 0;
+                if (savedInput != null) {
+                    player.input = savedInput;
+                    savedInput = null;
+                }
+                player.setSprinting(false);
+                regenDelay = REGEN_DELAY;
+                StaminaOverlay.tick(stamina);
+                return;
+            }
             applyDashVelocity(player);
             spawnDashDust(client, player);
             dashTicksLeft--;
