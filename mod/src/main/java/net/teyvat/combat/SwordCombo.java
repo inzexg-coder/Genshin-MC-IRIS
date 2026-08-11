@@ -9,16 +9,17 @@ package net.teyvat.combat;
 public final class SwordCombo {
     /** Число ударов в комбо (у путешественника с мечом — 5). */
     public static final int HIT_COUNT = 5;
-    /** Длительность каждого удара в тиках (полный круг ≈ 3.5 сек). */
-    public static final int[] DURATION_TICKS = {12, 12, 13, 15, 18};
-    /** Тик удара, в который наносится урон (примерно середина замаха). */
-    public static final int[] DAMAGE_TICKS = {6, 6, 7, 8, 9};
+    /** Длительность каждого удара в тиках (полный круг ≈ 2.6 сек — как в Genshin,
+     *  где серия меча идёт плотно, без пауз между ударами). */
+    public static final int[] DURATION_TICKS = {9, 9, 10, 11, 14};
+    /** Тик удара, в который наносится урон (середина быстрого разреза). */
+    public static final int[] DAMAGE_TICKS = {5, 3, 3, 3, 12};
     /** Множители урона от атаки: 44.7% / 43.4% / 53.0% / 58.3% / 70.9% (уровень таланта 1). */
     public static final float[] MULTIPLIERS = {0.447f, 0.434f, 0.530f, 0.583f, 0.709f};
     /** Пауза без нажатий, после которой комбо сбрасывается (2.5 сек). */
     public static final int RESET_TICKS = 50;
     /** Тик, начиная с которого нажатие (или удержание) ЛКМ цепляет следующий удар. */
-    public static final int CHAIN_INPUT_TICKS = 3;
+    public static final int CHAIN_INPUT_TICKS = 2;
 
     private SwordCombo() {}
 
