@@ -2,25 +2,15 @@ package net.teyvat.client;
 
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.input.KeyInput;
-import net.minecraft.client.texture.NativeImage;
-import net.minecraft.resource.Resource;
 import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
-import net.teyvat.TeyvatMod;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.Random;
 import java.util.function.Consumer;
 
@@ -31,8 +21,7 @@ import static net.teyvat.client.TravelerGuideContent.*;
  * (Patchouli): фиксированные поля, единая сетка отступов, текст стандартного
  * размера, перенос строго по колонке — ничего не выходит за рамки. Слева список
  * вкладок с эмблемами и акцентными цветами, справа страница-карточка: заголовок,
- * текст урока и скриншот (assets/teyvat/textures/gui/notes/<id>.png, добавим позже).
- * Длинный текст прокручивается, но не уменьшается.
+ * текст урока. Длинный текст прокручивается, но не уменьшается.
  * Открывается клавишей N. «О сборке» — отдельный экран для администраторов (Shift+N).
  */
 public class TravelerNotesScreen extends Screen {
@@ -47,9 +36,6 @@ public class TravelerNotesScreen extends Screen {
     private static final int LINE_H = 12;       // шаг строки текста
     private static final int PARA_GAP = 6;      // между абзацами
     private static final int PAGE_NUM_H = 12;   // полоса номера страницы внизу
-    private static final int IMG_W = 210;       // скриншоты горизонтальные
-    private static final int IMG_H = 120;
-    private static final int IMG_GAP = 14;
     private static final float TEXT_SCALE = 1.0f;
     private static final float TITLE_SCALE = 1.25f;
 
@@ -76,11 +62,9 @@ public class TravelerNotesScreen extends Screen {
     private int cardX0, cardX1, cardY0, cardY1;
     private int ix0, ix1, iy0, iy1;
     private int bodyTop, bodyBottom, bodyH, bodyW;
-    private int imgW, imgH;
 
     private final List<Row> rows = new ArrayList<>();
     private float rowsH;
-    private static final Map<String, NativeImage> shots = new HashMap<>();
 
     private interface Row {
         int height();
@@ -99,22 +83,6 @@ public class TravelerNotesScreen extends Screen {
         public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {}
     }
 
-    /** Скриншот: на всю ширину колонки текста, после текста. */
-    private final class ShotRow implements Row {
-        private final String id;
-
-        ShotRow(String id) {
-            this.id = id;
-        }
-
-        public int height() {
-            return imgH;
-        }
-
-        public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
-            drawShot(ctx, x + (bodyW - imgW) / 2, y, id, imgW, imgH);
-        }
-    }
 
     public TravelerNotesScreen() {
         super(Text.literal("Заметки путешественника"));
@@ -147,17 +115,9 @@ public class TravelerNotesScreen extends Screen {
         bodyW = ix1 - ix0;
 
         GuideTab t = tabs.get(selected);
-
-        // Скриншот всегда на всю ширину колонки текста, высота строго по пропорции
-        // картинки — рамка совпадает с колонкой, без letterbox-полей.
-        imgW = bodyW;
-        NativeImage shot = screenshot(t.id());
-        imgH = shot == null ? Math.max(1, imgW * IMG_H / IMG_W) : Math.max(1, imgW * shot.getHeight() / shot.getWidth());
         int wrapW = Math.max(40, (int) (bodyW / TEXT_SCALE));
 
         rows.clear();
-        // Текст идёт первым и всегда виден; скриншот — на всю ширину колонки снизу
-        // (иначе картинка вытесняет текст за нижний край карточки).
         for (int pi = 0; pi < t.paragraphs().size(); pi++) {
             if (pi > 0) {
                 rows.add(new GapRow(PARA_GAP));
@@ -166,8 +126,6 @@ public class TravelerNotesScreen extends Screen {
                 rows.add(new TextRow(line, C_BODY));
             }
         }
-        rows.add(new GapRow(IMG_GAP));
-        rows.add(new ShotRow(t.id()));
         rows.add(new GapRow(6));
 
         rowsH = 0;
@@ -407,7 +365,7 @@ public class TravelerNotesScreen extends Screen {
         }
     }
 
-    /** Страница-карточка: рамка, заголовок с линией, текст и скриншот, номер страницы. */
+    /** Страница-карточка: рамка, заголовок с линией, текст, номер страницы. */
     private void drawPage(DrawContext ctx, int mouseX, int mouseY) {
         GuideTab t = tabs.get(selected);
         int color = t.color();
@@ -550,53 +508,6 @@ public class TravelerNotesScreen extends Screen {
             int w = (int) Math.round(Math.sqrt(r * r - dy * dy));
             ctx.fill(cx - w, cy + dy, cx + w + 1, cy + dy + 1, color);
         }
-    }
-
-    /** Копия картинки для вкладки (кэш на время жизни экрана); null — скриншота нет. */
-    private static NativeImage screenshot(String id) {
-        return shots.computeIfAbsent(id, TravelerNotesScreen::loadScreenshot);
-    }
-
-    private static NativeImage loadScreenshot(String id) {
-        Identifier res = Identifier.of(TeyvatMod.MOD_ID, "textures/gui/notes/" + id + ".png");
-        Optional<Resource> r = MinecraftClient.getInstance().getResourceManager().getResource(res);
-        if (r.isEmpty()) {
-            return null;
-        }
-        try (InputStream in = r.get().getInputStream()) {
-            return NativeImage.read(in);
-        } catch (IOException e) {
-            return null;
-        }
-    }
-
-    /** Рисует скриншот в рамке; если файла нет — заглушка. */
-    private static void drawShot(DrawContext ctx, int x, int y, String id, int w, int h) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        NativeImage img = screenshot(id);
-        ctx.fill(x - 2, y - 2, x + w + 2, y + h + 2, GOLD);
-        ctx.fill(x - 1, y - 1, x + w + 1, y + h + 1, 0xFF0B0F1C);
-        if (img == null) {
-            ctx.fill(x, y, x + w, y + h, 0xE60B0F1C);
-            String t = "Скриншот скоро появится";
-            int tw = client.textRenderer.getWidth(t);
-            float s = Math.min(1.0f, (w - 8f) / tw);
-            var ms = ctx.getMatrices();
-            ms.pushMatrix();
-            ms.translate(x, y);
-            ms.scale(s, s);
-            ctx.drawText(client.textRenderer, t, (int) ((w / s - tw) / 2f), (int) ((h / s - 9f) / 2f), C_HINT, true);
-            ms.popMatrix();
-            return;
-        }
-        float f = Math.min(w / (float) img.getWidth(), h / (float) img.getHeight());
-        int dw = (int) (img.getWidth() * f);
-        int dh = (int) (img.getHeight() * f);
-        int dx = x + (w - dw) / 2;
-        int dy = y + (h - dh) / 2;
-        ctx.drawTexture(RenderPipelines.GUI_TEXTURED,
-                Identifier.of(TeyvatMod.MOD_ID, "textures/gui/notes/" + id + ".png"),
-                dx, dy, 0.0f, 0.0f, dw, dh, img.getWidth(), img.getHeight(), img.getWidth(), img.getHeight());
     }
 
     private static void drawScaled(DrawContext ctx, String text, int x, int y, float s, int color) {

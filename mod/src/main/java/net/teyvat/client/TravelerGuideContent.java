@@ -3,8 +3,7 @@ package net.teyvat.client;
 import java.util.List;
 
 /** Содержимое «Заметок путешественника» — гида по игре. Каждая вкладка:
- *  скриншот (assets/teyvat/textures/gui/notes/<id>.png, добавим позже)
- *  и текст урока о механике, мобе или предмете. */
+ *  текст урока о механике, мобе или предмете. */
 public final class TravelerGuideContent {
     public static final int C_TITLE = 0xFFFFE9A8;
     public static final int C_GOLD = 0xFFE8C86A;
@@ -12,7 +11,7 @@ public final class TravelerGuideContent {
     public static final int C_DESC = 0xFFD8D2C4;
     public static final int C_HINT = 0xFF9AA5B8;
 
-    /** Вкладка гида: id — имя файла скриншота, title — заголовок в списке,
+    /** Вкладка гида: id — ключ вкладки, title — заголовок в списке,
      *  color — акцентный цвет вкладки, icon — маленькая эмблема (diamond, circle, ...). */
     public record GuideTab(String id, String title, int color, String icon, List<String> paragraphs) {}
 
