@@ -8,6 +8,7 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.particle.v1.FabricSpriteProvider;
 import net.fabricmc.fabric.api.client.particle.v1.ParticleFactoryRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
@@ -25,6 +26,7 @@ import net.teyvat.client.WaterDropletParticle;
 import net.teyvat.client.WaterRippleParticle;
 import net.teyvat.client.WaterMistParticle;
 import net.teyvat.client.CombatController;
+import net.teyvat.client.FirstPersonBody;
 import net.teyvat.client.StaminaController;
 import net.teyvat.client.hydro.HydroSlimeEntityRenderer;
 import net.teyvat.client.hydro.HydroSlimeProjectileRenderer;
@@ -94,6 +96,9 @@ public class TeyvatClient implements ClientModInitializer {
                 (FabricSpriteProvider spriteProvider) -> new WaterRippleParticle.Factory(spriteProvider));
         ParticleFactoryRegistry.getInstance().register(TeyvatParticles.WATER_MIST,
                 (FabricSpriteProvider spriteProvider) -> new WaterMistParticle.Factory(spriteProvider));
+
+        // Первое лицо «глазами модельки»: собственное тело + разрез-дуга меча.
+        WorldRenderEvents.BEFORE_ENTITIES.register(FirstPersonBody::render);
 
         // Клавиша открывает заметки в любом режиме игры (клиентская сторона).
         ClientTickEvents.END_CLIENT_TICK.register(client -> {

@@ -86,51 +86,53 @@ CLIPS = [
     # ВНИМАНИЕ: easing в кортеже (t, easing, поза) применяется к СЕГМЕНТУ,
     # начинающемуся с этого ключевого кадра (так устроен Clip.at в Java).
     # Свинг (разгон тяжёлого удара) = E_IN_CUBIC, сопровождение = E_OUT_CUBIC.
-    # --- УДАР 1: широкий горизонтальный слева направо ---
+    # Удары максимально ШИРОКИЕ: клинок выписывает большие дуги (roll до ±125°,
+    # pitch до −160°), замах ~50% клипа, свинг с ускорением до пика (урон 0.70).
+    # --- УДАР 1: очень широкий горизонтальный слева направо ---
     [
-        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-25, rRoll=8, bPitch=2))),
-        (0.36, E_IN_OUT_CUBIC, arm(None, P(rPitch=-70, rRoll=-75, bYaw=18, bPitch=4))),   # замах влево-вверх
-        (0.58, E_IN_CUBIC, arm(None, P(rPitch=-100, rRoll=-40, bYaw=8, bPitch=2))),       # СВИНГ: разгон до пика (урон на 0.70)
-        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-95, rRoll=-8, bYaw=-4))),                 # пик скорости, вылет
-        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-100, rRoll=40, bYaw=-14))),               # вылет вправо
-        (1.00, E_LINEAR, arm(None, P(rPitch=-90, rRoll=72, bYaw=-18))),                   # сопровождение вправо-вверх
+        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-25, rRoll=10, bPitch=2))),
+        (0.34, E_IN_OUT_CUBIC, arm(None, P(rPitch=-75, rRoll=-100, bYaw=24, bPitch=5))),   # замах далеко влево-вверх
+        (0.52, E_IN_CUBIC, arm(None, P(rPitch=-110, rRoll=-55, bYaw=12, bPitch=3))),       # СВИНГ: разгон до пика (урон на 0.70)
+        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-100, rRoll=-5, bYaw=-6))),                 # пик скорости, вылет
+        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-105, rRoll=60, bYaw=-18))),                # вылет вправо
+        (1.00, E_LINEAR, arm(None, P(rPitch=-95, rRoll=95, bYaw=-24))),                    # финал справа-вверх
     ],
     # --- УДАР 2: длинный апперкот справа снизу вверх влево ---
     [
-        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-90, rRoll=72, bYaw=-18))),              # стык: конец удара 1
-        (0.32, E_IN_OUT_CUBIC, arm(None, P(rPitch=-15, rRoll=60, bYaw=22, bPitch=6))),    # увод вниз-вправо
-        (0.54, E_IN_CUBIC, arm(None, P(rPitch=22, rRoll=58, bYaw=26, bPitch=8))),         # СВИНГ: разгон восходящего (урон на 0.70)
-        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-55, rRoll=10, bYaw=8, bPitch=2))),        # пик скорости, пролёт
-        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-130, rRoll=-35, bYaw=-18))),              # вверх-влево
-        (1.00, E_LINEAR, arm(None, P(rPitch=-155, rRoll=-55, bYaw=-25, bPitch=-6))),      # финал вверху-слева
+        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-95, rRoll=95, bYaw=-24))),               # стык: конец удара 1
+        (0.30, E_IN_OUT_CUBIC, arm(None, P(rPitch=-10, rRoll=80, bYaw=26, bPitch=8))),     # увод вниз-вправо
+        (0.50, E_IN_CUBIC, arm(None, P(rPitch=32, rRoll=75, bYaw=32, bPitch=10))),         # СВИНГ: разгон восходящего (урон на 0.70)
+        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-60, rRoll=12, bYaw=12, bPitch=4))),        # пик скорости, пролёт
+        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-140, rRoll=-45, bYaw=-20))),               # вверх-влево
+        (1.00, E_LINEAR, arm(None, P(rPitch=-160, rRoll=-70, bYaw=-28, bPitch=-8))),       # финал вверху-слева
     ],
     # --- УДАР 3: разворот через левое плечо на 360°, рубящий удар по диагонали ---
     [
-        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-155, rRoll=-55, bYaw=-25, bPitch=-6))), # стык: конец удара 2
-        (0.30, E_IN_OUT_CUBIC, arm(None, P(rPitch=-150, rRoll=-25, bPitch=-4))),          # клинок поднят над головой
-        (0.56, E_IN_CUBIC, arm(None, P(rPitch=-140, rRoll=-10, bPitch=2))),               # РУБЯЩИЙ: разгон вниз (урон на 0.70)
-        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-85, rRoll=20, bPitch=8))),                # пик скорости, довод
-        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-45, rRoll=55, bPitch=10))),               # довод вниз-вправо
-        (1.00, E_LINEAR, arm(None, P(rPitch=-40, rRoll=60, bPitch=6))),                   # сопровождение
+        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-160, rRoll=-70, bYaw=-28, bPitch=-8))),  # стык: конец удара 2
+        (0.28, E_IN_OUT_CUBIC, arm(None, P(rPitch=-155, rRoll=-30, bYaw=-8, bPitch=-4))),  # клинок поднят над головой
+        (0.50, E_IN_CUBIC, arm(None, P(rPitch=-145, rRoll=-5, bYaw=8, bPitch=4))),         # РУБЯЩИЙ: разгон вниз (урон на 0.70)
+        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-80, rRoll=35, bYaw=16, bPitch=10))),       # пик скорости, довод
+        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-40, rRoll=75, bYaw=18, bPitch=12))),       # довод вниз-вправо
+        (1.00, E_LINEAR, arm(None, P(rPitch=-35, rRoll=85, bYaw=12, bPitch=8))),           # сопровождение
     ],
-    # --- УДАР 4: горизонтальный справа налево ---
+    # --- УДАР 4: очень широкий горизонтальный справа налево ---
     [
-        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-40, rRoll=60, bPitch=6))),              # стык: конец удара 3
-        (0.32, E_IN_OUT_CUBIC, arm(None, P(rPitch=-70, rRoll=78, bYaw=18, bPitch=2))),    # замах вправо-вверх
-        (0.54, E_IN_CUBIC, arm(None, P(rPitch=-105, rRoll=40, bYaw=10))),                 # СВИНГ: разгон до пика (урон на 0.70)
-        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-95, rRoll=-5, bYaw=-2))),                 # пик скорости, вылет
-        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-100, rRoll=-45, bYaw=-12))),              # вылет влево
-        (1.00, E_LINEAR, arm(None, P(rPitch=-90, rRoll=-72, bYaw=-16))),                  # сопровождение влево-вверх
+        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-35, rRoll=85, bYaw=12, bPitch=8))),      # стык: конец удара 3
+        (0.30, E_IN_OUT_CUBIC, arm(None, P(rPitch=-75, rRoll=105, bYaw=24, bPitch=4))),    # замах вправо-вверх
+        (0.50, E_IN_CUBIC, arm(None, P(rPitch=-115, rRoll=55, bYaw=14, bPitch=2))),        # СВИНГ: разгон до пика (урон на 0.70)
+        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-100, rRoll=-8, bYaw=-6))),                 # пик скорости, вылет
+        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-105, rRoll=-65, bYaw=-16))),               # вылет влево
+        (1.00, E_LINEAR, arm(None, P(rPitch=-95, rRoll=-95, bYaw=-22))),                   # финал влево-вверх
     ],
-    # --- УДАР 5: очень широкий замах, удар справа налево, клинок за спину, прокат ---
+    # --- УДАР 5: гигантский замах, удар справа налево, клинок за спину, прокат ---
     [
-        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-90, rRoll=-72, bYaw=-16))),             # стык: конец удара 4
-        (0.24, E_IN_OUT_CUBIC, arm(None, P(rPitch=-70, rRoll=85, bYaw=30, bPitch=4))),    # огромный замах вправо
-        (0.40, E_IN_OUT_CUBIC, arm(None, P(rPitch=-150, rRoll=105, bYaw=38, bPitch=6))),  # пик замаха за правым плечом
-        (0.58, E_IN_CUBIC, arm(None, P(rYaw=-20, rPitch=-90, rRoll=40, bYaw=10, bPitch=4))), # СВИНГ: разгон справа налево (урон на 0.70)
-        (0.70, E_OUT_CUBIC, arm(None, P(rYaw=-30, rPitch=-75, rRoll=-45, bYaw=-15, bPitch=-2))), # пик скорости, пролёт
-        (0.84, E_OUT_CUBIC, arm(None, P(rYaw=-100, rPitch=60, rRoll=40, bYaw=-25, bPitch=-6))),  # увод клинка за спину влево
-        (1.00, E_LINEAR, arm(None, P(rYaw=-100, rPitch=55, rRoll=45, bYaw=-25, bPitch=-6))),     # финал: клинок за спиной
+        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-95, rRoll=-95, bYaw=-22))),              # стык: конец удара 4
+        (0.22, E_IN_OUT_CUBIC, arm(None, P(rPitch=-70, rRoll=110, bYaw=36, bPitch=5))),    # огромный замах вправо
+        (0.38, E_IN_OUT_CUBIC, arm(None, P(rPitch=-155, rRoll=125, bYaw=45, bPitch=8))),   # пик замаха за правым плечом
+        (0.56, E_IN_CUBIC, arm(None, P(rYaw=-25, rPitch=-100, rRoll=50, bYaw=14, bPitch=5))),   # СВИНГ: разгон справа налево (урон на 0.70)
+        (0.70, E_OUT_CUBIC, arm(None, P(rYaw=-35, rPitch=-85, rRoll=-55, bYaw=-18, bPitch=-4))), # пик скорости, пролёт
+        (0.84, E_OUT_CUBIC, arm(None, P(rYaw=-110, rPitch=65, rRoll=45, bYaw=-28, bPitch=-8))),  # увод клинка за спину влево
+        (1.00, E_LINEAR, arm(None, P(rYaw=-115, rPitch=60, rRoll=50, bYaw=-28, bPitch=-8))),     # финал: клинок за спиной
     ],
 ]
 

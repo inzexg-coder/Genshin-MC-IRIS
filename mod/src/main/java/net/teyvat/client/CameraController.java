@@ -54,11 +54,6 @@ public final class CameraController {
         return active;
     }
 
-    /** Боевая камера: мы сами перевели игрока в 3-е лицо на время ударов. */
-    private static boolean combatCamOn;
-    /** Игрок был переведён из первого лица (по завершении боя — вернуть). */
-    private static boolean combatCamRestoreFirst;
-
     /** Переключить игрока в вид от 3-го лица с плавным выездом камеры
      *  (используется после знакомства с Паймон). В первом лице ничего не делает. */
     public static void switchToThirdPerson() {
@@ -94,26 +89,9 @@ public final class CameraController {
             initialized = false;
             return;
         }
-        // Боевая камера: во время комбо (и пока его можно продолжить) герой
-        // виден в 3-м лице — удары и разворот на 360° не «уходят» из кадра.
-        // По завершении комбо плавно возвращаемся в первое лицо.
-        TeyvatConfig.Camera combatCfg = TeyvatConfig.get().camera;
-        boolean combat = combatCfg.combat_camera && CombatController.isCombatActive();
-        if (combat && !combatCamOn) {
-            combatCamOn = true;
-            if (client.options.getPerspective().isFirstPerson()) {
-                combatCamRestoreFirst = true;
-                switchToThirdPerson();
-            }
-        } else if (!combat && combatCamOn) {
-            combatCamOn = false;
-            Perspective persp = client.options.getPerspective();
-            if (combatCamRestoreFirst && !persp.isFirstPerson() && !persp.isFrontView()) {
-                combatCamRestoreFirst = false;
-                client.options.setPerspective(Perspective.FIRST_PERSON);
-            }
-        }
-
+        // Боевая камера: в первом лице собственное тело рисует FirstPersonBody
+        // (видны все анимации ударов и разворот на 360° «глазами модельки»).
+        // В 3-м лице ничего дополнительно делать не нужно.
         Perspective perspective = client.options.getPerspective();
         boolean thirdPersonBack = !perspective.isFirstPerson() && !perspective.isFrontView();
         if (!thirdPersonBack) {
