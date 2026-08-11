@@ -499,6 +499,13 @@ public class TravelerNotesScreen extends Screen {
                 ctx.fill(cx - 1, cy - 7, cx + 2, cy - 3, color);
                 ctx.fill(cx - 2, cy + 2, cx + 3, cy + 3, PANEL);
             }
+            case "sword" -> {
+                ctx.fill(cx - 2, cy - 7, cx + 3, cy - 3, color);  // клинок
+                ctx.fill(cx, cy - 8, cx + 1, cy - 6, color);      // остриё
+                ctx.fill(cx - 4, cy - 3, cx + 5, cy - 2, color);  // гарда
+                ctx.fill(cx - 1, cy - 2, cx + 2, cy + 2, color);  // рукоять
+                ctx.fill(cx - 1, cy + 2, cx + 2, cy + 4, color);  // навершие
+            }
             default -> drawCircle(ctx, cx, cy, 6, color);
         }
     }

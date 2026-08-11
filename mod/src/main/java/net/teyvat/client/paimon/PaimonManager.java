@@ -719,6 +719,76 @@ public final class PaimonManager {
         return false;
     }
 
+    /** X — пропустить текущую фазу обучения Паймон. Знакомство завершается сразу
+     *  (Паймон летит за спину, задание «Познакомиться с Паймон» засчитывается),
+     *  мини-урок — перескакивает к объявлению задания: само действие всё равно
+     *  нужно выполнить (покрутить колесо, зажать C и т.п.). */
+    public static void skipCurrentPhase() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null || client.player == null) {
+            return;
+        }
+        if (paimon == null || paimon.isRemoved()) {
+            return;
+        }
+        // Знакомство: сразу в полёт за спину героя, без ожидания фраз и отчёта.
+        if (!paimon.isFollowing()) {
+            paimon.setFollowing(true);
+            DialogueOverlay.end();
+            questReportTimer = -1;
+            if (!QuestStateClient.isCompleted(Quests.MEET_PAIMON)) {
+                reportQuestMeetPaimon();
+            }
+            if (TeyvatConfig.get().paimon.third_person_after_intro) {
+                CameraController.switchToThirdPerson();
+            }
+            return;
+        }
+        // Отчёт о знакомстве ещё ждёт таймер — отправляем сразу.
+        if (questReportTimer >= 0) {
+            questReportTimer = -1;
+            if (!QuestStateClient.isCompleted(Quests.MEET_PAIMON)) {
+                reportQuestMeetPaimon();
+            }
+            return;
+        }
+        // Мини-уроки: прыгаем к объявлению задания.
+        skipTutorialIfRunning();
+    }
+
+    /** Перескочить фразы текущего мини-урока к моменту объявления задания. */
+    private static void skipTutorialIfRunning() {
+        if (tutorTicks >= 0 && !tutorPromptShown) {
+            tutorTicks = announceTick(TUTOR_PHRASES, TUTOR_START_TICK, TUTOR_GAP_TICKS, TUTOR_END_GAP);
+            DialogueOverlay.end();
+            return;
+        }
+        if (zoomTutorTicks >= 0 && !zoomPromptShown) {
+            zoomTutorTicks = announceTick(ZOOM_PHRASES, ZOOM_TUTOR_START_TICK, ZOOM_TUTOR_GAP_TICKS, ZOOM_TUTOR_END_GAP);
+            DialogueOverlay.end();
+            return;
+        }
+        if (sprintTutorTicks >= 0 && !sprintPromptShown) {
+            sprintTutorTicks = announceTick(SPRINT_PHRASES, SPRINT_TUTOR_START_TICK, SPRINT_TUTOR_GAP_TICKS, SPRINT_TUTOR_END_GAP);
+            DialogueOverlay.end();
+            return;
+        }
+        if (dashTutorTicks >= 0 && !dashPromptShown) {
+            dashTutorTicks = announceTick(DASH_PHRASES, DASH_TUTOR_START_TICK, DASH_TUTOR_GAP_TICKS, DASH_TUTOR_END_GAP);
+            DialogueOverlay.end();
+            return;
+        }
+        if (attackTutorTicks >= 0 && !attackPromptShown) {
+            attackTutorTicks = announceTick(ATTACK_PHRASES, ATTACK_TUTOR_START_TICK, ATTACK_TUTOR_GAP_TICKS, ATTACK_TUTOR_END_GAP);
+            DialogueOverlay.end();
+        }
+    }
+
+    /** Тик, с которого урок объявляет задание (после последней фразы и паузы). */
+    private static int announceTick(String[] phrases, int start, int gap, int endGap) {
+        return start + (phrases.length - 1) * gap + endGap;
+    }
+
     public static void remove() {
         if (paimon != null && !paimon.isRemoved()) {
             paimon.discard();

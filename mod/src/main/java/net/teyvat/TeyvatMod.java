@@ -38,6 +38,7 @@ import net.teyvat.network.AdminNotesRequestPayload;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.BeachBoundary;
 import net.teyvat.server.BeachGuard;
+import net.teyvat.server.PlayerCombat;
 import net.teyvat.server.SlimeTraining;
 import net.teyvat.server.TeyvatQuests;
 import net.teyvat.server.TeyvatSpawn;
@@ -50,6 +51,7 @@ import net.teyvat.network.QuestEventPayload;
 import net.teyvat.network.QuestCompletePayload;
 import net.teyvat.network.ResourceGainPayload;
 import net.teyvat.network.SlimeTrainingSpawnPayload;
+import net.teyvat.network.PlayerAttackPayload;
 import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestStatePayload;
 import net.teyvat.progression.MobLevels;
@@ -103,6 +105,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(TravelerChoicePayload.ID, TravelerChoicePayload.CODEC);
         PayloadTypeRegistry.playC2S().register(QuestEventPayload.ID, QuestEventPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(SlimeTrainingSpawnPayload.ID, SlimeTrainingSpawnPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(PlayerAttackPayload.ID, PlayerAttackPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(AdminNotesRequestPayload.ID, AdminNotesRequestPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(QuestCompletePayload.ID, QuestCompletePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceSyncPayload.ID, TravelerChoiceSyncPayload.CODEC);
@@ -159,6 +162,14 @@ public class TeyvatMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(SlimeTrainingSpawnPayload.ID, (payload, context) -> {
             if (context.player() != null) {
                 SlimeTraining.spawnAround(context.player());
+            }
+        });
+
+        // Удар комбо путешественника: сервер ищет цели в конусе перед игроком
+        // и наносит урон с множителем текущего удара (как размах мечом в Genshin).
+        ServerPlayNetworking.registerGlobalReceiver(PlayerAttackPayload.ID, (payload, context) -> {
+            if (context.player() != null) {
+                PlayerCombat.onAttack(context.player(), payload.hitIndex());
             }
         });
 
@@ -307,6 +318,7 @@ public class TeyvatMod implements ModInitializer {
             TRAVELER_CHOICES.remove(handler.getPlayer().getUuid());
             ProgressionStore.onDisconnect(handler.getPlayer());
             MobXp.onDisconnect(handler.getPlayer());
+            PlayerCombat.onDisconnect(handler.getPlayer());
         });
 
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> MobXp.resetSession());

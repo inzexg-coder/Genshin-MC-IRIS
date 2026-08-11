@@ -42,5 +42,6 @@
   "item.teyvat.slime_concentrate": "Концентрат слайма",
   "item.teyvat.mora": "Мора",
   "entity.teyvat.hydro_slime": "Гидро слайм",
-  "item.teyvat.hydro_slime_spawn_egg": "Яйцо призыва гидро слайма"
+  "item.teyvat.hydro_slime_spawn_egg": "Яйцо призыва гидро слайма",
+  "key.teyvat.skip_tutorial": "Пропустить обучение Паймон"
 }

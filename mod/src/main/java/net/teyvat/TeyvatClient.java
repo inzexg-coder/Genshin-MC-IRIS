@@ -24,6 +24,7 @@ import net.teyvat.client.WaterSplashParticle;
 import net.teyvat.client.WaterDropletParticle;
 import net.teyvat.client.WaterRippleParticle;
 import net.teyvat.client.WaterMistParticle;
+import net.teyvat.client.CombatController;
 import net.teyvat.client.StaminaController;
 import net.teyvat.client.hydro.HydroSlimeEntityRenderer;
 import net.teyvat.client.hydro.HydroSlimeProjectileRenderer;
@@ -68,6 +69,9 @@ public class TeyvatClient implements ClientModInitializer {
     /** Свободная камера (удержание или переключатель — режим в config/teyvat.json → camera.free_look_mode). */
     public static final KeyBinding FREE_CAM = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.camera", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY));
+    /** Пропустить обучение Паймон: скипает текущую реплику/урок (знакомство, колесо, C, бег, рывок, атака). */
+    public static final KeyBinding SKIP_TUTORIAL = KeyBindingHelper.registerKeyBinding(
+            new KeyBinding("key.teyvat.skip_tutorial", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_X, CATEGORY));
 
     /** Тики до открытия экрана выбора (ждём, пока мир догрузится). -1 = не запрошено. */
     private static int choiceOpenDelay = -1;
@@ -97,6 +101,12 @@ public class TeyvatClient implements ClientModInitializer {
             CameraController.tick();
             StaminaController.tick();
             NotificationStack.tick();
+            // Комбо атак путешественника: ведёт тайминги ударов и шлёт урон серверу.
+            CombatController.tick();
+            // X — пропустить текущую фазу обучения Паймон (знакомство или мини-урок).
+            while (SKIP_TUTORIAL.wasPressed()) {
+                PaimonManager.skipCurrentPhase();
+            }
             while (OPEN_NOTES.wasPressed()) {
                 // Заметки открываются в самом верхнем слое — поверх любого экрана,
                 // кроме уже открытых заметок и обязательного выбора персонажа.

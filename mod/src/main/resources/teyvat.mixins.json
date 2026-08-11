@@ -16,6 +16,7 @@
     "client.ClientPlayerEntityMixin",
     "client.AdvancementToastMixin",
     "client.RecipeToastMixin",
+    "client.PlayerEntityModelMixin",
     "client.MinecraftClientMixin"
   ],
   "injectors": {
