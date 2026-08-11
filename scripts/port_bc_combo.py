@@ -3,26 +3,35 @@
 """Комбо путешественника из готовых анимаций BetterCombat (автор Daedelus),
 подогнанное под описание обычных атак Итэра/Люмин из Genshin.
 
-Источник: BetterCombat 2.4.0, assets/bettercombat/player_animations/*.json
+Источник: BetterCombat 26.2, assets/bettercombat/player_animations/*.json
 (формат Emotecraft/PlayerAnimator, ключевые кадры tick + yaw/pitch/roll + easing).
 
 Раскладка готовых клипов под описание комбо:
-  удар 1 — широкий слева направо -> one_handed_slash_horizontal_left;
-  удар 2 — диагональ снизу справа вверх налево -> one_handed_uppercut_right;
-  удар 3 — разворот по кругу (справа сверху влево вниз) -> two_handed_spin;
-  удар 4 — справа налево -> one_handed_slash_horizontal_right;
-  удар 5 — очень широкий справа налево, замах за спину и прокат ->
-           one_handed_slam (замах над головой -> широкий свинг вниз с
-           прогибом корпуса; прокат даёт рывок вперёд на тике урона).
+  удар 1 — горизонтальный слева направо -> one_handed_slash_horizontal_left;
+  удар 2 — длинный апперкот справа снизу вверх влево -> one_handed_uppercut_right
+           (финал довёрнут влево: клинок уходит вверх-влево);
+  удар 3 — разворот через левое плечо на 360° с рубящим ударом -> two_handed_spin
+           (поза клинка из спина; корпус/голова/руки проворачиваются ровно на
+           +2π, клинок описывает полный круг и опускается по диагонали);
+  удар 4 — горизонтальный справа налево -> one_handed_slash_horizontal_right;
+  удар 5 — широкий замах и удар справа налево, меч уходит за спину ->
+           one_handed_slash_switch_blade_left (финальная поза «клинок за
+           спиной» удерживается, затем выход в нейтраль = прокат).
 
-Проблемы исходников, которые скрипт чинит:
-  * свинг занимает первые ~25-35% клипа, дальше статичная «удерживаемая»
-    поза (заморозка в конце удара) — хвосты обрезаны;
-  * стыки независимых клипов дают скачки позы до ~3.6 рад — переходы
-    живут в хвосте предыдущего удара (EASE_IN_OUT_SINE);
-  * углы Эйлера «обёрнуты» через ±π (у спина torso.yaw: +2.34 / -2.36) —
-    unwrap делает кривую непрерывной, чтобы части тела не проворачивались
-    на 360° лишний раз.
+Что скрипт чинит сверх исходников:
+  * голова ВСЕГДА смотрит по направлению удара: каналы головы прописаны
+    отдельной кривой для каждого удара (yaw/pitch за клинком), без NaN;
+  * части тела у ванильной модели независимы от корпуса (head/arms/legs —
+    дети root, а не body), поэтому разворот на 360° крутит корпус, голову
+    И руки вместе, иначе клинок «замирал» бы в мире, пока корпус крутится;
+  * углы Эйлера разворачиваются в непрерывную кривую (unwrap), чтобы части
+    тела не проворачивались на лишние ±360° на стыках;
+  * хвосты-«удержания» исходников обрезаны, переходы живут в хвосте удара
+    (EASE_IN_OUT_SINE), стык N -> N+1 точный (разница позы 0).
+
+Темп: удары 1-2 и 4 — 0.8-0.9 с, разворот — 1.4 с, финал с мечом за спиной —
+1.6 с (полный круг ~5.6 с). Замах медленный, свинг — быстрый рывок,
+сопровождение — плавное дожимание: так удары ощущаются сильными.
 
 Использование: python3 scripts/port_bc_combo.py > /tmp/clips.java
 """
@@ -34,22 +43,19 @@ SRC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "anim_sources")
 BONES = ["rightArm", "leftArm", "torso", "head", "rightLeg", "leftLeg"]
 CHANS = ["yaw", "pitch", "roll"]
 POSE_ORDER = [(b, c) for b in BONES for c in CHANS]
-NAN_CHANS = {("head", "yaw"), ("head", "pitch"), ("head", "roll")}
 
 # Runtime easing ids (см. CombatController.java)
 E_LINEAR = 0
 E_SINE = 4
 
-# Активные окна исходных клипов: tick замаха .. tick конца сопровождения
-# (за пределами окна начинается статичная «удерживаемая» поза).
-# Порядок — под описание комбо: L->R, апперкот, разворот, R->L, обрушение.
-WINDOWS = [
-    ("hit2_slash_l2r.json", 8, 17),   # широкий слева направо
-    ("hit3_uppercut.json", 8, 15),    # диагональ снизу справа вверх налево
-    ("hit1_slash_r2l.json", 8, 15),   # справа налево
-]
-SPIN = ("hit5_spin.json", 10, 16)   # разворот по кругу: полный круг корпуса
-SLAM = ("hit5_slam.json", 8, 12)    # очень широкий замах за спину -> обрушение
+TAU = 2.0 * math.pi
+
+# Активные окна исходных клипов. Порядок — под описание комбо.
+HIT1 = ("hit2_slash_l2r.json", 8, 17)          # горизонтальный слева направо
+HIT2 = ("hit3_uppercut.json", 8, 15)           # апперкот справа снизу вверх влево
+SPIN = ("hit5_spin.json", 10, 16)              # позы клинка для разворота на 360°
+HIT4 = ("hit1_slash_r2l.json", 8, 15)          # горизонтальный справа налево
+HIT5 = ("hit5_wide_r2l_back.json", 8, 20)      # широкий замах -> за спину
 
 
 def easing_fn(name):
@@ -99,38 +105,115 @@ def pose_at(e, tick):
     pose = {}
     for bone in BONES:
         for ch in CHANS:
-            pose[(bone, ch)] = eval_curve(build_curves(e, bone, ch), tick)
+            v = eval_curve(build_curves(e, bone, ch), tick)
+            pose[(bone, ch)] = 0.0 if v is None else v
     return pose
 
 
 def neutral_pose():
-    return {k: (None if k in NAN_CHANS else 0.0) for k in POSE_ORDER}
+    return {k: 0.0 for k in POSE_ORDER}
 
 
 def blend(a, b, t):
-    out = {}
-    for k in POSE_ORDER:
-        va, vb = a[k], b[k]
-        if va is None or vb is None:
-            out[k] = va if vb is None else vb
-        else:
-            out[k] = va + (vb - va) * t
-    return out
+    return {k: a[k] + (b[k] - a[k]) * t for k in POSE_ORDER}
 
+
+def set_channel(pose, bone, ch, v):
+    pose[(bone, ch)] = v
+
+
+# ---------- голова за клинком ----------
+
+def head_kf(keyframes):
+    """Кривая головы: список (u, yaw, pitch). Возвращает функцию u -> (yaw, pitch)."""
+    kf = sorted(keyframes)
+
+    def at(u):
+        if u <= kf[0][0]:
+            return kf[0][1], kf[0][2]
+        if u >= kf[-1][0]:
+            return kf[-1][1], kf[-1][2]
+        for i in range(len(kf) - 1):
+            a, b = kf[i], kf[i + 1]
+            if u <= b[0]:
+                t = (u - a[0]) / (b[0] - a[0])
+                return a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t
+        return kf[-1][1], kf[-1][2]
+
+    return at
+
+
+# Кривые головы по ударам (yaw + = влево, pitch + = вниз, как у ModelPart).
+HEADS = {
+    # 1: слева направо — смотрим на клинок от замаха слева до сопровождения справа
+    "hit1": head_kf([
+        (0.00, 0.00, 0.00),
+        (0.18, 0.90, 0.02),
+        (0.34, 0.45, 0.00),
+        (0.50, -0.20, 0.02),
+        (0.62, -0.50, 0.12),
+        (0.72, -0.55, 0.20),
+        (1.00, -0.55, 0.28),
+    ]),
+    # 2: апперкот справа снизу вверх влево
+    "hit2": head_kf([
+        (0.00, -0.55, 0.28),
+        (0.20, -0.45, 0.30),
+        (0.32, -0.10, 0.10),
+        (0.44, 0.20, -0.05),
+        (0.56, 0.50, -0.20),
+        (0.68, 0.70, -0.30),
+        (1.00, 0.80, -0.30),
+    ]),
+    # 3: разворот — голова ведёт клинок, который закреплён на ~0.44 рад правее корпуса
+    "hit3": head_kf([
+        (0.00, 0.80, -0.30),
+        (0.24, 2.37, -0.20),
+        (0.55, 4.29, -0.12),
+        (0.86, 6.97, -0.10),
+        (1.00, 7.08, -0.10),
+    ]),
+    # 4: справа налево — голова возвращается из разворота, затем ведёт клинок
+    "hit4": head_kf([
+        (0.00, 7.08, -0.10),
+        (0.28, -0.50, 0.08),
+        (0.37, -0.10, 0.05),
+        (0.46, 0.50, 0.00),
+        (0.58, 0.80, 0.03),
+        (0.68, 0.90, 0.05),
+        (1.00, -0.55, 0.10),
+    ]),
+    # 5: широкий замах -> удар -> клинок за спиной, голова провожает его назад
+    "hit5": head_kf([
+        (0.00, -0.55, 0.10),
+        (0.28, -0.95, 0.18),
+        (0.39, -0.30, 0.05),
+        (0.50, 0.35, -0.02),
+        (0.60, 1.30, -0.10),
+        (0.68, 1.70, -0.15),
+        (0.80, 1.90, -0.18),
+        (1.00, 0.00, 0.00),
+    ]),
+}
+
+
+def apply_head(kf, head):
+    for u, _, pose in kf:
+        y, p = head(u)
+        set_channel(pose, "head", "yaw", y)
+        set_channel(pose, "head", "pitch", p)
+        set_channel(pose, "head", "roll", 0.0)
+
+
+# ---------- построение клипов ----------
 
 def pose_dist(a, b):
-    d = 0.0
-    for k in POSE_ORDER:
-        if a[k] is None or b[k] is None:
-            continue
-        d += (a[k] - b[k]) ** 2
-    return math.sqrt(d)
+    return math.sqrt(sum((a[k] - b[k]) ** 2 for k in POSE_ORDER))
+
 
 def unwrap_clips(hits):
     """Разворачивает углы всех клипов в непрерывную кривую: значение кадра
-    сдвигается на ±2π, чтобы отличаться от предыдущего не более чем на π.
-    Без этого скачки через ±π (например, torso.yaw спина: +2.34 после -2.36)
-    проворачивали бы части тела на лишние ~360°."""
+    сдвигается на ±2π, чтобы отличаться от предыдущего не более чем на π."""
 
     prev = {}
     out = []
@@ -139,13 +222,11 @@ def unwrap_clips(hits):
         for u, ease, pose in kf:
             np_ = dict(pose)
             for k, v in np_.items():
-                if v is None:
-                    continue
                 if k in prev:
                     while v - prev[k] > math.pi:
-                        v -= 2 * math.pi
+                        v -= TAU
                     while v - prev[k] < -math.pi:
-                        v += 2 * math.pi
+                        v += TAU
                 prev[k] = v
                 np_[k] = v
             new_kf.append((u, ease, np_))
@@ -153,112 +234,132 @@ def unwrap_clips(hits):
     return out
 
 
-def hit_swing(e, s0, s1, u_seam, u_impact, u_end, start_pose, next_windup,
-              tail_w=0.30, head_nan=False, sample_src=None):
-    """Клип удара: [вход] -> замах(s0) -> свинг(11) -> сопровождение(s1) -> переход в следующий замах.
+def hit_swing(e, s_windup, swing_srcs, s_impact, follow_srcs, s_follow,
+              u_seam, u_impact, u_end, start_pose, next_windup,
+              tail_w=0.24, arm_yaw_override=None, windup_deepen=None):
+    """Клип удара: [вход] -> замах (медленный) -> свинг (быстрый рывок) ->
+    сопровождение -> переход в следующий замах (EASE_IN_OUT_SINE).
 
-    Ширина хвоста tail_w выбирается по размеру скачка между позами (см. build):
-    маленький скачок — короткий резкий переход, большой — плавный разворот.
-    Хвост — ОДИН сегмент EASE_IN_OUT_SINE: мягкий разгон после сопровождения
-    и «усаживание» в замах следующего удара (без двойного разгона).
+    arm_yaw_override: {tick_источника: yaw} — точечные довороты правой руки
+    (например, финал апперкота уходит вверх-влево, как в описании).
+    windup_deepen: {канал: сдвиг} — пик замаха чуть утрируется (клинок ниже,
+    рука выше), чтобы фаза замаха двигалась, а не висела статично.
     """
+    def src_pose(src):
+        p = pose_at(e, src)
+        if arm_yaw_override and src in arm_yaw_override:
+            set_channel(p, "rightArm", "yaw", arm_yaw_override[src])
+        if windup_deepen and src == s_windup:
+            for (bone, ch), d in windup_deepen.items():
+                set_channel(p, bone, ch, p[(bone, ch)] + d)
+        return p
+
     kf = []
     kf.append((0.0, E_SINE, dict(start_pose)))
-    kf.append((u_seam, E_SINE, pose_at(e, s0)))
-    swing_src = sample_src or (9.0, 10.0)
-    for src in swing_src:
-        u = u_seam + (u_impact - u_seam) * (src - s0) / (11 - s0)
-        kf.append((u, E_LINEAR, pose_at(e, src)))
-    kf.append((u_impact, E_LINEAR, pose_at(e, 11)))
-    for i in range(1, 4):
-        src = 11 + (s1 - 11) * i / 4.0
-        u = u_impact + (u_end - u_impact) * i / 4.0
-        kf.append((u, E_LINEAR, pose_at(e, src)))
-    kf.append((u_end, E_LINEAR, pose_at(e, s1)))
-    kf.append((u_end + tail_w, E_SINE, next_windup))
-    kf.append((1.0, E_SINE, next_windup))
-    if head_nan:
-        for k in NAN_CHANS:
-            for _, _, p in kf:
-                p[k] = None
+    kf.append((u_seam, E_SINE, src_pose(s_windup)))
+    for i, src in enumerate(swing_srcs):
+        u = u_seam + (u_impact - u_seam) * (i + 1) / (len(swing_srcs) + 1)
+        kf.append((u, E_LINEAR, src_pose(src)))
+    kf.append((u_impact, E_LINEAR, src_pose(s_impact)))
+    for i, src in enumerate(follow_srcs):
+        u = u_impact + (u_end - u_impact) * (i + 1) / (len(follow_srcs) + 1)
+        kf.append((u, E_LINEAR, src_pose(src)))
+    kf.append((u_end, E_LINEAR, src_pose(s_follow)))
+    kf.append((u_end + tail_w, E_SINE, dict(next_windup)))
+    kf.append((1.0, E_SINE, dict(next_windup)))
     return kf
 
 
-def spin_clip(start_pose, spin, next_windup):
-    """Удар 3: разворот по кругу — плотная сетка спина (t10..t16, полный круг
-    корпуса), затем плавный переход в замах удара 4 (EASE_IN_OUT_SINE)."""
+def spin_clip(windup_pose, spin, spin_end_pose, head):
+    """Удар 3: разворот через левое плечо на 360°. Корпус, голова и обе руки
+    проворачиваются ровно на +2π (части модели независимы от корпуса), позы
+    клинка — из two_handed_spin: клинок поднят и во время разворота опускается
+    (рубящий удар по диагонали), а к концу уходит вправо-вверх к замаху удара 4."""
     spin_file, s0, s1 = spin
     se = load(spin_file)
     kf = []
-    kf.append((0.00, E_SINE, dict(start_pose)))          # замах спина
-    srcs = list(range(s0 + 1, s1 + 1))                   # t11..t16: круг
+    kf.append((0.00, E_SINE, dict(windup_pose)))
+    srcs = list(range(s0 + 1, s1 + 1))          # t11..t16
     for i, src in enumerate(srcs):
-        u = 0.06 + 0.64 * i / (len(srcs) - 1)
-        kf.append((u, E_LINEAR, pose_at(se, src)))
-    kf.append((0.82, E_SINE, dict(next_windup)))         # в замах удара 4
-    kf.append((1.00, E_SINE, dict(next_windup)))
-    return kf
-
-
-def slam_clip(start_pose, slam):
-    """Удар 5: очень широкий — замах (рука поднята за спину/над головой) ->
-    свинг вниз с прогибом корпуса -> плавный выход в нейтраль (прокат вперёд
-    делает рывок на тике урона)."""
-    slam_file, s0, s1 = slam
-    se = load(slam_file)
-    kf = []
-    kf.append((0.00, E_SINE, dict(start_pose)))          # замах за спину
-    for i, src in enumerate(range(s0, s1 + 1)):          # t8..t12: свинг вниз
-        u = 0.08 + 0.48 * i / max(1, s1 - s0)
-        kf.append((u, E_LINEAR, pose_at(se, src)))
-    kf.append((0.70, E_SINE, blend(pose_at(se, s1), neutral_pose(), 0.25)))
-    kf.append((0.86, E_SINE, blend(pose_at(se, s1), neutral_pose(), 0.70)))
-    kf.append((1.00, E_SINE, neutral_pose()))
+        u = 0.14 + 0.72 * i / (len(srcs) - 1)   # 0.14 .. 0.86
+        p = pose_at(se, src)
+        set_channel(p, "torso", "yaw", 1.239 + TAU * i / (len(srcs) - 1))
+        set_channel(p, "rightArm", "yaw", 0.80 + TAU * i / (len(srcs) - 1))
+        set_channel(p, "leftArm", "yaw", p[("leftArm", "yaw")] + TAU * i / (len(srcs) - 1))
+        kf.append((u, E_LINEAR, p))
+    kf.append((0.86, E_SINE, dict(spin_end_pose)))
+    kf.append((1.00, E_SINE, dict(spin_end_pose)))
+    apply_head(kf, head)
     return kf
 
 
 def build():
-    hits = []
     neutral = neutral_pose()
-    e1, e2, e4 = (load(f) for f, _, _ in WINDOWS)
-    spin_windup = pose_at(load(SPIN[0]), SPIN[1])
-    slam_windup = pose_at(load(SLAM[0]), SLAM[1])
-    r2l_windup = pose_at(e4, 8)
+    e1 = load(HIT1[0])
+    e2 = load(HIT2[0])
+    e4 = load(HIT4[0])
+    e5 = load(HIT5[0])
+    se = load(SPIN[0])
 
-    # ширина хвоста-перехода: 0.10 рад скачка -> 0.10 клипа, мин 0.14, макс 0.42
-    def tail_w(gap):
-        return min(0.42, max(0.14, gap * 0.10))
+    # --- позы-переходы (общие для конца N и начала N+1) ---
+    hit2_windup = pose_at(e2, 8)                       # вход удара 2
+    spin_windup = pose_at(se, SPIN[1])                 # замах разворота
+    set_channel(spin_windup, "torso", "yaw", 1.239)
+    set_channel(spin_windup, "rightArm", "yaw", 0.80)
+    set_channel(spin_windup, "leftArm", "yaw", spin_windup[("leftArm", "yaw")])
+    # конец разворота = начало удара 4: поза t16 спина с доворотом корпуса/рук
+    spin_end = pose_at(se, 16)
+    set_channel(spin_end, "torso", "yaw", 1.239 + TAU)
+    set_channel(spin_end, "rightArm", "yaw", 0.80 + TAU)
+    set_channel(spin_end, "leftArm", "yaw", spin_end[("leftArm", "yaw")] + TAU)
+    hit4_windup = pose_at(e4, 8)                       # замах удара 4 (R->L)
+    hit5_windup = pose_at(e5, 8)                       # широкий замах удара 5
 
-    # удар 1: широкий слева направо, вход из нейтрали
-    f, s0, s1 = WINDOWS[0]
-    gap1 = pose_dist(pose_at(e1, s1), pose_at(e2, 8))
-    hit1 = hit_swing(e1, s0, s1, 0.16, 0.38, 0.60, neutral, pose_at(e2, 8),
-                     tail_w=tail_w(gap1))
+    hits = []
+
+    # удар 1: горизонтальный слева направо, вход из нейтрали
+    hit1 = hit_swing(e1, 8, [9, 10], 11, [13, 15], 17,
+                     0.30, 0.50, 0.72, neutral, hit2_windup, tail_w=0.22)
+    apply_head(hit1, HEADS["hit1"])
     hits.append(("hit2_slash_l2r (L->R)", hit1))
 
-    # удар 2: диагональ снизу справа вверх налево (апперкот справа)
-    f, s0, s1 = WINDOWS[1]
-    gap2 = pose_dist(pose_at(e2, s1), spin_windup)
-    hit2 = hit_swing(e2, s0, s1, 0.04, 0.34, 0.58, pose_at(e2, 8), spin_windup,
-                     tail_w=tail_w(gap2))
+    # удар 2: апперкот справа снизу вверх влево (финал довёрнут влево)
+    hit2 = hit_swing(e2, 8, [9, 10], 11, [12, 13], 15,
+                     0.20, 0.44, 0.68, hit2_windup, spin_windup, tail_w=0.22,
+                     arm_yaw_override={13: 0.55, 15: -0.35},
+                     windup_deepen={("rightArm", "pitch"): 0.35,
+                                    ("torso", "pitch"): 0.10})
+    apply_head(hit2, HEADS["hit2"])
     hits.append(("hit3_uppercut (R low -> L up)", hit2))
 
-    # удар 3: разворот по кругу (spin)
-    hit3 = spin_clip(spin_windup, SPIN, r2l_windup)
-    hits.append(("hit5_spin (circle turn)", hit3))
+    # удар 3: разворот через левое плечо на 360°
+    hit3 = spin_clip(spin_windup, SPIN, spin_end, HEADS["hit3"])
+    hits.append(("hit5_spin (360deg left)", hit3))
 
-    # удар 4: справа налево
-    f, s0, s1 = WINDOWS[2]
-    gap4 = pose_dist(pose_at(e4, s1), slam_windup)
-    hit4 = hit_swing(e4, s0, s1, 0.04, 0.34, 0.58, pose_at(e4, 8), slam_windup,
-                     tail_w=tail_w(gap4))
+    # удар 4: горизонтальный справа налево
+    hit4 = hit_swing(e4, 8, [9, 10], 11, [13], 15,
+                     0.28, 0.46, 0.68, spin_end, hit5_windup, tail_w=0.22)
+    apply_head(hit4, HEADS["hit4"])
     hits.append(("hit1_slash_r2l (R->L)", hit4))
 
-    # удар 5: очень широкий замах за спину -> обрушение с прокатом
-    hit5 = slam_clip(slam_windup, SLAM)
-    hits.append(("hit5_slam (wide slam + lunge)", hit5))
+    # удар 5: широкий замах, удар справа налево, клинок за спину, прокат в нейтраль
+    hit5 = hit_swing(e5, 8, [9, 10, 11], 12, [14, 16], 18,
+                     0.28, 0.50, 0.68, hit5_windup, neutral, tail_w=0.16,
+                     windup_deepen={("rightArm", "pitch"): -0.55,
+                                    ("rightArm", "yaw"): 0.25,
+                                    ("torso", "pitch"): -0.12})
+    # финальная поза «клинок за спиной» (t18) держится, затем выход в нейтраль:
+    # заменяем нейтральный хвост hit_swing на hold позы и мягкий прокат в стойку
+    behind_back = pose_at(e5, 18)
+    hit5[-2:] = [
+        (0.72, E_SINE, dict(behind_back)),
+        (0.84, E_SINE, dict(behind_back)),
+        (1.00, E_SINE, dict(neutral)),
+    ]
+    apply_head(hit5, HEADS["hit5"])
+    hits.append(("hit5_switch_blade (wide R->L + behind back)", hit5))
 
-    # непрерывная кривая: без проворотов частей тела на ±360°
+    # непрерывная кривая: без проворотов частей тела на ±360° на стыках
     hits = unwrap_clips(hits)
 
     seams = []
@@ -271,9 +372,9 @@ def build():
 # ---------- анализ ----------
 
 def fk_tip(pose, length=26.0):
-    yaw = pose[("rightArm", "yaw")] or 0.0
-    pitch = pose[("rightArm", "pitch")] or 0.0
-    roll = pose[("rightArm", "roll")] or 0.0
+    yaw = pose[("rightArm", "yaw")]
+    pitch = pose[("rightArm", "pitch")]
+    roll = pose[("rightArm", "roll")]
     x, y, z = 0.0, -length, 0.0
     cp, sp = math.cos(pitch), math.sin(pitch)
     y, z = y * cp - z * sp, y * sp + z * cp
@@ -285,12 +386,10 @@ def fk_tip(pose, length=26.0):
 
 
 def runtime_at(kf, p):
-    """Точная копия рантаймовой Clip.at(): easing левого кадра."""
     if p <= kf[0][0]:
         return kf[0][2]
     for i in range(len(kf) - 1):
-        a = kf[i]
-        b = kf[i + 1]
+        a, b = kf[i], kf[i + 1]
         if p <= b[0]:
             span = b[0] - a[0]
             u = 1.0 if span <= 0 else (p - a[0]) / span
@@ -301,15 +400,12 @@ def runtime_at(kf, p):
 
 
 def impact_moments(hits, dur):
-    """Пик скорости меча по сегментам ключевых кадров: самый быстрый сегмент
-    в окне удара -> его середина = момент урона."""
     res = []
-    windows = [(0.10, 0.60), (0.04, 0.55), (0.06, 0.78), (0.04, 0.55), (0.08, 0.60)]
+    windows = [(0.30, 0.55), (0.30, 0.55), (0.20, 0.80), (0.30, 0.55), (0.32, 0.56)]
     for (name, kf), d, (u0, u1) in zip(hits, dur, windows):
         best_u, best_v = u0, 0.0
         for i in range(len(kf) - 1):
-            a = kf[i]
-            b = kf[i + 1]
+            a, b = kf[i], kf[i + 1]
             if b[0] < u0 or a[0] > u1:
                 continue
             span = b[0] - a[0]
@@ -324,7 +420,6 @@ def impact_moments(hits, dur):
 
 
 def motion_profile(hits, dur):
-    """Профиль скорости позы на 20 FPS: сколько «замороженных» кадров и пики."""
     out = []
     prev = None
     for (name, kf), d in zip(hits, dur):
@@ -343,23 +438,26 @@ def motion_profile(hits, dur):
 # ---------- генерация Java ----------
 
 def fmt(v):
-    return "Float.NaN" if v is None else f"{v:.6f}f"
+    return f"{v:.6f}f"
 
 
 def emit(hits):
     lines = []
     lines.append("    /** Позы пяти ударов, сгенерированы из готовых анимаций BetterCombat")
     lines.append("     *  (scripts/port_bc_combo.py, исходники в scripts/anim_sources, автор")
-    lines.append("     *  анимаций Daedelus): удар 1 — слева направо (slash horizontal left),")
-    lines.append("     *  удар 2 — апперкот справа (uppercut right), удар 3 — разворот")
-    lines.append("     *  по кругу (spin), удар 4 — справа налево (slash horizontal right),")
-    lines.append("     *  удар 5 — широкий замах за спину и обрушение (slam).")
-    lines.append("     *  Хвосты-«удержания» обрезаны, стыки живут в хвосте предыдущего удара,")
-    lines.append("     *  переходные сегменты — EASE_IN_OUT_SINE (плавные развороты корпуса),")
-    lines.append("     *  углы развёрнуты в непрерывную кривую (без проворотов на ±360°).")
+    lines.append("     *  анимаций Daedelus): удар 1 — горизонтальный слева направо,")
+    lines.append("     *  удар 2 — длинный апперкот справа снизу вверх влево, удар 3 —")
+    lines.append("     *  разворот через левое плечо на 360° с рубящим ударом, удар 4 —")
+    lines.append("     *  горизонтальный справа налево, удар 5 — широкий замах и удар")
+    lines.append("     *  справа налево с уводом клинка за спину.")
+    lines.append("     *  Голова всегда смотрит по направлению удара (каналы головы")
+    lines.append("     *  прописаны кривой за клинком). Разворот крутит корпус, голову")
+    lines.append("     *  и руки ровно на +2π — части ванильной модели независимы от")
+    lines.append("     *  корпуса. Углы развёрнуты в непрерывную кривую (без проворотов")
+    lines.append("     *  на ±360°), стыки живут в хвосте удара (EASE_IN_OUT_SINE).")
     lines.append("     *  Порядок каналов Pose: прав. рука y/p/r, лев. рука y/p/r, корпус y/p/r,")
-    lines.append("     *  голова y/p/r (NaN — не трогаем, голова за взглядом), прав. нога y/p/r,")
-    lines.append("     *  лев. нога y/p/r. Углы в радианах, как у ModelPart (pitch -> yaw -> roll). */")
+    lines.append("     *  голова y/p/r, прав. нога y/p/r, лев. нога y/p/r. Углы в радианах,")
+    lines.append("     *  как у ModelPart (pitch -> yaw -> roll). */")
     names = ["hit1", "hit2", "hit3", "hit4", "hit5"]
     for hi, (name, kf) in enumerate(hits):
         lines.append(f"    // Удар {hi + 1}: {name}")
@@ -380,7 +478,7 @@ def emit(hits):
 
 def main():
     hits, seams = build()
-    DUR = [12, 12, 16, 12, 18]
+    DUR = [16, 18, 28, 18, 32]
     print("// Стыки (макс. разница позы между концом N и началом N+1, рад):")
     for name, d in seams:
         print(f"//   -> {name}: {d:.3f}")
