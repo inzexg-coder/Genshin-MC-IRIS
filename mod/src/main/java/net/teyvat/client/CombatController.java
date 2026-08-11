@@ -208,23 +208,48 @@ public final class CombatController {
         MinecraftClient client = MinecraftClient.getInstance();
         float tickDelta = client.getRenderTickCounter().getTickProgress(false);
         float p = Math.min(1f, (hitTicks + tickDelta) / SwordCombo.DURATION_TICKS[comboStep]);
-        switch (comboStep) {
-            case 0 -> poseHit0(model, p);
-            case 1 -> poseHit1(model, p);
-            case 2 -> poseHit2(model, p);
-            case 3 -> poseHit3(model, p);
-            case 4 -> poseHit4(model, p);
-            default -> { }
-        }
+        applyPoseToModel(model, CLIPS[comboStep].at(p));
     }
 
     // ---------- Позы ----------
-    // hPitch == NaN — голову не трогаем (она следует за взглядом, как в Genshin).
+    // Анимации собраны как клипы ключевых кадров (time + поза + кривая), как в
+    // профессиональных анимационных тулзах. Удар N заканчивается позой замаха
+    // удара N+1 — серия льётся без стыков. Разрезы идут с быстрым началом
+    // (OUT_CUBIC), обрушение пятого удара — с перелётом (OUT_BACK).
 
+    /** Кривые интерполяции сегмента (задаются на ключевом кадре начала сегмента). */
+    private static final int E_LINEAR = 0;
+    private static final int E_IN_OUT_CUBIC = 1;
+    private static final int E_OUT_CUBIC = 2;
+    private static final int E_OUT_BACK = 3;
+    private static final int E_IN_OUT_SINE = 4;
+
+    /** hPitch == NaN — голову не трогаем (она следует за взглядом, как в Genshin). */
     private record Pose(float rYaw, float rPitch, float rRoll,
                         float lYaw, float lPitch, float lRoll,
                         float bYaw, float bPitch, float hPitch,
                         float rLegPitch, float lLegPitch) {}
+
+    private record Keyframe(float t, int easing, Pose pose) {}
+
+    /** Клип удара: непрерывная последовательность ключевых кадров 0..1. */
+    private record Clip(Keyframe[] frames) {
+        Pose at(float p) {
+            if (p <= frames[0].t) {
+                return frames[0].pose;
+            }
+            for (int i = 0; i < frames.length - 1; i++) {
+                Keyframe a = frames[i];
+                Keyframe b = frames[i + 1];
+                if (p <= b.t) {
+                    float span = b.t - a.t;
+                    float u = span <= 0f ? 1f : (p - a.t) / span;
+                    return mix(a.pose, b.pose, ease(a.easing, u));
+                }
+            }
+            return frames[frames.length - 1].pose;
+        }
+    }
 
     /** Нейтральная стойка (старт первого удара и конец пятого). */
     private static final Pose NEUTRAL = new Pose(0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, Float.NaN, 0f, 0f);
@@ -250,84 +275,106 @@ public final class CombatController {
     private static final Pose MID5 = new Pose(-1.2f, -2.15f, -0.1f, -1.0f, -2.0f, -0.05f, -1.15f, -0.1f, -0.05f, -0.2f, 0.22f);
     private static final Pose SLAM5 = new Pose(-0.65f, -0.45f, 0.0f, -0.45f, -0.35f, 0.0f, -0.5f, 0.35f, 0.1f, -0.3f, 0.3f);
 
-    /** Первый удар: видимый замах из нейтральной стойки. */
-    private static void poseHit0(PlayerEntityModel m, float p) {
-        if (p < 0.3f) {
-            pose(m, NEUTRAL, W1, easeInOutCubic(p / 0.3f));
-        } else if (p < 0.7f) {
-            pose(m, W1, S1, easeInOutCubic((p - 0.3f) / 0.4f));
-        } else {
-            // Возврат сразу перетекает в замах второго удара.
-            pose(m, S1, W2, easeInOutSine((p - 0.7f) / 0.3f));
-        }
+    /** Клипы пяти ударов: последняя поза удара N — замах удара N+1 (серия без стыков). */
+    private static final Clip[] CLIPS = {
+        new Clip(new Keyframe[] {
+                new Keyframe(0.0f, E_IN_OUT_CUBIC, NEUTRAL), // замах из стойки
+                new Keyframe(0.30f, E_OUT_CUBIC, W1),
+                new Keyframe(0.70f, E_IN_OUT_SINE, S1),      // разрез
+                new Keyframe(1.0f, E_LINEAR, W2),            // возврат в замах 2-го
+        }),
+        new Clip(new Keyframe[] {
+                new Keyframe(0.0f, E_OUT_CUBIC, W2),         // уже в замахе
+                new Keyframe(0.45f, E_IN_OUT_SINE, S2),      // обратный разрез
+                new Keyframe(1.0f, E_LINEAR, W3),
+        }),
+        new Clip(new Keyframe[] {
+                new Keyframe(0.0f, E_OUT_CUBIC, W3),
+                new Keyframe(0.45f, E_IN_OUT_SINE, S3),      // восходящий разрез
+                new Keyframe(1.0f, E_LINEAR, W4),
+        }),
+        new Clip(new Keyframe[] {
+                new Keyframe(0.0f, E_OUT_CUBIC, W4),
+                new Keyframe(0.45f, E_IN_OUT_SINE, S4),      // выпад-укол
+                new Keyframe(1.0f, E_LINEAR, W5),
+        }),
+        new Clip(new Keyframe[] {
+                new Keyframe(0.0f, E_IN_OUT_CUBIC, W5),      // антиципация (меч за головой)
+                new Keyframe(0.30f, E_OUT_CUBIC, W5),
+                new Keyframe(0.60f, E_OUT_CUBIC, MID5),      // круговой разворот
+                new Keyframe(0.86f, E_OUT_BACK, SLAM5),      // обрушение с перелётом
+                new Keyframe(1.0f, E_IN_OUT_SINE, NEUTRAL),  // возврат в стойку
+        }),
+    };
+
+    /** Смешать две позы (голова — NaN-безопасно: NaN «замирает» на другом значении). */
+    private static Pose mix(Pose a, Pose b, float t) {
+        return new Pose(
+                lerp(t, a.rYaw(), b.rYaw()),
+                lerp(t, a.rPitch(), b.rPitch()),
+                lerp(t, a.rRoll(), b.rRoll()),
+                lerp(t, a.lYaw(), b.lYaw()),
+                lerp(t, a.lPitch(), b.lPitch()),
+                lerp(t, a.lRoll(), b.lRoll()),
+                lerp(t, a.bYaw(), b.bYaw()),
+                lerp(t, a.bPitch(), b.bPitch()),
+                lerpSafe(t, a.hPitch(), b.hPitch()),
+                lerp(t, a.rLegPitch(), b.rLegPitch()),
+                lerp(t, a.lLegPitch(), b.lLegPitch()));
     }
 
-    /** Удары 2-4: быстрый разрез из замаха, затем возврат в замах следующего. */
-    private static void poseHit1(PlayerEntityModel m, float p) {
-        if (p < 0.45f) {
-            pose(m, W2, S2, easeInOutCubic(p / 0.45f));
-        } else {
-            pose(m, S2, W3, easeInOutSine((p - 0.45f) / 0.55f));
+    /** Наложить позу на модель. Голова трогается, только если задана (не NaN). */
+    private static void applyPoseToModel(PlayerEntityModel m, Pose pose) {
+        m.rightArm.yaw = pose.rYaw();
+        m.rightArm.pitch = pose.rPitch();
+        m.rightArm.roll = pose.rRoll();
+        m.leftArm.yaw = pose.lYaw();
+        m.leftArm.pitch = pose.lPitch();
+        m.leftArm.roll = pose.lRoll();
+        m.body.yaw = pose.bYaw();
+        m.body.pitch = pose.bPitch();
+        if (!Float.isNaN(pose.hPitch())) {
+            m.head.pitch = pose.hPitch();
         }
+        m.rightLeg.pitch = pose.rLegPitch();
+        m.leftLeg.pitch = pose.lLegPitch();
     }
 
-    private static void poseHit2(PlayerEntityModel m, float p) {
-        if (p < 0.45f) {
-            pose(m, W3, S3, easeInOutCubic(p / 0.45f));
-        } else {
-            pose(m, S3, W4, easeInOutSine((p - 0.45f) / 0.55f));
+    /** Кривые сегментов. OUT_BACK даёт перелёт ~10% — «хлыстовое» движение меча. */
+    private static float ease(int kind, float t) {
+        switch (kind) {
+            case E_IN_OUT_CUBIC -> {
+                return t < 0.5f ? 4f * t * t * t : 1f - (float) Math.pow(-2f * t + 2f, 3) / 2f;
+            }
+            case E_OUT_CUBIC -> {
+                return 1f - (float) Math.pow(1f - t, 3);
+            }
+            case E_OUT_BACK -> {
+                float c1 = 1.1f;
+                float c3 = c1 + 1f;
+                return 1f + c3 * (float) Math.pow(t - 1f, 3) + c1 * (float) Math.pow(t - 1f, 2);
+            }
+            case E_IN_OUT_SINE -> {
+                return (float) (-(Math.cos(Math.PI * t) - 1.0) / 2.0);
+            }
+            default -> {
+                return t;
+            }
         }
-    }
-
-    private static void poseHit3(PlayerEntityModel m, float p) {
-        if (p < 0.45f) {
-            pose(m, W4, S4, easeInOutCubic(p / 0.45f));
-        } else {
-            pose(m, S4, W5, easeInOutSine((p - 0.45f) / 0.55f));
-        }
-    }
-
-    /** Пятый удар: замах за голову → круговой разворот → обрушение → стойка. */
-    private static void poseHit4(PlayerEntityModel m, float p) {
-        if (p < 0.32f) {
-            pose(m, W5, W5, 1f);  // антиципация: меч уже за головой
-        } else if (p < 0.62f) {
-            pose(m, W5, MID5, easeInOutCubic((p - 0.32f) / 0.3f));
-        } else if (p < 0.88f) {
-            pose(m, MID5, SLAM5, easeInOutCubic((p - 0.62f) / 0.26f));
-        } else {
-            pose(m, SLAM5, NEUTRAL, easeInOutSine((p - 0.88f) / 0.12f));
-        }
-    }
-
-    /** Интерполяция позы целиком (голова — только если задана). */
-    private static void pose(PlayerEntityModel m, Pose a, Pose b, float t) {
-        m.rightArm.yaw = lerp(t, a.rYaw(), b.rYaw());
-        m.rightArm.pitch = lerp(t, a.rPitch(), b.rPitch());
-        m.rightArm.roll = lerp(t, a.rRoll(), b.rRoll());
-        m.leftArm.yaw = lerp(t, a.lYaw(), b.lYaw());
-        m.leftArm.pitch = lerp(t, a.lPitch(), b.lPitch());
-        m.leftArm.roll = lerp(t, a.lRoll(), b.lRoll());
-        m.body.yaw = lerp(t, a.bYaw(), b.bYaw());
-        m.body.pitch = lerp(t, a.bPitch(), b.bPitch());
-        if (!Float.isNaN(a.hPitch()) || !Float.isNaN(b.hPitch())) {
-            m.head.pitch = lerp(t, a.hPitch(), b.hPitch());
-        }
-        m.rightLeg.pitch = lerp(t, a.rLegPitch(), b.rLegPitch());
-        m.leftLeg.pitch = lerp(t, a.lLegPitch(), b.lLegPitch());
     }
 
     private static float lerp(float t, float a, float b) {
         return MathHelper.lerp(t, a, b);
     }
 
-    /** Плавный разгон и торможение (для замахов и возвратов). */
-    private static float easeInOutCubic(float t) {
-        return t < 0.5f ? 4f * t * t * t : 1f - (float) Math.pow(-2f * t + 2f, 3) / 2f;
-    }
-
-    /** Мягкий синусоидальный переход (для возвратов в следующий замах). */
-    private static float easeInOutSine(float t) {
-        return (float) (-(Math.cos(Math.PI * t) - 1.0) / 2.0);
+    /** Lerp, который не даёт NaN: NaN заменяется на другое значение (голова «замирает»). */
+    private static float lerpSafe(float t, float a, float b) {
+        if (Float.isNaN(a)) {
+            return b;
+        }
+        if (Float.isNaN(b)) {
+            return a;
+        }
+        return MathHelper.lerp(t, a, b);
     }
 }
