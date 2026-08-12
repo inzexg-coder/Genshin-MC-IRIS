@@ -16,6 +16,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Origin Animation (широкие махи, наклон и поворот корпуса, подскок).
  * Видно в 3-м лице и в первом лице (FirstPersonBody рисует собственное
  * тело «глазами модельки», при этом голова скрывается — камера внутри).
+ *
+ * Голова прячется не только на момент submit-вызова (selfRendering), но и
+ * при повторном setAngles на сбросе очереди рендера (ModelCommandRenderer
+ * вызывает setAngles ещё раз уже после того, как FirstPersonBody закончил):
+ * иначе ванильный setAngles вернёт видимость головы и изнутри камеры будут
+ * видны глаза модели. Условие — «первое лицо + это модель локального
+ * игрока», поэтому в 3-м лице голова видна как обычно.
  */
 @Mixin(PlayerEntityModel.class)
 public abstract class PlayerEntityModelMixin {
@@ -28,8 +35,9 @@ public abstract class PlayerEntityModelMixin {
         CombatController.applyPlayerPose(model, state);
         // Своё тело в первом лице: голова скрыта (камера внутри головы) и
         // самовосстанавливается на каждом следующем setAngles.
-        boolean self = FirstPersonBody.selfRendering();
-        model.head.visible = !self;
-        model.hat.visible = !self;
+        boolean hideOwnHead = FirstPersonBody.active()
+                && CombatController.isLocalPlayer(state.id);
+        model.head.visible = !hideOwnHead;
+        model.hat.visible = !hideOwnHead;
     }
 }

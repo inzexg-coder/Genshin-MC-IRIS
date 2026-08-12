@@ -11,13 +11,20 @@
 
 Принципы:
   - Голова ВСЕГДА 0 (смотрит строго вперёд относительно корпуса).
-  - Левая рука — статичная стойка; ноги в позах = NaN (ванильный шаг из
-    setAngles продолжает работать во время удара — герой не «плывёт»).
-  - Углы в физиологичном диапазоне: рука pitch −160°..+60°, roll −110°..+110°,
-    без полных оборотов (никаких проворотов на ±360°).
+  - УДАР МГНОВЕННЫЙ: t=0 — уже замах (клинок уведён), свинг стартует с
+    первых кадров; пик скорости (момент урона) ~0.40 клипа — без долгой
+    раскачки перед первым ударом.
+  - Удары МАКСИМАЛЬНО ШИРОКИЕ: клинок выписывает огромные дуги (roll до
+    ±155°, pitch −175°..+60°), корпус доворачивается (bYaw до ±50°) и
+    наклоняется в удар (bPitch до +30°).
+  - Левая рука ЖИВАЯ: противовес и «вторая волна» — поднимается в замах,
+    хлещет в противоположную сторону в пике, сопровождает вылет.
+  - Ноги ПЕРЕСТУПАЮТ: в каждом ударе явные шаги (pitch +/− до ±70°):
+    выпад в удар, опора и перестановка между замахом и свингом.
+  - Углы без полных оборотов (никаких проворотов на ±360° у рук).
   - Каждый клип непрерывен: t=0 — финальная поза предыдущего удара.
-  - Замах ~58% клипа (медленно), свинг с УСКОРЕНИЕМ (E_IN_CUBIC) до пика
-    скорости в момент урона (~0.70 клипа), сопровождение с торможением.
+  - Свинг с УСКОРЕНИЕМ (E_IN_CUBIC) до пика скорости в момент урона
+    (~0.40 клипа), сопровождение с торможением.
   - Между ударами — плавные переходы (в Java первые 12% клипа смешиваются
     с предыдущей позой через prevAppliedPose).
   - Разворот (удар 3) крутит root.yaw модели целиком.
@@ -62,79 +69,68 @@ def P(rYaw=0, rPitch=0, rRoll=0, lYaw=0, lPitch=0, lRoll=0,
 D = math.degrees
 R = math.radians
 
-# --- левая рука: статичная стойка (не двигается сама по себе) ---
-L_GUARD = (R(-10), R(-30), R(-5))
-
-# --- нейтраль / старт первого удара: меч внизу-справа, корпус ровно ---
-NEUTRAL = P(rPitch=R(-25), rRoll=R(8), lYaw=L_GUARD[0], lPitch=L_GUARD[1], lRoll=L_GUARD[2])
-NEUTRAL["rlYaw"] = NEUTRAL["rlPitch"] = NEUTRAL["rlRoll"] = float("nan")
-NEUTRAL["llYaw"] = NEUTRAL["llPitch"] = NEUTRAL["llRoll"] = float("nan")
-
-def arm(lh, pose):
-    """проставить левую руку-стойку и ноги=NaN в позу.
-
-    NaN для ног = не трогаем канал: ванильная анимация шага продолжает
-    работать во время удара (герой не «плывёт» по земле, а бежит)."""
-    pose["lYaw"], pose["lPitch"], pose["lRoll"] = L_GUARD
-    pose["rlYaw"] = pose["rlPitch"] = pose["rlRoll"] = float("nan")
-    pose["llYaw"] = pose["llPitch"] = pose["llRoll"] = float("nan")
-    return pose
+# Правки каналов Pose: правая рука y/p/r, левая рука y/p/r,
+# корпус y/p/r, голова y/p/r, правая нога y/p/r, левая нога y/p/r.
+# Углы задаются в градусах, конвертируются в радианы при генерации.
 
 # ================= КЛИПЫ =================
-# Каждая запись: (t, easing, Pose) — углы в градусах, конвертируются в радианы.
+# Каждая запись: (t, easing, Pose). easing применяется к СЕГМЕНТУ,
+# начинающемуся с этого ключевого кадра (так устроен Clip.at в Java).
+# Тайминг: t=0 — УЖЕ ЗАМАХ (клинок отведён — свинг стартует с первого
+# кадра), разгон (E_IN_CUBIC) до пика ~0.40 (момент урона), затем
+# торможение и финал. Позы максимально широкие (проверено anim_preview):
+# roll до ±155°, pitch −178°..+60°, корпус доворачивается (bYaw до ±52°)
+# и наклоняется в удар (bPitch до +30°), левая рука — живой противовес,
+# ноги переступают (pitch до ±75°) с выпадом в момент урона.
+# --- УДАР 1: очень широкий горизонтальный слева направо ---
 CLIPS = [
-    # ВНИМАНИЕ: easing в кортеже (t, easing, поза) применяется к СЕГМЕНТУ,
-    # начинающемуся с этого ключевого кадра (так устроен Clip.at в Java).
-    # Свинг (разгон тяжёлого удара) = E_IN_CUBIC, сопровождение = E_OUT_CUBIC.
-    # Удары максимально ШИРОКИЕ: клинок выписывает большие дуги (roll до ±125°,
-    # pitch до −160°), замах ~50% клипа, свинг с ускорением до пика (урон 0.70).
-    # --- УДАР 1: очень широкий горизонтальный слева направо ---
     [
-        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-25, rRoll=10, bPitch=2))),
-        (0.34, E_IN_OUT_CUBIC, arm(None, P(rPitch=-75, rRoll=-100, bYaw=24, bPitch=5))),   # замах далеко влево-вверх
-        (0.52, E_IN_CUBIC, arm(None, P(rPitch=-110, rRoll=-55, bYaw=12, bPitch=3))),       # СВИНГ: разгон до пика (урон на 0.70)
-        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-100, rRoll=-5, bYaw=-6))),                 # пик скорости, вылет
-        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-105, rRoll=60, bYaw=-18))),                # вылет вправо
-        (1.00, E_LINEAR, arm(None, P(rPitch=-95, rRoll=95, bYaw=-24))),                    # финал справа-вверх
+        (0.00, E_IN_OUT_SINE, P(rPitch=-70, rRoll=-115, lYaw=-10, lPitch=-80, lRoll=35, bYaw=28, bPitch=8, llPitch=50, rlPitch=-20)),      # замах: клинок отведён влево, левая нога вперёд
+        (0.14, E_IN_OUT_CUBIC, P(rPitch=-100, rRoll=-80, lYaw=-12, lPitch=-55, lRoll=8, bYaw=14, bPitch=16, llPitch=25, rlPitch=-5)),    # разгон, корпус доворачивается
+        (0.34, E_IN_CUBIC, P(rPitch=-105, rRoll=-15, lYaw=22, lPitch=-10, lRoll=-30, bYaw=-14, bPitch=28, llPitch=-20, rlPitch=65)),     # ПИК: клинок режет дугу, наклон, правая нога выпад
+        (0.56, E_OUT_CUBIC, P(rPitch=-115, rRoll=55, lYaw=25, lPitch=-45, lRoll=-55, bYaw=-32, bPitch=18, llPitch=20, rlPitch=40)),      # вылет вправо, левая рука хлещет назад
+        (0.78, E_OUT_CUBIC, P(rPitch=-130, rRoll=115, lYaw=5, lPitch=-30, lRoll=-15, bYaw=-42, bPitch=6, llPitch=40, rlPitch=10)),       # довод вправо-вверх
+        (1.00, E_LINEAR, P(rPitch=-155, rRoll=140, lYaw=-5, lPitch=-25, lRoll=15, bYaw=-32)),                                            # финал = старт удара 2
     ],
     # --- УДАР 2: длинный апперкот справа снизу вверх влево ---
     [
-        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-95, rRoll=95, bYaw=-24))),               # стык: конец удара 1
-        (0.30, E_IN_OUT_CUBIC, arm(None, P(rPitch=-10, rRoll=80, bYaw=26, bPitch=8))),     # увод вниз-вправо
-        (0.50, E_IN_CUBIC, arm(None, P(rPitch=32, rRoll=75, bYaw=32, bPitch=10))),         # СВИНГ: разгон восходящего (урон на 0.70)
-        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-60, rRoll=12, bYaw=12, bPitch=4))),        # пик скорости, пролёт
-        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-140, rRoll=-45, bYaw=-20))),               # вверх-влево
-        (1.00, E_LINEAR, arm(None, P(rPitch=-160, rRoll=-70, bYaw=-28, bPitch=-8))),       # финал вверху-слева
+        (0.00, E_IN_OUT_SINE, P(rPitch=-155, rRoll=140, lYaw=-5, lPitch=-25, lRoll=15, bYaw=-32)),                                       # стык: конец удара 1
+        (0.14, E_IN_OUT_CUBIC, P(rPitch=-15, rRoll=145, lYaw=15, lPitch=-95, lRoll=25, bYaw=35, bPitch=15, llPitch=50, rlPitch=-20)),    # увод клинка вниз-вправо, присед
+        (0.34, E_IN_CUBIC, P(rPitch=40, rRoll=115, lYaw=-10, lPitch=-65, lRoll=-5, bYaw=12, bPitch=5, llPitch=15, rlPitch=45)),          # ПИК: восходящий удар снизу вверх
+        (0.56, E_OUT_CUBIC, P(rPitch=-100, rRoll=45, lYaw=-20, lPitch=-25, lRoll=-35, bYaw=-22, bPitch=-12, llPitch=-10, rlPitch=35)),   # пролёт вверх-влево, отклон корпуса
+        (0.78, E_OUT_CUBIC, P(rPitch=-165, rRoll=-60, lYaw=-15, lPitch=10, lRoll=-45, bYaw=-40, bPitch=-16)),                            # уход вверх-влево
+        (1.00, E_LINEAR, P(rPitch=-172, rRoll=-90, lYaw=-10, lPitch=0, lRoll=-20, bYaw=-35, bPitch=-8)),                                 # финал: клинок над головой = старт удара 3
     ],
     # --- УДАР 3: разворот через левое плечо на 360°, рубящий удар по диагонали ---
     [
-        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-160, rRoll=-70, bYaw=-28, bPitch=-8))),  # стык: конец удара 2
-        (0.28, E_IN_OUT_CUBIC, arm(None, P(rPitch=-155, rRoll=-30, bYaw=-8, bPitch=-4))),  # клинок поднят над головой
-        (0.50, E_IN_CUBIC, arm(None, P(rPitch=-145, rRoll=-5, bYaw=8, bPitch=4))),         # РУБЯЩИЙ: разгон вниз (урон на 0.70)
-        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-80, rRoll=35, bYaw=16, bPitch=10))),       # пик скорости, довод
-        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-40, rRoll=75, bYaw=18, bPitch=12))),       # довод вниз-вправо
-        (1.00, E_LINEAR, arm(None, P(rPitch=-35, rRoll=85, bYaw=12, bPitch=8))),           # сопровождение
+        (0.00, E_IN_OUT_SINE, P(rPitch=-172, rRoll=-90, lYaw=-10, lPitch=0, lRoll=-20, bYaw=-35, bPitch=-8)),                            # стык: конец удара 2
+        (0.14, E_IN_OUT_CUBIC, P(rPitch=-178, rRoll=-30, lYaw=-5, lPitch=-175, lRoll=-10, bYaw=0, bPitch=4, llPitch=35, rlPitch=-35)),   # обе руки вверх, раскрытый шаг
+        (0.34, E_IN_CUBIC, P(rPitch=-120, rRoll=45, lYaw=-15, lPitch=-125, lRoll=-45, bYaw=22, bPitch=18, llPitch=-35, rlPitch=50)),     # ПИК: рубящий вниз-вправо
+        (0.56, E_OUT_CUBIC, P(rPitch=-65, rRoll=100, lYaw=-20, lPitch=-55, lRoll=-60, bYaw=40, bPitch=10, llPitch=10, rlPitch=30)),      # довод вниз-вправо
+        (0.78, E_OUT_CUBIC, P(rPitch=-50, rRoll=145, lYaw=-10, lPitch=-35, lRoll=-30, bYaw=30, bPitch=4, llPitch=35)),                   # клинок справа, доворот
+        (1.00, E_LINEAR, P(rPitch=-60, rRoll=150, lPitch=-20, lRoll=10, bYaw=20)),                                                       # финал = старт удара 4
     ],
     # --- УДАР 4: очень широкий горизонтальный справа налево ---
     [
-        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-35, rRoll=85, bYaw=12, bPitch=8))),      # стык: конец удара 3
-        (0.30, E_IN_OUT_CUBIC, arm(None, P(rPitch=-75, rRoll=105, bYaw=24, bPitch=4))),    # замах вправо-вверх
-        (0.50, E_IN_CUBIC, arm(None, P(rPitch=-115, rRoll=55, bYaw=14, bPitch=2))),        # СВИНГ: разгон до пика (урон на 0.70)
-        (0.70, E_OUT_CUBIC, arm(None, P(rPitch=-100, rRoll=-8, bYaw=-6))),                 # пик скорости, вылет
-        (0.84, E_OUT_CUBIC, arm(None, P(rPitch=-105, rRoll=-65, bYaw=-16))),               # вылет влево
-        (1.00, E_LINEAR, arm(None, P(rPitch=-95, rRoll=-95, bYaw=-22))),                   # финал влево-вверх
+        (0.00, E_IN_OUT_SINE, P(rPitch=-60, rRoll=150, lPitch=-20, lRoll=10, bYaw=20)),                                                  # стык: конец удара 3
+        (0.14, E_IN_OUT_CUBIC, P(rPitch=-80, rRoll=155, lYaw=12, lPitch=-85, lRoll=-35, bYaw=38, bPitch=12, llPitch=-25, rlPitch=55)),   # замах вправо-вверх
+        (0.34, E_IN_CUBIC, P(rPitch=-110, rRoll=50, lYaw=-22, lPitch=-5, lRoll=30, bYaw=10, bPitch=30, llPitch=65, rlPitch=-20)),        # ПИК: пролёт справа налево, левая нога выпад
+        (0.56, E_OUT_CUBIC, P(rPitch=-120, rRoll=-50, lYaw=-25, lPitch=-45, lRoll=50, bYaw=-25, bPitch=20, llPitch=40, rlPitch=15)),     # вылет влево
+        (0.78, E_OUT_CUBIC, P(rPitch=-135, rRoll=-110, lYaw=-10, lPitch=-25, lRoll=20, bYaw=-38, bPitch=6, llPitch=10, rlPitch=40)),     # довод влево-вверх
+        (1.00, E_LINEAR, P(rPitch=-145, rRoll=-130, lYaw=-5, lPitch=-30, lRoll=-15, bYaw=-32)),                                          # финал = старт удара 5
     ],
     # --- УДАР 5: гигантский замах, удар справа налево, клинок за спину, прокат ---
     [
-        (0.00, E_IN_OUT_SINE, arm(None, P(rPitch=-95, rRoll=-95, bYaw=-22))),              # стык: конец удара 4
-        (0.22, E_IN_OUT_CUBIC, arm(None, P(rPitch=-70, rRoll=110, bYaw=36, bPitch=5))),    # огромный замах вправо
-        (0.38, E_IN_OUT_CUBIC, arm(None, P(rPitch=-155, rRoll=125, bYaw=45, bPitch=8))),   # пик замаха за правым плечом
-        (0.56, E_IN_CUBIC, arm(None, P(rYaw=-25, rPitch=-100, rRoll=50, bYaw=14, bPitch=5))),   # СВИНГ: разгон справа налево (урон на 0.70)
-        (0.70, E_OUT_CUBIC, arm(None, P(rYaw=-35, rPitch=-85, rRoll=-55, bYaw=-18, bPitch=-4))), # пик скорости, пролёт
-        (0.84, E_OUT_CUBIC, arm(None, P(rYaw=-110, rPitch=65, rRoll=45, bYaw=-28, bPitch=-8))),  # увод клинка за спину влево
-        (1.00, E_LINEAR, arm(None, P(rYaw=-115, rPitch=60, rRoll=50, bYaw=-28, bPitch=-8))),     # финал: клинок за спиной
+        (0.00, E_IN_OUT_SINE, P(rPitch=-145, rRoll=-130, lYaw=-5, lPitch=-30, lRoll=-15, bYaw=-32)),                                     # стык: конец удара 4
+        (0.12, E_IN_OUT_CUBIC, P(rPitch=-70, rRoll=110, lYaw=25, lPitch=-135, lRoll=50, bYaw=42, bPitch=15, llPitch=55, rlPitch=-30)),   # огромный замах вправо
+        (0.26, E_IN_OUT_CUBIC, P(rYaw=-35, rPitch=-168, rRoll=150, lYaw=30, lPitch=-120, lRoll=25, bYaw=52, bPitch=12, llPitch=70, rlPitch=-20)),  # пик замаха за правым плечом
+        (0.42, E_IN_CUBIC, P(rYaw=-30, rPitch=-115, rRoll=35, lYaw=-25, lPitch=-10, lRoll=35, bYaw=12, bPitch=30, llPitch=25, rlPitch=75)),        # ПИК: низкий свинг, прокат правой ногой
+        (0.60, E_OUT_CUBIC, P(rYaw=-40, rPitch=-105, rRoll=-60, lYaw=-30, lPitch=-55, lRoll=55, bYaw=-28, bPitch=18, llPitch=-15, rlPitch=45)),    # пролёт влево-вниз
+        (0.78, E_OUT_CUBIC, P(rYaw=-115, rPitch=55, rRoll=50, lYaw=-10, lPitch=-10, lRoll=-20, bYaw=-35, bPitch=-10)),                             # увод клинка за спину
+        (1.00, E_LINEAR, P(rYaw=-120, rPitch=60, rRoll=55, lYaw=-5, lPitch=-15, lRoll=-25, bYaw=-32, bPitch=-8)),                                  # финал: клинок за спиной
     ],
 ]
+
 
 NAMES = ["hit1", "hit2", "hit3", "hit4", "hit5"]
 
@@ -178,14 +174,18 @@ def gen_java(clips, names):
 
 
 def patch_java(src, clip_data, names):
-    # начало: первый Pose удара 1 (или любой Pose-константы)
-    start = src.index("private static final Pose hit1_00")
+    # начало: первый Pose удара 1 (или любой Pose-константы); отступ берём
+    # с начала строки, чтобы повторные --write не накапливали пробелы
+    start = src.rfind("\n", 0, src.index("private static final Pose hit1_00")) + 1
     # конец: "};" после private static final Clip[] CLIPS
     end_marker = "    };"
     end = src.index(end_marker, src.index("private static final Clip[] CLIPS"))
     end += len(end_marker)
     new_block = gen_java(clip_data, names)
-    return src[:start] + new_block + "\n" + src[end:]
+    # ровно две пустые строки после CLIPS — повторные запуски не накапливают
+    # пустые строки и отступы (файл остаётся стабильным)
+    tail = src[end:].lstrip("\n")
+    return src[:start] + new_block + "\n\n" + tail
 
 
 # ---------- предпросмотр ----------
