@@ -17,7 +17,7 @@
     "client.AdvancementToastMixin",
     "client.RecipeToastMixin",
     "client.PlayerEntityModelMixin",
-    "client.KeyboardInputMixin",
+    "client.InputMixin",
     "client.HeldItemRendererMixin",
     "client.MinecraftClientMixin"
   ],
