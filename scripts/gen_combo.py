@@ -93,86 +93,97 @@ def arm(blade_model, roll_pref=None, pitch_range=None):
 #   1 — 10 тиков, 2 — 12, 3 — 16, 4 — 12, 5 — 20.
 
 # ================= КЛИПЫ =================
-# Каждый кадр: (t, easing, pose). easing — кривая СЕГМЕНТА от этого кадра.
-# Направления клинка — в системе модели (+Y ВНИЗ!). bYaw/bPitch малы.
+# Углы руки заданы НАПРЯМУЮ (в градусах) — плавные дуги без «перегибов»
+# солвера: рука в замахах уходит вверх-назад/за спину, в свинге выносится
+# вперёд и ведёт клинок широкой дугой, корпус доворачивается в удар.
+# Диапазоны проверены на проход руки сквозь торс (scripts/blade_geo.py:
+# arm_penetration) — максимальная глубина по всем кадрам < 1 px (только
+# касание у плеча).
 CLIPS = [
-    # --- УДАР 1: очень широкий горизонтальный слева направо ---
+    # --- УДАР 1: очень широкий горизонтальный слева направо (замах через верх) ---
     [
-        (0.00, E_IN_OUT_SINE, P(**{**arm((0.0, 1.0, 0.0), pitch_range=(-10, 60)), "lPitch": -10, "lRoll": 12})),  # нейтраль: клинок вниз, рука вниз
-        (0.10, E_IN_OUT_SINE, P(**{**arm((-0.62, -0.03, 0.75)), "lPitch": -45, "lRoll": 20,
-                                   "bYaw": 10, "bPitch": 4, "rlPitch": -30, "llPitch": 15})),             # замах влево-назад
-        (0.26, E_IN_CUBIC, P(**{**arm((-0.62, 0.0, -0.68)), "lPitch": -30, "lRoll": 8,
-                                "bYaw": 5, "rlPitch": -15, "llPitch": 30})),                              # разгон через лево
-        (0.40, E_IN_CUBIC, P(**{**arm((0.05, 0.0, -1.0)), "lYaw": -12, "lPitch": -20, "lRoll": -15,
-                                "bYaw": -4, "bPitch": 6, "rlPitch": 55, "llPitch": -25})),               # ПИК: свинг сквозь фронт, выпад
-        (0.56, E_OUT_CUBIC, P(**{**arm((0.85, 0.0, -0.50)), "lYaw": -8, "lPitch": -35, "lRoll": -20,
-                                 "bYaw": -10, "bPitch": 2, "rlPitch": 40, "llPitch": -10})),            # вылет вправо
-        (0.78, E_OUT_CUBIC, P(**{**arm((0.75, 0.12, 0.55)), "lYaw": 0, "lPitch": -25, "lRoll": -5,
-                                 "bYaw": -12, "rlPitch": 25})),                                          # довод вправо-вверх
-        (1.00, E_LINEAR, P(**{**arm((0.50, 0.35, 0.75)), "lPitch": -20, "lRoll": 5,
-                              "bYaw": -8})),                                                             # финал = старт удара 2
+        (0.00, E_IN_OUT_SINE, P(rPitch=35, lPitch=-10, lRoll=12)),
+        (0.14, E_IN_OUT_SINE, P(rYaw=-35, rPitch=115, rRoll=20, lPitch=-110, lRoll=25,
+                                bYaw=12, bPitch=2, rlPitch=-25, llPitch=15)),
+        (0.28, E_IN_CUBIC,    P(rYaw=-20, rPitch=-40, rRoll=-20, lPitch=-80, lRoll=15,
+                                bYaw=7, rlPitch=-15, llPitch=30)),
+        (0.38, E_IN_CUBIC,    P(rYaw=-10, rPitch=-80, rRoll=-10, lPitch=-35,
+                                bYaw=1, bPitch=4, rlPitch=20, llPitch=35)),
+        (0.46, E_IN_CUBIC,    P(rYaw=0, rPitch=-90, rRoll=-10, lYaw=-10, lPitch=-25, lRoll=-15,
+                                bYaw=-2, bPitch=5, rlPitch=55, llPitch=-25)),
+        (0.56, E_OUT_CUBIC,   P(rYaw=15, rPitch=-85, rRoll=-30, lYaw=-8, lPitch=-35, lRoll=-20,
+                                bYaw=-6, bPitch=3, rlPitch=40, llPitch=-10)),
+        (0.70, E_OUT_CUBIC,   P(rYaw=25, rPitch=-55, rRoll=-20, lPitch=-25, lRoll=-5,
+                                bYaw=-9, bPitch=2, rlPitch=25)),
+        (0.84, E_OUT_CUBIC,   P(rYaw=30, rPitch=-20, rRoll=-5, lPitch=-15, bYaw=-8)),
+        (1.00, E_LINEAR,      P(rYaw=35, rPitch=5, lPitch=-10, lRoll=5, bYaw=-6)),
     ],
-    # --- УДАР 2: длинный апперкот справа снизу вверх налево ---
+    # --- УДАР 2: апперкот снизу-справа вверх-влево ---
     [
-        (0.00, E_IN_OUT_SINE, P(**{**arm((0.50, 0.35, 0.75)), "lPitch": -20, "lRoll": 5, "bYaw": -8})),   # стык: конец удара 1
-        (0.12, E_IN_OUT_SINE, P(**{**arm((0.55, 0.60, 0.55)), "lPitch": -40, "lRoll": 20,
-                                   "bYaw": -6, "rlPitch": -40, "llPitch": -20})),                         # глубокий замах вниз-вправо
-        (0.30, E_IN_CUBIC, P(**{**arm((0.55, 0.35, -0.65)), "lPitch": -25, "lRoll": 10,
-                                "bYaw": -2, "rlPitch": -15, "llPitch": 25})),                             # разгон снизу
-        (0.42, E_IN_CUBIC, P(**{**arm((0.0, 0.10, -0.99)), "lYaw": 10, "lPitch": -15, "lRoll": -10,
-                                "bPitch": 6, "rlPitch": 50, "llPitch": -20})),                           # ПИК: восходящий удар
-        (0.58, E_OUT_CUBIC, P(**{**arm((-0.50, -0.60, -0.55)), "lYaw": 8, "lPitch": -30, "lRoll": -15,
-                                 "bYaw": 8, "rlPitch": 30, "llPitch": 5})),                              # пролёт вверх-влево
-        (0.78, E_OUT_CUBIC, P(**{**arm((-0.60, -0.60, 0.45)), "lPitch": -25, "lRoll": -5,
-                                 "bYaw": 10})),                                                          # уход вверх-влево
-        (1.00, E_LINEAR, P(**{**arm((0.30, -0.55, 0.75)), "lPitch": -15, "lRoll": 5, "bYaw": 6})),        # финал: клинок у правого плеча
+        (0.00, E_IN_OUT_SINE, P(rYaw=35, rPitch=5, lPitch=-10, lRoll=5, bYaw=-6)),
+        (0.12, E_IN_OUT_SINE, P(rYaw=35, rPitch=-10, rRoll=5, lPitch=-40, lRoll=20,
+                                bYaw=-6, rlPitch=-40, llPitch=-20)),
+        (0.28, E_IN_CUBIC,    P(rYaw=15, rPitch=-60, rRoll=-10, lPitch=-25, lRoll=10,
+                                bYaw=-2, rlPitch=-15, llPitch=25)),
+        (0.40, E_IN_CUBIC,    P(rYaw=-15, rPitch=-105, rRoll=-20, lYaw=10, lPitch=-15, lRoll=-10,
+                                bYaw=2, bPitch=5, rlPitch=50, llPitch=-20)),
+        (0.54, E_OUT_CUBIC,   P(rYaw=-35, rPitch=-135, rRoll=-10, lYaw=8, lPitch=-30, lRoll=-15,
+                                bYaw=8, rlPitch=30, llPitch=5)),
+        (0.72, E_OUT_CUBIC,   P(rYaw=-45, rPitch=-155, lPitch=-25, lRoll=-5, bYaw=10)),
+        (1.00, E_LINEAR,      P(rYaw=-30, rPitch=-160, rRoll=5, lPitch=-15, lRoll=5, bYaw=6)),
     ],
-    # --- УДАР 3: разворот по кругу — клинок описывает круг, оборот делает root ---
+    # --- УДАР 3: разворот по кругу (полный оборот делает root) ---
     [
-        (0.00, E_IN_OUT_SINE, P(**{**arm((0.30, -0.55, 0.75)), "lPitch": -15, "lRoll": 5, "bYaw": 6})),   # стык: конец удара 2
-        (0.14, E_IN_OUT_SINE, P(**{**arm((0.65, -0.60, 0.45)), "lPitch": -90, "lRoll": 30,
-                                   "bYaw": 4, "llPitch": 35, "rlPitch": -35})),                           # обе руки вверх, раскрытый шаг
-        (0.30, E_IN_CUBIC, P(**{**arm((0.65, -0.25, -0.70)), "lPitch": -80, "lRoll": 15,
-                                "bYaw": -2, "llPitch": 15, "rlPitch": -15})),                             # вперёд-вправо
-        (0.44, E_IN_CUBIC, P(**{**arm((-0.45, -0.05, -0.88)), "lPitch": -60, "lRoll": 5,
-                                "bPitch": 4, "llPitch": -25, "rlPitch": 45})),                            # ПИК: рубящий вперёд-влево
-        (0.60, E_OUT_CUBIC, P(**{**arm((-0.85, 0.20, -0.40)), "lPitch": -40, "lRoll": 0,
-                                 "bYaw": -4, "llPitch": -10, "rlPitch": 30})),                            # влево-вниз
-        (0.78, E_OUT_CUBIC, P(**{**arm((-0.70, 0.30, 0.60)), "lPitch": -25, "lRoll": -5,
-                                 "bYaw": -6, "llPitch": 25})),                                            # за спину
-        (1.00, E_LINEAR, P(**{**arm((0.45, -0.50, 0.70)), "lPitch": -15, "lRoll": 5, "bYaw": 0})),        # финал = старт удара 4
+        (0.00, E_IN_OUT_SINE, P(rYaw=-30, rPitch=-160, rRoll=5, lPitch=-15, lRoll=5, bYaw=6)),
+        (0.12, E_IN_OUT_SINE, P(rYaw=-45, rPitch=-115, lPitch=-95, lRoll=30,
+                                bYaw=4, llPitch=35, rlPitch=-35)),
+        (0.28, E_IN_CUBIC,    P(rYaw=-25, rPitch=-95, rRoll=-10, lPitch=-80, lRoll=15,
+                                bYaw=-2, llPitch=15, rlPitch=-15)),
+        (0.40, E_IN_CUBIC,    P(rYaw=-10, rPitch=-90, rRoll=-20, lPitch=-60, lRoll=5,
+                                bYaw=-4, bPitch=4, llPitch=-25, rlPitch=45)),
+        (0.52, E_IN_CUBIC,    P(rYaw=5, rPitch=-85, rRoll=-25, lPitch=-40,
+                                bYaw=-5, llPitch=-10, rlPitch=30)),
+        (0.64, E_OUT_CUBIC,   P(rYaw=15, rPitch=-80, rRoll=-15, lPitch=-25, lRoll=-5,
+                                bYaw=-6, llPitch=25)),
+        (0.78, E_OUT_CUBIC,   P(rYaw=10, rPitch=-70, rRoll=-5, lPitch=-15, lRoll=-5,
+                                bYaw=-3, rlPitch=20)),
+        (1.00, E_LINEAR,      P(rYaw=30, rPitch=-25, rRoll=5, lPitch=-15, lRoll=5, bYaw=-2)),
     ],
     # --- УДАР 4: очень широкий горизонтальный справа налево ---
     [
-        (0.00, E_IN_OUT_SINE, P(**{**arm((0.45, -0.50, 0.70)), "lPitch": -15, "lRoll": 5})),              # стык: конец удара 3
-        (0.12, E_IN_OUT_SINE, P(**{**arm((0.80, 0.10, 0.55)), "lPitch": -45, "lRoll": 20,
-                                   "bYaw": 8, "llPitch": -35, "rlPitch": 20})),                           # замах вправо
-        (0.28, E_IN_CUBIC, P(**{**arm((0.85, 0.0, -0.50)), "lPitch": -30, "lRoll": 8,
-                                "bYaw": 4, "llPitch": -15, "rlPitch": 30})),                              # разгон справа
-        (0.42, E_IN_CUBIC, P(**{**arm((0.0, 0.0, -1.0)), "lYaw": 12, "lPitch": -20, "lRoll": -15,
-                                "bPitch": 6, "llPitch": 55, "rlPitch": -25})),                            # ПИК: свинг сквозь фронт
-        (0.58, E_OUT_CUBIC, P(**{**arm((-0.85, 0.0, -0.45)), "lYaw": 8, "lPitch": -35, "lRoll": -20,
-                                 "bYaw": -8, "llPitch": 40, "rlPitch": -10})),                            # вылет влево
-        (0.78, E_OUT_CUBIC, P(**{**arm((-0.80, 0.10, 0.50)), "lYaw": 0, "lPitch": -25, "lRoll": -5,
-                                 "bYaw": -12, "llPitch": 20})),                                           # довод влево-вверх
-        (1.00, E_LINEAR, P(**{**arm((-0.45, 0.40, 0.80)), "lPitch": -20, "lRoll": 5, "bYaw": -8})),       # финал = старт удара 5
+        (0.00, E_IN_OUT_SINE, P(rYaw=30, rPitch=-25, rRoll=5, lPitch=-15, lRoll=5, bYaw=-2)),
+        (0.14, E_IN_OUT_SINE, P(rYaw=35, rPitch=35, rRoll=-10, lPitch=-110, lRoll=25,
+                                bYaw=-10, bPitch=2, llPitch=-35, rlPitch=20)),
+        (0.28, E_IN_CUBIC,    P(rYaw=25, rPitch=-25, rRoll=-5, lPitch=-80, lRoll=15,
+                                bYaw=-6, llPitch=-15, rlPitch=30)),
+        (0.38, E_IN_CUBIC,    P(rYaw=10, rPitch=-70, rRoll=5, lPitch=-35,
+                                bYaw=-1, bPitch=4, llPitch=30, rlPitch=40)),
+        (0.46, E_IN_CUBIC,    P(rYaw=0, rPitch=-90, rRoll=15, lYaw=12, lPitch=-25, lRoll=-15,
+                                bYaw=2, bPitch=5, llPitch=55, rlPitch=-25)),
+        (0.56, E_OUT_CUBIC,   P(rYaw=-12, rPitch=-85, rRoll=25, lYaw=8, lPitch=-35, lRoll=-20,
+                                bYaw=6, llPitch=40, rlPitch=-10)),
+        (0.70, E_OUT_CUBIC,   P(rYaw=-25, rPitch=-55, rRoll=15, lPitch=-25, lRoll=-5,
+                                bYaw=9, llPitch=20)),
+        (0.84, E_OUT_CUBIC,   P(rYaw=-30, rPitch=-20, rRoll=5, lPitch=-15, bYaw=8)),
+        (1.00, E_LINEAR,      P(rYaw=-20, rPitch=-140, rRoll=10, lPitch=-10, lRoll=5, bYaw=5)),
     ],
-    # --- УДАР 5: гигантский замах за спину, удар справа налево, клинок за спину, прокат ---
+    # --- УДАР 5: гигантский замах через голову, рубящий вперёд-влево, прокат ---
     [
-        (0.00, E_IN_OUT_SINE, P(**{**arm((-0.45, 0.40, 0.80)), "lPitch": -20, "lRoll": 5, "bYaw": -8})),  # стык: конец удара 4
-        (0.10, E_IN_OUT_SINE, P(**{**arm((0.60, -0.30, 0.65)), "lPitch": -50, "lRoll": 25,
-                                   "bYaw": 6, "rlPitch": -35, "llPitch": 10})),                           # замах вправо
-        (0.22, E_IN_OUT_SINE, P(**{**arm((0.20, -0.15, 0.95)), "lPitch": -95, "lRoll": 40,
-                                    "bYaw": 10, "rlPitch": -25, "llPitch": 20})),                         # пик замаха за спиной
-        (0.36, E_IN_CUBIC, P(**{**arm((0.80, 0.0, -0.55)), "lPitch": -55, "lRoll": 10,
-                                "bYaw": 2, "rlPitch": 10, "llPitch": 35})),                               # выход вперёд
-        (0.48, E_IN_CUBIC, P(**{**arm((-0.10, 0.20, -0.95)), "lYaw": 14, "lPitch": -30, "lRoll": -20,
-                                "bPitch": 8, "rlPitch": -30, "llPitch": 60})),                            # ПИК: низкий свинг, прокат
-        (0.64, E_OUT_CUBIC, P(**{**arm((-0.90, 0.15, -0.35)), "lYaw": 10, "lPitch": -40, "lRoll": -15,
-                                 "bYaw": -6, "rlPitch": -10, "llPitch": 45})),                            # пролёт влево-вниз
-        (0.80, E_OUT_CUBIC, P(**{**arm((-0.65, 0.25, 0.70)), "lYaw": 0, "lPitch": -25, "lRoll": -5,
-                                 "bYaw": -10, "llPitch": 20})),                                           # увод за спину
-        (1.00, E_LINEAR, P(**{**arm((0.10, -0.35, 0.90)), "lPitch": -15, "lRoll": 5, "bYaw": -6})),       # финал: клинок за спиной
+        (0.00, E_IN_OUT_SINE, P(rYaw=-20, rPitch=-140, rRoll=10, lPitch=-10, lRoll=5, bYaw=5)),
+        (0.12, E_IN_OUT_SINE, P(rYaw=-35, rPitch=-165, rRoll=15, lPitch=-115, lRoll=30,
+                                bYaw=10, bPitch=2, rlPitch=-35, llPitch=10)),
+        (0.24, E_IN_OUT_SINE, P(rYaw=-25, rPitch=-168, rRoll=10, lPitch=-125, lRoll=40,
+                                bYaw=13, bPitch=3, rlPitch=-25, llPitch=20)),
+        (0.36, E_IN_CUBIC,    P(rYaw=-10, rPitch=-120, rRoll=5, lPitch=-55, lRoll=10,
+                                bYaw=4, bPitch=5, rlPitch=10, llPitch=35)),
+        (0.46, E_IN_CUBIC,    P(rYaw=5, rPitch=-80, rRoll=-10, lYaw=14, lPitch=-30, lRoll=-20,
+                                bYaw=-4, bPitch=8, rlPitch=-30, llPitch=60)),
+        (0.58, E_OUT_CUBIC,   P(rYaw=-15, rPitch=-50, rRoll=-15, lYaw=10, lPitch=-40, lRoll=-15,
+                                bYaw=-9, rlPitch=-10, llPitch=45)),
+        (0.72, E_OUT_CUBIC,   P(rYaw=-25, rPitch=-20, rRoll=-5, lPitch=-25, lRoll=-5,
+                                bYaw=-12, llPitch=20)),
+        (0.86, E_OUT_CUBIC,   P(rYaw=-25, rPitch=10, lPitch=-20, bYaw=-9)),
+        (1.00, E_LINEAR,      P(rPitch=35, lPitch=-10, lRoll=12)),
     ],
 ]
 

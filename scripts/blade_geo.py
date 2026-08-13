@@ -26,6 +26,11 @@ BLADE_C = (0.0, 0.819, -0.574)          # направление клинка в
 BLADE_LEN = math.sqrt(sum((a - b) ** 2 for a, b in zip(TIP_ARM, HAND_ARM)))  # ~13.7 px
 SHOULDER = (-5.0, 2.0, 0.0)             # пивот правого плеча в модели (px)
 
+# ---- кубы модели для проверки «рука сквозь тело» ----
+ARM_BOX = (-3.0, -2.0, -2.0, 4.0, 12.0, 4.0)   # локальный куб правой руки
+BODY_BOX = (-4.0, 0.0, -2.0, 8.0, 12.0, 4.0)   # куб торса в системе модели
+CLIP_WEIGHT = 0.35                              # вес штрафа (px^2 -> err)
+
 # Мировое преобразование модели (LivingEntityRenderer.render):
 #   world = Ry(180-bodyYaw) * S(-1,-1,1) * T(0,-1.501,0) * root * point/16
 MODEL_ROOT_OFFSET = 1.501               # высота root модели над ногами (блоки)
@@ -74,6 +79,42 @@ def arm_tip(roll, yaw, pitch, length=BLADE_LEN):
     return (h[0] + d[0] * length, h[1] + d[1] * length, h[2] + d[2] * length)
 
 
+def _transpose(m):
+    return ((m[0][0], m[1][0], m[2][0]),
+            (m[0][1], m[1][1], m[2][1]),
+            (m[0][2], m[1][2], m[2][2]))
+
+
+def arm_penetration(roll, yaw, pitch, body_yaw=0.0, body_pitch=0.0, body_roll=0.0):
+    """Глубина погружения правой руки в торс (px), 0 = рука не в теле.
+
+    Учитывает углы корпуса (по умолчанию 0): куб торса поворачивается
+    вместе с body-углами, куб руки — углами руки. Используется солвером
+    как штраф, чтобы клинок не «резал» собственный торс.
+    """
+    m = rot_zyx(roll, yaw, pitch)
+    mt = _transpose(m)
+    brot = rot_zyx(body_roll, body_yaw, body_pitch)
+    bmt = _transpose(brot)
+    ox, oy, oz, w, h, d = BODY_BOX
+    deepest = 0.0
+    for i in range(8):
+        cx = ARM_BOX[0] + (i % 2) * ARM_BOX[3]
+        cy = ARM_BOX[1] + ((i // 2) % 2) * ARM_BOX[4]
+        cz = ARM_BOX[2] + (i // 4) * ARM_BOX[5]
+        px = m[0][0] * cx + m[0][1] * cy + m[0][2] * cz + SHOULDER[0]
+        py = m[1][0] * cx + m[1][1] * cy + m[1][2] * cz + SHOULDER[1]
+        pz = m[2][0] * cx + m[2][1] * cy + m[2][2] * cz + SHOULDER[2]
+        qx = bmt[0][0] * px + bmt[0][1] * py + bmt[0][2] * pz
+        qy = bmt[1][0] * px + bmt[1][1] * py + bmt[1][2] * pz
+        qz = bmt[2][0] * px + bmt[2][1] * py + bmt[2][2] * pz
+        if ox <= qx <= ox + w and oy <= qy <= oy + h and oz <= qz <= oz + d:
+            dep = min(qx - ox, ox + w - qx, qy - oy, oy + h - qy, qz - oz, oz + d - qz)
+            if dep > deepest:
+                deepest = dep
+    return deepest
+
+
 def world(px_pos, root_yaw=0.0, body_yaw_deg=0.0, feet=(0.0, 0.0, 0.0)):
     """px модели -> мировые блоки относительно ног игрока.
 
@@ -116,10 +157,64 @@ def _reachable_grid(step=2.0):
 
 
 _GRID = None
+_CLIP_GRID = None
+
+
+def _clip_grid(rolls, pitches):
+    """Штрафная сетка (roll, pitch): глубина руки в торсе, yaw=0. Кеш."""
+    global _CLIP_GRID
+    if _CLIP_GRID is not None:
+        return _CLIP_GRID
+    import numpy as np
+    RR, PP = np.meshgrid(rolls, pitches, indexing="ij")
+    cz, sz = np.cos(RR), np.sin(RR)
+    cy, sy = 1.0, 0.0
+    cx, sx = np.cos(PP), np.sin(PP)
+    m00 = cz * cy
+    m01 = cz * sy * sx - sz * cx
+    m02 = cz * sy * cx + sz * sx
+    m10 = sz * cy
+    m11 = sz * sy * sx + cz * cx
+    m12 = sz * sy * cx - cz * sx
+    m20 = -sy
+    m21 = cy * sx
+    m22 = cy * cx
+    M = np.empty(RR.shape + (3, 3))
+    M[..., 0, 0] = m00
+    M[..., 0, 1] = m01
+    M[..., 0, 2] = m02
+    M[..., 1, 0] = m10
+    M[..., 1, 1] = m11
+    M[..., 1, 2] = m12
+    M[..., 2, 0] = m20
+    M[..., 2, 1] = m21
+    M[..., 2, 2] = m22
+    arm = np.asarray([
+        (ARM_BOX[0] + (i % 2) * ARM_BOX[3],
+         ARM_BOX[1] + ((i // 2) % 2) * ARM_BOX[4],
+         ARM_BOX[2] + (i // 4) * ARM_BOX[5]) for i in range(8)
+    ], dtype=float)  # (8, 3)
+    pts = np.einsum("...ij,nj->...ni", M, arm) + np.asarray(SHOULDER)
+    ox, oy, oz, w, h, d = BODY_BOX
+    inside = ((pts[..., 0] >= ox) & (pts[..., 0] <= ox + w)
+              & (pts[..., 1] >= oy) & (pts[..., 1] <= oy + h)
+              & (pts[..., 2] >= oz) & (pts[..., 2] <= oz + d))
+    if not inside.any():
+        _CLIP_GRID = np.zeros((len(rolls), len(pitches)))
+        return _CLIP_GRID
+    dep = np.minimum.reduce([
+        pts[..., 0] - ox, ox + w - pts[..., 0],
+        pts[..., 1] - oy, oy + h - pts[..., 1],
+        pts[..., 2] - oz, oz + d - pts[..., 2],
+    ])
+    dep = np.where(inside, dep, 0.0)
+    pen = dep.max(axis=-1)
+    _CLIP_GRID = CLIP_WEIGHT * pen * pen
+    return _CLIP_GRID
 
 
 def solve_blade(target_dir, prefer_roll=None, yaw_range=(-12, 12), step=2.0,
-                pitch_range=None):
+                pitch_range=None, body_yaw=0.0, body_pitch=0.0, body_roll=0.0):
     """Подобрать (roll, yaw, pitch) правой руки под направление клинка.
 
     target_dir — направление клинка в системе МОДЕЛИ (+X вправо, +Y вниз,
@@ -134,6 +229,9 @@ def solve_blade(target_dir, prefer_roll=None, yaw_range=(-12, 12), step=2.0,
     rolls, pitches, dirs = _GRID
     d = np.asarray(norm(target_dir), dtype=float)
     err = np.sum((dirs - d) ** 2, axis=-1)
+    # Штраф за проход руки сквозь торс: предпочитаем решения, где рука
+    # снаружи тела (см. arm_penetration), даже ценой небольшой ошибки цели.
+    err = err + _clip_grid(rolls, pitches)
     if prefer_roll is not None:
         r_pref = math.radians(prefer_roll)
         dr = np.arctan2(np.sin(rolls - r_pref), np.cos(rolls - r_pref))[:, None]
@@ -146,7 +244,7 @@ def solve_blade(target_dir, prefer_roll=None, yaw_range=(-12, 12), step=2.0,
     p0 = math.degrees(pitches[bj])
     best = (r0, 0.0, p0)
     best_err = err[bi, bj]
-    # полировка с малым шагом и yaw
+    # полировка с малым шагом и yaw (с тем же штрафом)
     y0, y1 = yaw_range
     sub = 0.5
     for roll in _frange(r0 - 2 * step, r0 + 2 * step, sub):
@@ -154,10 +252,12 @@ def solve_blade(target_dir, prefer_roll=None, yaw_range=(-12, 12), step=2.0,
             for yaw in _frange(max(y0, -8), min(y1, 8), 2.0):
                 b = arm_blade_dir(math.radians(roll), math.radians(yaw), math.radians(pitch))
                 e = (b[0] - d[0]) ** 2 + (b[1] - d[1]) ** 2 + (b[2] - d[2]) ** 2
+                pen = arm_penetration(roll, yaw, pitch, body_yaw, body_pitch, body_roll)
+                e += CLIP_WEIGHT * pen * pen
                 if e < best_err:
                     best_err = e
                     best = (roll, yaw, pitch)
-    return best[0], best[1], best[2], math.sqrt(best_err)
+    return best[0], best[1], best[2], math.sqrt(max(0.0, best_err - _clip_grid(rolls, pitches)[bi, bj]))
 
 
 def _frange(a, b, step):
