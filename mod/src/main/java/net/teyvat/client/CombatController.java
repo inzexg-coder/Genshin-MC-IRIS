@@ -417,6 +417,13 @@ public final class CombatController {
         return client.player != null && client.player.getId() == entityId;
     }
 
+    /** Идёт ли сейчас комбо (для миксина предмета: поворот клинка нужен даже
+     *  для кастомных мечей вне тега ItemTags.SWORDS — комбо работает с любым
+     *  предметом в руке). */
+    public static boolean comboActive() {
+        return comboStep >= 0;
+    }
+
     /** Единая точка входа из миксина модели: во время комбо — поза удара,
      *  вне комбо — эпичная ходьба/бег в стиле Origin Animation (широкие махи
      *  рук и ног, наклон и поворот корпуса, лёгкий подскок; в покое —

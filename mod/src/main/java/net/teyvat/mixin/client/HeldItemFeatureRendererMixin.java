@@ -8,9 +8,9 @@ import net.minecraft.client.render.entity.state.ArmedEntityRenderState;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.render.item.ItemRenderState;
 import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.util.Arm;
 import net.teyvat.client.CombatController;
+import net.teyvat.client.FirstPersonBody;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -24,14 +24,16 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * угол к руке 0° вместо ванильных ~6.3°), а плоскость лезвия жила по
  * кейфрейм-кривым BLADE_DEG (замах -> удар -> перехлёст). Работает и в 3-м
  * лице (обычный рендер сущности), и в 1-м (FirstPersonBody рисует собственное
- * тело тем же HeldItemFeatureRenderer). Применяется только к мечу в правой
- * руке локального игрока; левая рука (щит и т.п.) и другие игроки не
- * трогаются.
+ * тело тем же HeldItemFeatureRenderer). Применяется к предмету в правой руке
+ * локального игрока: к мечу — всегда, к любому другому предмету — пока идёт
+ * комбо (удары анимируются независимо от предмета). Левая рука (щит и т.п.)
+ * и другие игроки не трогаются.
  */
 @Mixin(HeldItemFeatureRenderer.class)
 public abstract class HeldItemFeatureRendererMixin {
-    /** true, когда сейчас рендерится меч локального игрока в правой руке —
-     *  к нему применяется доворот лезвия. */
+    /** true, когда сейчас рендерится предмет локального игрока в правой руке
+     *  (меч — всегда, другой предмет — во время комбо) — к нему применяется
+     *  доворот лезвия. */
     private static boolean teyvat$bladeActive;
 
     @Inject(method = "renderItem(Lnet/minecraft/client/render/entity/state/ArmedEntityRenderState;Lnet/minecraft/client/render/item/ItemRenderState;Lnet/minecraft/util/Arm;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;I)V",
@@ -47,13 +49,22 @@ public abstract class HeldItemFeatureRendererMixin {
         if (player == null || client.world == null) {
             return;
         }
-        if (!(entityState instanceof PlayerEntityRenderState playerState) || playerState.id != player.getId()) {
+        if (!(entityState instanceof PlayerEntityRenderState playerState)) {
             return;
         }
-        if (!player.getMainHandStack().isIn(ItemTags.SWORDS)) {
+        boolean selfBody = FirstPersonBody.selfRendering();
+        if (playerState.id != player.getId() && !selfBody) {
             return;
         }
-        teyvat$bladeActive = true;
+        if (player.getMainHandStack().isEmpty()) {
+            return;
+        }
+        // Меч поворачиваем всегда (стойка «клинок по руке»), любой другой
+        // предмет — только во время комбо (вне боя сохраняется ванильный вид).
+        if (player.getMainHandStack().isIn(net.minecraft.registry.tag.ItemTags.SWORDS)
+                || CombatController.comboActive()) {
+            teyvat$bladeActive = true;
+        }
     }
 
     @Redirect(method = "renderItem(Lnet/minecraft/client/render/entity/state/ArmedEntityRenderState;Lnet/minecraft/client/render/item/ItemRenderState;Lnet/minecraft/util/Arm;Lnet/minecraft/client/util/math/MatrixStack;Lnet/minecraft/client/render/command/OrderedRenderCommandQueue;I)V",
