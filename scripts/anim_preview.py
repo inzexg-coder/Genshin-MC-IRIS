@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """ASCII-рендер поз комбо из CombatController.java.
 
-Воспроизводит геометрию ванильной PlayerEntityModel (1.21.10, yarn) и порядок
-поворотов ModelPart.rotate: Matrix3f.rotationZYX(roll, yaw, pitch) — для
-вектора-столбца сначала поворот по X (pitch), затем Y (yaw), затем Z (roll):
-    R = Rz(roll) * Ry(yaw) * Rx(pitch)
+Воспроизводит РЕАЛЬНУЮ геометрию игры: ModelPart применяет
+Quaternionf.rotationZYX(roll, yaw, pitch) к точкам (векторы-столбцы,
+матрица R = Rz(roll)*Ry(yaw)*Rx(pitch)) — см. scripts/blade_geo.py
+(проверено запуском JOML: pitch -90 = рука вперёд, клинок (0,0,-10)).
 
-Точка части: v' = R * v (поворот вокруг пивота), затем + origin.
+Клинок: цепочка HeldItemFeatureRenderer + display handheld даёт в системе
+руки фиксированные кисть и кончик (HAND_ARM/TIP_ARM в blade_geo).
+
 Использование:
-    python3 scripts/anim_preview.py            # все 5 ударов, вид сбоку/спереди
+    python3 scripts/anim_preview.py            # все 5 ударов, вид сбоку
     python3 scripts/anim_preview.py --hit 3    # только удар 3
-    python3 scripts/anim_preview.py --p 0.5    # один кадр всех ударов
+    python3 scripts/anim_preview.py --p 0.5 --view front
 """
 import argparse
 import math
@@ -20,7 +22,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 JAVA = REPO / "mod/src/main/java/net/teyvat/client/CombatController.java"
+sys.path.insert(0, str(REPO / "scripts"))
+import blade_geo as bg
 
+# ---------- геометрия ванильной PlayerEntityModel (1.21.10) ----------
 # ---------- геометрия ванильной PlayerEntityModel (1.21.10) ----------
 # часть: (origin x,y,z, cuboid x,y,z,w,h,d, символ)
 GEOMETRY = [
@@ -48,34 +53,14 @@ PART_CHANNELS = {
 }
 
 
-def rot_z(yaw):
-    c, s = math.cos(yaw), math.sin(yaw)
-    return ((c, -s, 0.0), (s, c, 0.0), (0.0, 0.0, 1.0))
-
-
-def rot_y(roll):
-    # roll — это поворот вокруг Z в MC, но чтобы не путаться, храним
-    # готовые матрицы напрямую
-    raise NotImplementedError
-
-
 def rotation_zyx(roll, yaw, pitch):
-    """Matrix3f.rotationZYX(roll, yaw, pitch) (JOML 1.10.8, проверено по байткоду):
-    R = Rz(roll) * Ry(yaw) * Rx(pitch) — arm pitch -90° = рука горизонтально вперёд."""
-    cz, sz = math.cos(roll), math.sin(roll)
-    cy, sy = math.cos(yaw), math.sin(yaw)
-    cx, sx = math.cos(pitch), math.sin(pitch)
-    return (
-        (cz * cy, sz * cy, -sy),
-        (-sz * cx + cz * sy * sx, cz * cx + sz * sy * sx, cy * sx),
-        (sz * sx + cz * sy * cx, -cz * sx + sz * sy * cx, cy * cx),
-    )
+    """R = Rz(roll)*Ry(yaw)*Rx(pitch) (как Quaternionf.rotationZYX в игре)."""
+    return bg.rot_zyx(roll, yaw, pitch)
 
 
 def mat_mul_vec(m, v):
-    return (m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
-            m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2],
-            m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2])
+    """m * v (вектор-столбец) — как в игре (Matrix4f.transformPosition)."""
+    return bg.mul(m, v)
 
 
 def parse_poses(src):
@@ -184,30 +169,33 @@ def transform_points(pose, root_yaw=0.0):
 
 def hand_point(pose, root_yaw, arm="rightArm"):
     roll, yaw, pitch = part_pose(pose, arm)
-    m = rotation_zyx(roll, yaw, pitch)
-    name, origin, cub, _ = next(g for g in GEOMETRY if g[0] == arm)
-    ox, oy, oz = origin
-    # кисть — нижний конец куба руки
-    tip = mat_mul_vec(m, (0.0, 10.0, 0.0))
-    tip = mat_mul_vec(rotation_zyx(0.0, root_yaw, 0.0),
-                      (tip[0] + ox, tip[1] + oy, tip[2] + oz))
-    return tip
+    if arm == "rightArm":
+        h = bg.arm_hand(roll, yaw, pitch)
+    else:
+        # левая рука: зеркалим по X (пивот (5,2,0), куб зеркальный)
+        m = rotation_zyx(roll, yaw, pitch)
+        v = mat_mul_vec(m, (bg.HAND_ARM[0], bg.HAND_ARM[1], bg.HAND_ARM[2]))
+        h = (-v[0] + 5.0, v[1] + 2.0, v[2])
+    return mat_mul_vec(rotation_zyx(0.0, root_yaw, 0.0), h)
 
 
-def blade_points(pose, root_yaw, arm="rightArm", length=10.0, reverse=False):
-    """Клинок: от кисти вдоль направления руки (локальное +y)."""
+def blade_points(pose, root_yaw, arm="rightArm", length=None, reverse=False):
+    """Клинок: от кисти к кончику (цепочка held-item, blade_geo)."""
     roll, yaw, pitch = part_pose(pose, arm)
-    m = rotation_zyx(roll, yaw, pitch)
-    name, origin, cub, _ = next(g for g in GEOMETRY if g[0] == arm)
-    ox, oy, oz = origin
     hand = hand_point(pose, root_yaw, arm)
-    # направление локальной +y (из плеча в кисть) — направление клинка
-    d = mat_mul_vec(m, (0.0, 1.0, 0.0))
-    d = mat_mul_vec(rotation_zyx(0.0, root_yaw, 0.0), d)
-    sign = -1.0 if reverse else 1.0
-    tip = (hand[0] + d[0] * length * sign,
-           hand[1] + d[1] * length * sign,
-           hand[2] + d[2] * length * sign)
+    m = rotation_zyx(roll, yaw, pitch)
+    if arm == "rightArm":
+        tip = bg.arm_tip(roll, yaw, pitch, length or bg.BLADE_LEN)
+    else:
+        v = mat_mul_vec(m, (bg.TIP_ARM[0], bg.TIP_ARM[1], bg.TIP_ARM[2]))
+        tip = (-v[0] + 5.0, v[1] + 2.0, v[2])
+    if length is not None:
+        d = mat_mul_vec(m, bg.BLADE_C)
+        sign = -1.0 if reverse else 1.0
+        tip = (hand[0] + d[0] * length * sign,
+               hand[1] + d[1] * length * sign,
+               hand[2] + d[2] * length * sign)
+    tip = mat_mul_vec(rotation_zyx(0.0, root_yaw, 0.0), tip)
     return hand, tip
 
 
