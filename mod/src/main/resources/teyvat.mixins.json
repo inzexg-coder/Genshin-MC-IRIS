@@ -19,6 +19,7 @@
     "client.PlayerEntityModelMixin",
     "client.InputMixin",
     "client.HeldItemRendererMixin",
+    "client.HeldItemFeatureRendererMixin",
     "client.MinecraftClientMixin"
   ],
   "injectors": {

@@ -128,6 +128,21 @@ public final class CombatController {
     private static final float READY_BYAW = (float) Math.toRadians(-8f);
     private static final float READY_BPITCH = (float) Math.toRadians(3f);
 
+    /** Поворот клинка в ЛОКАЛЬНОМ пространстве предмета (вокруг оси X лезвия):
+     *  лезвие разворачивается перпендикулярно хвату — удар 1 и 5 — горизонтально
+     *  влево, удар 2 — вниз (апперкот: рука вверх, клинок к земле), удар 3 — по
+     *  диагонали, удар 4 — горизонтально вправо; в покое/стойке — как удар 1.
+     *  Раньше лезвие оставалось в «дефолтном майнкрафте» (вертикально в руке) —
+     *  теперь сам предмет доворачивается (миксин HeldItemFeatureRenderer) и в
+     *  первом, и в третьем лице, а трейл разреза считает ту же цепочку. */
+    private static final float[] BLADE_TARGET_DEG = {-90f, 90f, -30f, 90f, -90f};
+    private static final float IDLE_BLADE_DEG = -90f;
+    /** Доля клипа, за которую клинок доворачивается к цели следующего удара
+     *  (до момента урона ~0.40-0.55 — лезвие уже в нужной ориентации). */
+    private static final float BLADE_TRANSITION = 0.35f;
+    /** Последний угол клинка в бою (для плавного возврата в стойку после комбо). */
+    private static float lastBladeDeg = IDLE_BLADE_DEG;
+
     /** Светящийся разрез-полумесяц: мировые точки траектории клинка за
      *  последние кадры свинга. Точки стареют и тают (SLASH_TRAIL_AGE),
      *  лента рисуется в FirstPersonBody. */
@@ -287,17 +302,26 @@ public final class CombatController {
         double yaw = Math.toRadians(player.getYaw());
         double d = -Math.sin(yaw);
         double e = Math.cos(yaw);
-        // Полумесяцы-разрезы: серия ярких серпов вдоль дуги удара (шире к пятому).
+        // Полумесяцы-разрезы: серпы рисуются ТОЧНО по траектории клинка (та же
+        // цепочка, что у трейла — bladeTipWorld), поэтому дуга визуала удара
+        // совпадает с направлением движения меча (с поворотом лезвия).
         int crescents = 3;
-        float arcSpan = 1.45f + comboStep * 0.12f;
+        float rootYaw = currentRootYawRad();
+        Vec3d slashPos = new Vec3d(player.getX(), player.getY(), player.getZ());
         for (int i = 0; i < crescents; i++) {
-            float t = (float) i / (crescents - 1);
-            double ang = yaw + (t - 0.5f) * arcSpan;
+            float t0 = 0.34f + 0.44f * (float) i / crescents;
+            float t1 = 0.34f + 0.44f * (float) (i + 1) / crescents;
+            Vec3d a = bladeTipWorld(computePose(t0), rootYaw, player.getBodyYaw(), slashPos);
+            Vec3d b = bladeTipWorld(computePose(t1), rootYaw, player.getBodyYaw(), slashPos);
+            Vec3d delta = b.subtract(a);
+            double len = delta.length();
+            if (len < 1.0e-4) {
+                continue;
+            }
+            Vec3d dir = delta.multiply(1.0 / len);
             world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
-                    player.getX() - Math.sin(ang) * 0.9,
-                    player.getY() + 1.05 + comboStep * 0.07,
-                    player.getZ() + Math.cos(ang) * 0.9,
-                    -Math.cos(ang), 0.0, -Math.sin(ang));
+                    a.x, a.y, a.z,
+                    dir.x, dir.y, dir.z);
         }
         // Дуга размаха: плотные штрихи-искры вдоль траектории меча.
         int count = 16;
@@ -613,6 +637,42 @@ public final class CombatController {
         return spinTurn(progress());
     }
 
+    /** Текущий поворот клинка в локальном пространстве предмета (item-local,
+     *  вокруг оси X лезвия). Стыки между ударами сглажены: первые
+     *  BLADE_TRANSITION клипа клинок доворачивается к цели следующего удара;
+     *  после комбо (восстановление/выход) плавно возвращается в стойку. */
+    public static Quaternionf currentBladeRotation() {
+        float deg = IDLE_BLADE_DEG;
+        if (comboStep >= 0) {
+            float prev = comboStep == 0 ? IDLE_BLADE_DEG : BLADE_TARGET_DEG[comboStep - 1];
+            float cur = BLADE_TARGET_DEG[comboStep];
+            float p = progress();
+            float u = ease(E_IN_OUT_SINE, MathHelper.clamp(p / BLADE_TRANSITION, 0f, 1f));
+            deg = MathHelper.lerp(u, prev, cur);
+            if (recoveryTicks > 0) {
+                // Восстановление после удара: клинок возвращается в горизонтальную стойку.
+                float r = 1f - recoveryTicks / (float) RECOVERY_TICKS;
+                deg = MathHelper.lerp(easeOutCubic(r), deg, IDLE_BLADE_DEG);
+            }
+            lastBladeDeg = deg;
+        } else if (exitBlendTicks > 0) {
+            // Выход из комбо: доворот последнего угла удара к стойке.
+            float w = 1f - exitBlendTicks / (float) EXIT_BLEND_TICKS;
+            deg = MathHelper.lerp(w, lastBladeDeg, IDLE_BLADE_DEG);
+        }
+        return new Quaternionf().rotationX((float) Math.toRadians(deg));
+    }
+
+    /** Тот же поворот, но в системе руки после display-трансформации предмета:
+     *  R_frame = D·Q·D⁻¹, где D = display rotation (0,-90,55). Применяется
+     *  миксином HeldItemFeatureRenderer перед рендером предмета — лезвие
+     *  поворачивается в локальных осях меча и в 1-м, и в 3-м лице. */
+    public static Quaternionf currentBladeFrameRotation() {
+        Quaternionf d = new Quaternionf().rotationXYZ(0f, (float) Math.toRadians(-90f), (float) Math.toRadians(55f));
+        Quaternionf dc = new Quaternionf(d).conjugate();
+        return new Quaternionf(d).mul(currentBladeRotation()).mul(dc).normalize();
+    }
+
     /** Клинок блокируется на время удара: клавиши движения не работают,
      *  герой двигается только микро-рывком по направлению атаки. В фазе
      *  восстановления (после удара) движение уже разблокировано — персонаж
@@ -658,6 +718,9 @@ public final class CombatController {
         // rotation (0, -90, 55), scale 0.85.
         m.translate(0f, 4f / 16f, 0.5f / 16f);
         m.rotate(new Quaternionf().rotationXYZ(0f, (float) Math.toRadians(-90f), (float) Math.toRadians(55f)));
+        // Поворот лезвия (item-local, тот же, что накладывает миксин
+        // HeldItemFeatureRenderer): разрез рисуется точно по видимому мечу.
+        m.rotate(currentBladeRotation());
         m.scale(0.85f, 0.85f, 0.85f);
         // Кончик клинка — верх модели меча (локальный +Y предмета).
         Vector3f tip = m.transformPosition(new Vector3f(0f, 1f, 0f), new Vector3f());
