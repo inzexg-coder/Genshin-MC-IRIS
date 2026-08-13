@@ -18,13 +18,15 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * «Переработанная система меча»: лезвие в руке больше не прибито к дефолтной
- * позе майна (вертикально) — предмет доворачивается в локальных осях клинка
- * (CombatController.currentBladeFrameRotation), чтобы на ударах лезвие было
- * горизонтальным / вниз / по диагонали. Работает и в 3-м лице (обычный рендер
- * сущности), и в 1-м (FirstPersonBody рисует собственное тело тем же
- * HeldItemFeatureRenderer). Применяется только к мечу в правой руке локального
- * игрока; левая рука (щит и т.п.) и другие игроки не трогаются.
+ * «Система меча»: предмет доворачивается в локальных осях клинка
+ * (CombatController.currentBladeFrameRotation), чтобы лезвие было направлено
+ * ТОЧНО по предплечью — «продолжение руки» (грип-корректировка BLADE_GRIP_C,
+ * угол к руке 0° вместо ванильных ~6.3°), а плоскость лезвия жила по
+ * кейфрейм-кривым BLADE_DEG (замах -> удар -> перехлёст). Работает и в 3-м
+ * лице (обычный рендер сущности), и в 1-м (FirstPersonBody рисует собственное
+ * тело тем же HeldItemFeatureRenderer). Применяется только к мечу в правой
+ * руке локального игрока; левая рука (щит и т.п.) и другие игроки не
+ * трогаются.
  */
 @Mixin(HeldItemFeatureRenderer.class)
 public abstract class HeldItemFeatureRendererMixin {

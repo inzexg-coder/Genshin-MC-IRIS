@@ -128,28 +128,36 @@ public final class CombatController {
     private static final float READY_BYAW = (float) Math.toRadians(-8f);
     private static final float READY_BPITCH = (float) Math.toRadians(3f);
 
-    /** Поворот клинка в ЛОКАЛЬНОМ пространстве предмета (вокруг оси X лезвия) —
-     *  «физика меча»: лезвие больше не прибито к одной цели на весь удар.
-     *  Ключевые кадры BLADE_DEG (t, угол): в замахе лезвие ОТСТАЁТ от руки
-     *  (trail), к моменту урона (~0.40-0.45) встаёт в боевую ориентацию
-     *  (удар 1/4/5 — горизонтально, удар 2 — вниз на апперкоте, удар 3 — по
-     *  диагонали), на хвосте ПЕРЕХЛЁСТЫВАЕТ (whip — инерция клинка) и мягко
-     *  возвращается к финалу удара. Стыки между ударами совпадают (конец
-     *  удара N = начало N+1); после комбо клинок плавно уходит в стойку.
-     *  Работает и в 1-м, и в 3-м лице (миксин HeldItemFeatureRenderer),
-     *  трейл разреза и серпы SWEEP_ATTACK считают ту же цепочку. */
+    /** Поворот лезвия в ЛОКАЛЬНОМ пространстве предмета (вокруг оси Y — оси
+     *  клинка): разворачивается ТОЛЬКО плоскость лезвия (как кисть в запястье),
+     *  направление клинка при этом НЕ меняется — лезвие всегда идёт по руке
+     *  (см. BLADE_GRIP_C). «Физика меча»: в замахе лезвие слегка отстаёт от
+     *  руки (trail), к моменту урона (~0.40-0.45) плоскость выравнивается,
+     *  на хвосте перехлёстывает (whip) и мягко возвращается к финалу удара.
+     *  Стыки между ударами совпадают (конец удара N = начало N+1); после
+     *  комбо лезвие плавно уходит в нейтраль. Работает и в 1-м, и в 3-м лице
+     *  (миксин HeldItemFeatureRenderer), трейл разреза и серпы SWEEP_ATTACK
+     *  считают ту же цепочку. */
     private static final float[][] BLADE_DEG = {
-            {-90f, -115f, -90f, -62f, -88f, -90f},   // hit1: горизонтально
-            {-90f, -65f, 90f, 115f, 92f, 90f},       // hit2: вниз (апперкот)
-            {90f, 55f, -30f, -5f, -26f, -30f},       // hit3: диагональ
-            {-30f, -10f, 90f, 118f, 92f, 90f},       // hit4: горизонтально (зеркально)
-            {90f, 62f, -90f, -58f, -88f, -90f},      // hit5: горизонтально + занос
+            {0f, -24f, 0f, 20f, -6f, 0f},     // hit1: плоскость ровно на ударе
+            {0f, 12f, 38f, 26f, 14f, 8f},     // hit2: апперкот — лёгкий разворот
+            {0f, -18f, -38f, -16f, -4f, 0f},  // hit3: рубящий по диагонали
+            {0f, 24f, 0f, -20f, 6f, 0f},      // hit4: зеркало hit1
+            {0f, -30f, 0f, 26f, 8f, 0f},      // hit5: мощный свинг — ведущее ребро
     };
     /** Моменты кадров BLADE_DEG (доли клипа). */
     private static final float[] BLADE_T = {0f, 0.12f, 0.42f, 0.60f, 0.82f, 1f};
-    private static final float IDLE_BLADE_DEG = -90f;
-    /** Последний угол клинка в бою (для плавного возврата в стойку после комбо). */
+    private static final float IDLE_BLADE_DEG = 0f;
+    /** Последний угол лезвия в бою (для плавного возврата в нейтраль после комбо). */
     private static float lastBladeDeg = IDLE_BLADE_DEG;
+
+    /** Грип-корректировка: доворот клинка в системе руки (вокруг точки хвата),
+     *  чтобы лезвие было направлено ТОЧНО по предплечью — «продолжение руки».
+     *  Без неё ванильная цепочка (HeldItemFeatureRenderer + display handheld)
+     *  даёт угол ~6.3° к руке; с ней угол 0° при любой позе. Числа посчитаны в
+     *  scripts/blade_geo.py (JOML-проверка) и совпадают с цепочкой трейла. */
+    private static final Quaternionf BLADE_GRIP_C = new Quaternionf()
+            .rotationAxis((float) 0.110403206, -0.870344308f, 0f, 0.492443688f);
 
     /** Светящийся разрез-полумесяц: мировые точки траектории клинка за
      *  последние кадры свинга. Точки стареют и тают (SLASH_TRAIL_AGE),
@@ -645,27 +653,27 @@ public final class CombatController {
         return spinTurn(progress());
     }
 
-    /** Текущий поворот клинка в локальном пространстве предмета (item-local,
-     *  вокруг оси X лезвия). Угол берётся из кейфрейм-кривых BLADE_DEG —
-     *  лезвие отстаёт в замахе, встаёт в боевую ориентацию к моменту урона
-     *  и перехлёстывает на хвосте; после комбо (восстановление/выход)
-     *  плавно возвращается в горизонтальную стойку. */
+    /** Текущий поворот лезвия в локальном пространстве предмета (item-local,
+     *  вокруг оси Y — оси клинка; направление клинка не меняется). Угол
+     *  берётся из кейфрейм-кривых BLADE_DEG — лезвие слегка отстаёт в замахе,
+     *  выравнивается к моменту урона и перехлёстывает на хвосте; после комбо
+     *  (восстановление/выход) плавно возвращается в нейтраль. */
     public static Quaternionf currentBladeRotation() {
         float deg = IDLE_BLADE_DEG;
         if (comboStep >= 0) {
             deg = sampleBladeDeg(comboStep, progress());
             if (recoveryTicks > 0) {
-                // Восстановление после удара: клинок возвращается в горизонтальную стойку.
+                // Восстановление после удара: лезвие возвращается в нейтраль.
                 float r = 1f - recoveryTicks / (float) RECOVERY_TICKS;
                 deg = MathHelper.lerp(easeOutCubic(r), deg, IDLE_BLADE_DEG);
             }
             lastBladeDeg = deg;
         } else if (exitBlendTicks > 0) {
-            // Выход из комбо: доворот последнего угла удара к стойке.
+            // Выход из комбо: доворот последнего угла лезвия к нейтрали.
             float w = 1f - exitBlendTicks / (float) EXIT_BLEND_TICKS;
             deg = MathHelper.lerp(w, lastBladeDeg, IDLE_BLADE_DEG);
         }
-        return new Quaternionf().rotationX((float) Math.toRadians(deg));
+        return new Quaternionf().rotationY((float) Math.toRadians(deg));
     }
 
     /** Сэмплировать угол клинка удара (линейно между ключевыми кадрами —
@@ -687,13 +695,14 @@ public final class CombatController {
     }
 
     /** Тот же поворот, но в системе руки после display-трансформации предмета:
-     *  R_frame = D·Q·D⁻¹, где D = display rotation (0,-90,55). Применяется
-     *  миксином HeldItemFeatureRenderer перед рендером предмета — лезвие
-     *  поворачивается в локальных осях меча и в 1-м, и в 3-м лице. */
+     *  R_frame = D·C·Q·D⁻¹, где D = display rotation (0,-90,55), C =
+     *  BLADE_GRIP_C (клинок точно по предплечью), Q = поворот плоскости лезвия.
+     *  Применяется миксином HeldItemFeatureRenderer перед рендером предмета —
+     *  лезвие доворачивается в локальных осях меча и в 1-м, и в 3-м лице. */
     public static Quaternionf currentBladeFrameRotation() {
         Quaternionf d = new Quaternionf().rotationXYZ(0f, (float) Math.toRadians(-90f), (float) Math.toRadians(55f));
         Quaternionf dc = new Quaternionf(d).conjugate();
-        return new Quaternionf(d).mul(currentBladeRotation()).mul(dc).normalize();
+        return new Quaternionf(d).mul(BLADE_GRIP_C).mul(currentBladeRotation()).mul(dc).normalize();
     }
 
     /** Клинок блокируется на время удара: клавиши движения не работают,
@@ -741,8 +750,10 @@ public final class CombatController {
         // rotation (0, -90, 55), scale 0.85.
         m.translate(0f, 4f / 16f, 0.5f / 16f);
         m.rotate(new Quaternionf().rotationXYZ(0f, (float) Math.toRadians(-90f), (float) Math.toRadians(55f)));
-        // Поворот лезвия (item-local, тот же, что накладывает миксин
-        // HeldItemFeatureRenderer): разрез рисуется точно по видимому мечу.
+        // Грип-корректировка и поворот плоскости лезвия (item-local, те же,
+        // что накладывает миксин HeldItemFeatureRenderer): разрез рисуется
+        // точно по видимому мечу — клинок идёт по предплечью.
+        m.rotate(BLADE_GRIP_C);
         m.rotate(currentBladeRotation());
         m.scale(0.85f, 0.85f, 0.85f);
         // Кончик клинка — верх модели меча (локальный +Y предмета).
