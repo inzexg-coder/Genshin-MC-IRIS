@@ -41,8 +41,10 @@ import java.util.Deque;
  * (t=0 = финал предыдущего удара); разворот на 360° делает root ванильной
  * модели (getRootPart().yaw): торс, голова, руки и клинок поворачиваются
  * как единое целое. Полный круг ≈ 3.5 с, серия идёт по КЛИКАМ (удержание
- * ЛКМ НЕ цепляет следующий удар), клик в окне ~2.5 с после удара
- * продолжает комбо со следующего удара (после пятого — снова первый). Клинок вырисовывает разрез: во время свинга
+ * ЛКМ НЕ цепляет следующий удар): пока с последнего клика прошло ≤ ~1 с,
+ * комбо продолжается со следующего удара (после пятого — снова первый);
+ * пауза дольше секунды сбрасывает серию (следующий клик — первый удар).
+ * Клинок вырисовывает разрез: во время свинга
  * рисуется светящаяся дуга-полумесяц (трейл по траектории клинка +
  * усиленные частицы). Между анимациями — плавные переходы (первые 12%
  * каждого удара смешиваются с предыдущей позой через prevAppliedPose).
@@ -59,11 +61,13 @@ public final class CombatController {
     private static int comboStep = -1;
     /** Тики с начала текущего удара. */
     private static int hitTicks;
-    /** Тики с конца последнего удара (окно продолжения серии, как в Genshin). */
-    private static int idleTicks;
-    /** Последний сыгранный удар (для продолжения серии после короткой паузы). */
+    /** Счётчик клиентских тиков (для окна комбо от последнего клика). */
+    private static int tickCount;
+    /** Тик последнего обработанного клика ЛКМ (-1 = кликов ещё не было). */
+    private static int lastClickTick = -1;
+    /** Последний сыгранный удар (для продолжения серии в окне от последнего клика). */
     private static int lastStep = -1;
-    /** Клик (или удержание) уже зацепил следующий удар: серия не обрывается. */
+    /** Клик уже зацепил следующий удар: серия не обрывается. */
     private static boolean bufferedNext;
     /** Урон по текущему удару отправлен серверу (один раз за удар). */
     private static boolean sentHit;
@@ -101,6 +105,7 @@ public final class CombatController {
         if (client.player == null || client.world == null || client.isPaused()) {
             return;
         }
+        tickCount++;
         if (comboStep >= 0 && !client.player.isOnGround()) {
             // В воздухе удары не работают (как в Genshin): прыжок прерывает комбо,
             // следующий клик на земле начнёт серию заново.
@@ -110,7 +115,7 @@ public final class CombatController {
             bufferedNext = false;
             sentHit = false;
             lastStep = -1;
-            idleTicks = 0;
+            lastClickTick = -1;
         }
         if (comboStep >= 0) {
             if (recoveryTicks > 0) {
@@ -119,7 +124,6 @@ public final class CombatController {
                 recoveryTicks--;
                 if (recoveryTicks == 0) {
                     comboStep = -1;
-                    idleTicks = 0;
                 }
             } else {
                 hitTicks++;
@@ -148,8 +152,11 @@ public final class CombatController {
                     }
                 }
             }
-        } else if (idleTicks <= SwordCombo.RESET_TICKS) {
-            idleTicks++;
+        } else if (lastStep >= 0 && tickCount - lastClickTick > SwordCombo.RESET_TICKS) {
+            // С последнего клика прошло больше ~1 с: серия сброшена,
+            // следующий клик начнёт комбо с первого удара.
+            lastStep = -1;
+            lastClickTick = -1;
         }
         // Отдача затухает сама: пульс виден пару кадров, затем камера успокаивается.
         impactKick *= 0.84f;
@@ -165,11 +172,14 @@ public final class CombatController {
             // В воздухе обычные атаки не работают (только приземление), клик съедается.
             return true;
         }
+        // Окно комбо — от последнего клика: пока прошло ≤ ~1 с, серия
+        // продолжается со следующего удара (после пятого — снова первый);
+        // пауза дольше секунды сбрасывает комбо (клик начнёт с первого удара).
+        boolean windowOpen = lastClickTick < 0
+                || tickCount - lastClickTick <= SwordCombo.RESET_TICKS;
+        lastClickTick = tickCount;
         if (comboStep < 0) {
-            // Короткая пауза после удара не обрывает серию: клик в окне
-            // (включая первый тик после восстановления) продолжает комбо со
-            // следующего удара; после пятого серия зацикливается на первый.
-            if (idleTicks <= SwordCombo.RESET_TICKS && lastStep >= 0) {
+            if (windowOpen && lastStep >= 0) {
                 comboStep = (lastStep + 1) % SwordCombo.HIT_COUNT;
             } else {
                 comboStep = 0;
@@ -178,13 +188,18 @@ public final class CombatController {
             bufferedNext = false;
             sentHit = false;
         } else if (recoveryTicks > 0) {
-            // Клик в фазе восстановления: сразу начинаем следующий удар серии.
+            // Клик в фазе восстановления: продолжаем серию, если окно открыто.
             recoveryTicks = 0;
-            comboStep = (comboStep + 1) % SwordCombo.HIT_COUNT;
+            if (windowOpen) {
+                comboStep = (comboStep + 1) % SwordCombo.HIT_COUNT;
+            } else {
+                comboStep = 0;
+            }
             hitTicks = 0;
             bufferedNext = false;
             sentHit = false;
         } else {
+            // Клик во время удара: следующий удар цепляется сразу после его конца.
             bufferedNext = true;
         }
         return true;
