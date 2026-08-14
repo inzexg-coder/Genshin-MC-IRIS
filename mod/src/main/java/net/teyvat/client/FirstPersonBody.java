@@ -58,15 +58,17 @@ public final class FirstPersonBody {
         MatrixStack matrices = ctx.matrices();
 
         // Собственное тело: рендерим модель игрока в его позиции (как сущность),
-        // голова скрывается миксином. Позиция относительно камеры, как в
-        // WorldRenderer.pushEntityRenders.
+        // голова скрывается миксином. Позиция ОБЯЗАТЕЛЬНО интерполированная
+        // (getLerpedPos), как у камеры: иначе на высоком FPS тело «шагает» по
+        // 20 тикам в секунду и дёргается относительно плавной камеры.
         EntityRenderManager erm = client.getEntityRenderDispatcher();
         EntityRenderState state = erm.getAndUpdateRenderState(player, tickDelta);
+        Vec3d bodyPos = player.getLerpedPos(tickDelta);
         Vec3d camPos = camera.pos;
         selfRendering = true;
         try {
             erm.render(state, camera,
-                    player.getX() - camPos.x, player.getY() - camPos.y, player.getZ() - camPos.z,
+                    bodyPos.x - camPos.x, bodyPos.y - camPos.y, bodyPos.z - camPos.z,
                     matrices, ctx.commandQueue());
         } finally {
             selfRendering = false;

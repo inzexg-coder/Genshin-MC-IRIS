@@ -4,11 +4,13 @@ import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
+import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
@@ -18,6 +20,8 @@ import net.minecraft.entity.passive.FishEntity;
 import net.minecraft.entity.passive.PassiveEntity;
 import net.minecraft.entity.passive.SquidEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.Items;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
@@ -85,6 +89,14 @@ public class TeyvatMod implements ModInitializer {
         return entity instanceof PassiveEntity
                 || entity instanceof FishEntity
                 || entity instanceof SquidEntity;
+    }
+
+    /** Деревянный меч героя всегда в первом слоте (как в Genshin — меч при себе).
+     *  Кладём только если слот пуст, чтобы не перезаписывать вещи игрока. */
+    private static void ensureStarterSword(ServerPlayerEntity player) {
+        if (player.getInventory().getStack(0).isEmpty()) {
+            player.getInventory().setStack(0, new ItemStack(Items.WOODEN_SWORD));
+        }
     }
 
     @Override
@@ -261,14 +273,22 @@ public class TeyvatMod implements ModInitializer {
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
             ServerPlayerEntity player = handler.getPlayer();
+            ensureStarterSword(player);
             // Здоровье героя как в Genshin: 912 HP (атрибут сохраняется между смертями).
             var healthAttr = player.getAttributeInstance(EntityAttributes.MAX_HEALTH);
             if (healthAttr != null) {
                 healthAttr.setBaseValue(TeyvatConfig.get().health.max_health);
             }
             player.setHealth(player.getMaxHealth());
+            String version = "?";
+            try {
+                version = FabricLoader.getInstance().getModContainer(MOD_ID)
+                        .map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("?");
+            } catch (Exception ignored) {
+                // версия в сообщении — для удобства, ошибка не должна ломать вход
+            }
             player.sendMessage(Text.literal(
-                    "§b[Teyvat] §fМод загружен. Блоки: вкладка §e«Блоки Тейвата»§f в креативе."), false);
+                    "§b[Teyvat] §fМод загружен §7(v" + version + ")§f. Блоки: вкладка §e«Блоки Тейвата»§f в креативе."), false);
 
             String existing = null;
             for (String tag : player.getCommandTags()) {
@@ -324,6 +344,9 @@ public class TeyvatMod implements ModInitializer {
 
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) ->
                 TeyvatSpawn.welcome(handler.getPlayer(), server));
+
+        // После смерти/респавна меч снова оказывается в первом слоте.
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> ensureStarterSword(newPlayer));
 
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             TRAVELER_CHOICES.remove(handler.getPlayer().getUuid());
