@@ -98,7 +98,9 @@ public final class StaminaController {
         }
 
         // Рывок только на земле: в воздухе (как в Genshin) рывка нет.
-        if (freshPress && !dashing && player.isOnGround() && stamina >= DASH_COST) {
+        // Во время заряженного спина (1 сек) рывок тоже запрещён.
+        if (freshPress && !dashing && player.isOnGround() && stamina >= DASH_COST
+                && !CombatController.isChargedAttackActive()) {
             // Dash-cancel: рывок прерывает анимацию атаки (как в Genshin),
             // серия комбо сохраняется — следующий клик продолжит цепочку.
             CombatController.tryCancelByDash();

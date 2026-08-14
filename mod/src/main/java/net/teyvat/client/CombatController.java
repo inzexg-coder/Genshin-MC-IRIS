@@ -271,34 +271,29 @@ public final class CombatController {
             if (comboStep == SwordCombo.CHARGE_INDEX) {
                 // Заряженный спин: клинок ведёт орбиту вокруг тела, урон
                 // на тике DAMAGE_TICKS по полному кругу (сервер, «орбиты
-                // атомов»). После спина серия сброшена.
-                if (recoveryTicks > 0) {
-                    recoveryTicks--;
-                    if (recoveryTicks == 0) {
-                        comboStep = -1;
-                        exitBlendTicks = EXIT_BLEND_TICKS;
-                    }
-                } else {
-                    hitTicks++;
-                    if (hitTicks == 1) {
-                        applyStep(client.player);
-                    }
-                    // Вихрь: серпы и граница шара — «удары лезвием в секунду».
-                    spawnWhirlwindEffects(client, client.player);
-                    if (hitTicks == SwordCombo.DAMAGE_TICKS[SwordCombo.CHARGE_INDEX] && !sentHit) {
-                        sentHit = true;
-                        sendHit(SwordCombo.CHARGE_INDEX, chargeLevel);
-                        CinematicShots.onDamageTick();
-                        spawnSlashEffects(client, client.player);
-                        applyLunge(client.player);
-                    }
-                    if (hitTicks >= SwordCombo.DURATION_TICKS[SwordCombo.CHARGE_INDEX]) {
-                        lastStep = -1;
-                        lastClickTick = -1;
-                        recoveryTicks = RECOVERY_TICKS;
-                        sentHit = false;
-                        bufferedNext = false;
-                    }
+                // атомов»). Длится ровно 1 секунду (DURATION_TICKS[5] = 20),
+                // в течение которой любые действия запрещены; после — серия
+                // сброшена и плавный выход.
+                hitTicks++;
+                if (hitTicks == 1) {
+                    applyStep(client.player);
+                }
+                // Вихрь: серпы и граница шара — «удары лезвием в секунду».
+                spawnWhirlwindEffects(client, client.player);
+                if (hitTicks == SwordCombo.DAMAGE_TICKS[SwordCombo.CHARGE_INDEX] && !sentHit) {
+                    sentHit = true;
+                    sendHit(SwordCombo.CHARGE_INDEX, chargeLevel);
+                    CinematicShots.onDamageTick();
+                    spawnSlashEffects(client, client.player);
+                    applyLunge(client.player);
+                }
+                if (hitTicks >= SwordCombo.DURATION_TICKS[SwordCombo.CHARGE_INDEX]) {
+                    lastStep = -1;
+                    lastClickTick = -1;
+                    sentHit = false;
+                    bufferedNext = false;
+                    comboStep = -1;
+                    exitBlendTicks = EXIT_BLEND_TICKS;
                 }
                 impactKick *= 0.84f;
                 return;
@@ -398,6 +393,10 @@ public final class CombatController {
     public static boolean onAttackClick() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.world == null || client.isPaused()) {
+            return false;
+        }
+        if (isChargedAttackActive()) {
+            // Спин заряженной атаки: клики глотаются — ни удар, ни буфер, ни заряд.
             return false;
         }
         if (!client.player.isOnGround()) {
@@ -569,43 +568,54 @@ public final class CombatController {
         }
     }
 
-    /** Вихрь заряженного спина: серпы-удары по всей сфере вокруг героя и
-     *  полупрозрачная «граница шара» из искр — десятки ударов лезвием
-     *  в секунду. Радиус зависит от уровня заряда. */
+    /** Вихрь заряженного спина: компактный ПЛОТНЫЙ шар «ударов лезвием»
+     *  вокруг героя — меньший радиус, но десятки серпов и искр на каждый
+     *  кадр (граница шара + концентрические слои). Радиус зависит от
+     *  уровня заряда, но всегда заметно меньше исходной сферы. */
     private static void spawnWhirlwindEffects(MinecraftClient client, ClientPlayerEntity player) {
         if (client.world == null) {
             return;
         }
         float level = chargeLevel;
-        double r = 3.0 + 2.6 * level;
-        // Серпы-удары: лезвия режут сферу по касательной на разной высоте.
-        for (int i = 0; i < 5; i++) {
-            double a = client.world.random.nextDouble() * Math.PI * 2.0;
-            double h = 0.5 + client.world.random.nextDouble() * 1.7;
-            client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
-                    player.getX() + Math.cos(a) * r,
-                    player.getY() + h,
-                    player.getZ() + Math.sin(a) * r,
-                    Math.cos(a + Math.PI / 2.0), 0, Math.sin(a + Math.PI / 2.0));
+        double r = 1.6 + 0.8 * level;
+        // Серпы-удары: лезвия режут сферу по касательной — плотная «стена»
+        // ударов вокруг тела, несколько концентрических слоёв.
+        for (int layer = 0; layer < 3; layer++) {
+            double lr = r * (layer == 0 ? 1.0 : layer == 1 ? 0.72 : 0.45);
+            int sweeps = layer == 0 ? 14 : 10;
+            for (int i = 0; i < sweeps; i++) {
+                double a = client.world.random.nextDouble() * Math.PI * 2.0;
+                double h = -0.4 + client.world.random.nextDouble() * 2.6;
+                client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
+                        player.getX() + Math.cos(a) * lr,
+                        player.getY() + h,
+                        player.getZ() + Math.sin(a) * lr,
+                        Math.cos(a + Math.PI / 2.0), 0, Math.sin(a + Math.PI / 2.0));
+            }
         }
         // Полупрозрачная граница шара: плотный слой искр на сфере.
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 48; i++) {
             double theta = client.world.random.nextDouble() * Math.PI * 2.0;
             double phi = Math.acos(2.0 * client.world.random.nextDouble() - 1.0);
             client.world.addParticleClient(ParticleTypes.CRIT,
                     player.getX() + r * Math.sin(phi) * Math.cos(theta),
-                    player.getY() + 1.0 + r * Math.cos(phi) * 0.55,
+                    player.getY() + 1.0 + r * Math.cos(phi) * 0.75,
                     player.getZ() + r * Math.sin(phi) * Math.sin(theta),
                     0, 0, 0);
         }
-        // Кольцо по земле.
-        for (int i = 0; i < 5; i++) {
-            double a = client.world.random.nextDouble() * Math.PI * 2.0;
+        // Кольца по земле: две орбиты искр (внешняя и внутренняя).
+        for (int i = 0; i < 24; i++) {
+            double a = i / 24.0 * Math.PI * 2.0;
             client.world.addParticleClient(ParticleTypes.END_ROD,
                     player.getX() + Math.cos(a) * r,
                     player.getY() + 0.1,
                     player.getZ() + Math.sin(a) * r,
-                    Math.cos(a) * 0.4, 0.3, Math.sin(a) * 0.4);
+                    Math.cos(a) * 0.5, 0.4, Math.sin(a) * 0.5);
+            client.world.addParticleClient(ParticleTypes.END_ROD,
+                    player.getX() + Math.cos(a + 0.4) * r * 0.6,
+                    player.getY() + 0.35,
+                    player.getZ() + Math.sin(a + 0.4) * r * 0.6,
+                    Math.cos(a + 0.4) * 0.35, 0.5, Math.sin(a + 0.4) * 0.35);
         }
     }
 
@@ -700,14 +710,24 @@ public final class CombatController {
         // цепочка, что у трейла — bladeTipWorld), поэтому дуга визуала удара
         // совпадает с направлением движения меча (с поворотом лезвия).
         boolean charged = comboStep == SwordCombo.CHARGE_INDEX;
-        int crescents = charged ? 6 : 3;
+        // У обычных ударов — ОДИН длинный серп на весь свинг (замах + удар +
+        // широкое сопровождение): одна сплошная дуга по траектории клинка.
+        // У заряженного спина — много серпов по орбите (стена лезвий).
+        int crescents = charged ? 6 : 1;
         float rootYaw = currentRootYawRad();
         Vec3d slashPos = new Vec3d(player.getX(), player.getY(), player.getZ());
         // Серп идёт по новой траектории: сжатый замах + удар (0.04) и
         // широкое сопровождение (до 0.55) — дуга совпадает с мечом.
         for (int i = 0; i < crescents; i++) {
-            float t0 = 0.04f + 0.51f * (float) i / crescents;
-            float t1 = 0.04f + 0.51f * (float) (i + 1) / crescents;
+            float t0;
+            float t1;
+            if (charged) {
+                t0 = 0.04f + 0.51f * (float) i / crescents;
+                t1 = 0.04f + 0.51f * (float) (i + 1) / crescents;
+            } else {
+                t0 = 0.05f;
+                t1 = 0.55f;
+            }
             Vec3d a = bladeTipWorld(computePose(t0), rootYaw, player.getBodyYaw(), slashPos);
             Vec3d b = bladeTipWorld(computePose(t1), rootYaw, player.getBodyYaw(), slashPos);
             Vec3d delta = b.subtract(a);
@@ -723,7 +743,7 @@ public final class CombatController {
         // Дуга размаха: плотные штрихи-искры вдоль траектории меча.
         // У заряженного спина — полный круг (орбита вокруг тела).
         int count = 16;
-        double radius = 2.4;
+        double radius = charged ? 1.9 : 2.4;
         double height = 1.0 + comboStep * 0.09;
         float span = charged ? 6.2f : 1.55f + comboStep * 0.12f;
         for (int i = 0; i < count; i++) {
@@ -740,14 +760,15 @@ public final class CombatController {
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 0.5f, 1.0f,
                 world.random.nextLong());
-        // Кольцо «орбит» заряженного спина: искры по кругу вокруг героя.
+        // Кольцо «орбит» заряженного спина: искры по кругу вокруг героя
+        // (радиус под компактную плотную сферу вихря).
         if (charged) {
             for (int i = 0; i < 24; i++) {
                 double a = i / 24.0 * Math.PI * 2.0;
                 world.addParticleClient(ParticleTypes.END_ROD,
-                        player.getX() + Math.cos(a) * 3.0,
+                        player.getX() + Math.cos(a) * 2.2,
                         player.getY() + 0.2,
-                        player.getZ() + Math.sin(a) * 3.0,
+                        player.getZ() + Math.sin(a) * 2.2,
                         Math.cos(a) * 1.2, 0.1, Math.sin(a) * 1.2);
             }
         }
@@ -831,14 +852,28 @@ public final class CombatController {
         return comboStep >= 0 || finalCooldownTicks > 0;
     }
 
+    /** Заряженный спин идёт прямо сейчас (1 секунда, DURATION_TICKS[5]): в это
+     *  время запрещены любые действия — удары, рывок, прыжок, движение. */
+    public static boolean isChargedAttackActive() {
+        return comboStep == SwordCombo.CHARGE_INDEX;
+    }
+
     /** Dash-cancel: рывок прерывает анимацию атаки, как в Genshin. Серия
-     *  комбо при этом сохраняется (lastStep) — следующий клик продолжит цепочку. */
+     *  комбо при этом сохраняется (lastStep) — следующий клик продолжит цепочку.
+     *  Заряженный спин рывком не прерывается (блок на всю секунду). */
     public static boolean tryCancelByDash() {
+        if (isChargedAttackActive()) {
+            return false;
+        }
         return cancelAttack();
     }
 
-    /** Jump-cancel: прыжок прерывает атаку (как в Genshin). */
+    /** Jump-cancel: прыжок прерывает атаку (как в Genshin). Заряженный спин
+     *  прыжком не прерывается — герой «заперт» на секунду спина. */
     public static boolean tryCancelByJump() {
+        if (isChargedAttackActive()) {
+            return false;
+        }
         return cancelAttack();
     }
 
