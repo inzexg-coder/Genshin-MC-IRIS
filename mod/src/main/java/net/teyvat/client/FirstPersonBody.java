@@ -48,6 +48,9 @@ public final class FirstPersonBody {
 
     public static void render(WorldRenderContext ctx) {
         MinecraftClient client = MinecraftClient.getInstance();
+        // Серпы-дуги ударов: рендерим в любом ракурсе (1-е и 3-е лицо) —
+        // ванильный SWEEP_ATTACK-билборд заменён на 3D-дуги.
+        renderCrescents(ctx, client);
         if (!active()) {
             CombatController.clearSlashTrail();
             return;
@@ -89,6 +92,57 @@ public final class FirstPersonBody {
 
     private static void sampleTrail(ClientPlayerEntity player, float tickDelta) {
         CombatController.sampleCurrentSlashTrail(player.getBodyYaw(), player.getLerpedPos(tickDelta));
+    }
+
+    /** Серпы-дуги в 3D: лента-свет по дуге окружности в плоскости (dir, up).
+     *  Ориентация полностью 3D (в отличие от ванильного SWEEP_ATTACK,
+     *  который всегда «лежит» горизонтально) — серпы наклоняются по
+     *  направлению удара и оборачивают героя плотным шаром хитов. */
+    private static void renderCrescents(WorldRenderContext ctx, MinecraftClient client) {
+        // Возраст серпов наращивает CombatController.tick (по тикам, а не по
+        // кадрам), здесь только рисуем активные.
+        Deque<CombatController.Crescent> crescents = CombatController.crescents();
+        if (crescents.isEmpty()) {
+            return;
+        }
+        RenderLayer layer = RenderLayer.getEntityTranslucentEmissive(TRAIL_GLOW);
+        CameraRenderState camera = client.gameRenderer.getEntityRenderStates().cameraRenderState;
+        ctx.commandQueue().submitCustom(ctx.matrices(), layer, (entry, consumer) -> {
+            Vec3d cam = camera.pos;
+            for (CombatController.Crescent c : crescents) {
+                float t = c.age / (float) c.maxAge;
+                float alpha = (1f - t) * 0.85f;
+                float w = 0.04f + 0.07f * (1f - t);
+                int steps = 8;
+                for (int i = 0; i < steps; i++) {
+                    float k0 = c.start + c.span * (float) i / steps;
+                    float k1 = c.start + c.span * (float) (i + 1) / steps;
+                    Vec3d p0 = arcPoint(c, k0);
+                    Vec3d p1 = arcPoint(c, k1);
+                    Vec3d seg = p1.subtract(p0);
+                    double slen = seg.length();
+                    if (slen < 1.0e-5) {
+                        continue;
+                    }
+                    Vec3d sdir = seg.multiply(1.0 / slen);
+                    Vec3d right = sdir.crossProduct(cam.subtract(p0));
+                    if (right.lengthSquared() < 1.0e-6) {
+                        right = new Vec3d(0.0, 1.0, 0.0);
+                    } else {
+                        right = right.normalize();
+                    }
+                    float u0 = (float) i / steps;
+                    float u1 = (float) (i + 1) / steps;
+                    ribbonQuad(entry, consumer, p0, p1, right, w, w, alpha, alpha, u0, u1);
+                }
+            }
+        });
+    }
+
+    /** Точка дуги серпа: center + radius*(cos(t)*dir + sin(t)*up). */
+    private static Vec3d arcPoint(CombatController.Crescent c, float t) {
+        return c.center.add(c.dir.multiply(c.radius * Math.cos(t)))
+                .add(c.up.multiply(c.radius * Math.sin(t)));
     }
 
     /** Дуга-лента разреза: полоса вдоль траектории клинка, повёрнутая к камере,

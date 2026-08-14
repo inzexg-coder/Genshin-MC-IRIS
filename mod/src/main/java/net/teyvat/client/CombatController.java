@@ -27,6 +27,7 @@ import org.joml.Vector3f;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -206,6 +207,62 @@ public final class CombatController {
     private static final Deque<SlashPoint> slashTrail = new ArrayDeque<>();
     private static final int SLASH_TRAIL_AGE = 7;
 
+    /** Дуга-серп в 3D: часть окружности радиуса radius в плоскости (dir, up)
+     *  с центром center, от угла start на span радиан. В отличие от ванильного
+     *  SWEEP_ATTACK (билборд, roll всегда 0 — серп «лежит» горизонтально),
+     *  рисуется лентой в FirstPersonBody с полной 3D-ориентацией. */
+    public static final class Crescent {
+        public final Vec3d center;
+        public final Vec3d dir;
+        public final Vec3d up;
+        public final float radius;
+        public final float start;
+        public final float span;
+        public final int maxAge;
+        public int age;
+
+        Crescent(Vec3d center, Vec3d dir, Vec3d up, float radius,
+                 float start, float span, int maxAge) {
+            this.center = center;
+            this.dir = dir;
+            this.up = up;
+            this.radius = radius;
+            this.start = start;
+            this.span = span;
+            this.maxAge = maxAge;
+        }
+    }
+
+    /** Активные серпы-дуги (для рендера в FirstPersonBody). */
+    private static final Deque<Crescent> crescents = new ArrayDeque<>();
+    private static final int MAX_CRESCENTS = 512;
+
+    /** Список активных серпов-дуг для рендера. */
+    public static Deque<Crescent> crescents() {
+        return crescents;
+    }
+
+    /** Добавить 3D-серп: дуга радиуса radius в плоскости (dir, up), от угла
+     *  start на span радиан; живёт maxAge кадров. */
+    public static void spawnCrescent(Vec3d center, Vec3d dir, Vec3d up, float radius,
+                                     float start, float span, int maxAge) {
+        if (crescents.size() >= MAX_CRESCENTS) {
+            crescents.removeFirst();
+        }
+        crescents.addLast(new Crescent(center, dir, up, radius, start, span, maxAge));
+    }
+
+    /** Состарить серпы и выкинуть истёкшие. */
+    public static void ageCrescents() {
+        Iterator<Crescent> it = crescents.iterator();
+        while (it.hasNext()) {
+            Crescent c = it.next();
+            if (++c.age >= c.maxAge) {
+                it.remove();
+            }
+        }
+    }
+
     private CombatController() {}
 
     /** Вызывается каждый клиентский тик (END_CLIENT_TICK). */
@@ -214,6 +271,9 @@ public final class CombatController {
         if (client.player == null || client.world == null || client.isPaused()) {
             return;
         }
+        // Серпы-дуги стареют по тикам (как ванильные частицы): плотность
+        // шара не зависит от FPS — каждый серп живёт ~5 тиков.
+        ageCrescents();
         tickCount++;
         if (comboStep >= 0 && !client.player.isOnGround()) {
             // В воздухе удары не работают (как в Genshin): прыжок прерывает комбо,
@@ -578,19 +638,28 @@ public final class CombatController {
         }
         float level = chargeLevel;
         double r = 1.6 + 0.8 * level;
-        // Серпы-удары: лезвия режут сферу по касательной — плотная «стена»
-        // ударов вокруг тела, несколько концентрических слоёв.
+        // Серпы-удары: 3D-дуги-орбиты вокруг тела в случайных наклонных
+        // плоскостях (НЕ ванильный SWEEP_ATTACK-билборд — он всегда «лежит»
+        // горизонтально). Каждая дуга — часть окружности в своей плоскости,
+        // поэтому от любого ракурса видно объёмный шар ударов лезвием.
+        Vec3d center = new Vec3d(player.getX(), player.getY() + 1.0, player.getZ());
         for (int layer = 0; layer < 3; layer++) {
             double lr = r * (layer == 0 ? 1.0 : layer == 1 ? 0.72 : 0.45);
             int sweeps = layer == 0 ? 14 : 10;
             for (int i = 0; i < sweeps; i++) {
-                double a = client.world.random.nextDouble() * Math.PI * 2.0;
-                double h = -0.4 + client.world.random.nextDouble() * 2.6;
-                client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
-                        player.getX() + Math.cos(a) * lr,
-                        player.getY() + h,
-                        player.getZ() + Math.sin(a) * lr,
-                        Math.cos(a + Math.PI / 2.0), 0, Math.sin(a + Math.PI / 2.0));
+                Vec3d rnd = new Vec3d(
+                        client.world.random.nextDouble() - 0.5,
+                        client.world.random.nextDouble() - 0.5,
+                        client.world.random.nextDouble() - 0.5);
+                Vec3d dir = rnd.crossProduct(new Vec3d(0.0, 1.0, 0.0));
+                if (dir.lengthSquared() < 1.0e-6) {
+                    dir = new Vec3d(1.0, 0.0, 0.0);
+                }
+                dir = dir.normalize();
+                Vec3d up = dir.crossProduct(rnd).normalize();
+                float start = (float) (client.world.random.nextDouble() * Math.PI * 2.0);
+                float span = 1.2f + client.world.random.nextFloat() * 1.4f;
+                spawnCrescent(center, dir, up, (float) lr, start, span, 5);
             }
         }
         // Полупрозрачная граница шара: плотный слой искр на сфере.
@@ -736,9 +805,34 @@ public final class CombatController {
                 continue;
             }
             Vec3d dir = delta.multiply(1.0 / len);
-            world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
-                    a.x, a.y, a.z,
-                    dir.x, dir.y, dir.z);
+            if (charged) {
+                // Короткие дуги-орбиты вокруг тела (под плотный шар вихря).
+                Vec3d ctr = new Vec3d(player.getX(), player.getY() + 1.0, player.getZ());
+                Vec3d rnd = new Vec3d(
+                        world.random.nextDouble() - 0.5,
+                        world.random.nextDouble() - 0.5,
+                        world.random.nextDouble() - 0.5);
+                Vec3d odir = rnd.crossProduct(new Vec3d(0.0, 1.0, 0.0));
+                if (odir.lengthSquared() < 1.0e-6) {
+                    odir = new Vec3d(1.0, 0.0, 0.0);
+                }
+                Vec3d oup = odir.crossProduct(rnd).normalize();
+                spawnCrescent(ctr, odir.normalize(), oup, 1.9f,
+                        (float) (world.random.nextDouble() * Math.PI * 2.0), 1.2f, 4);
+            } else {
+                // Один длинный серп: дуга-полукруг в плоскости удара
+                // (содержит направление клинка и вертикаль) — серп стоит
+                // «на ребре» по ходу меча, а не лежит горизонтально.
+                Vec3d mid = a.add(b).multiply(0.5);
+                Vec3d up = new Vec3d(0.0, 1.0, 0.0).subtract(dir.multiply(dir.y));
+                if (up.lengthSquared() < 1.0e-6) {
+                    up = new Vec3d(0.0, 0.0, 1.0);
+                } else {
+                    up = up.normalize();
+                }
+                spawnCrescent(mid, dir, up, (float) (len * 0.5),
+                        (float) (-Math.PI / 2.0), (float) Math.PI, 6);
+            }
         }
         // Дуга размаха: плотные штрихи-искры вдоль траектории меча.
         // У заряженного спина — полный круг (орбита вокруг тела).
