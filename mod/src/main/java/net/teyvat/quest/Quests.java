@@ -20,6 +20,9 @@ public final class Quests {
     /** «Победи Гидро слаймов» — призванные Паймон слаймы, бьются только владельцем. */
     public static final String TRY_ATTACK = "try_attack";
     public static final String TRY_ATTACK_TITLE = "Победи Гидро слаймов";
+    /** «Подбери добычу с земли» — первый ручной подбор предмета на F. */
+    public static final String TRY_PICKUP = "try_pickup";
+    public static final String TRY_PICKUP_TITLE = "Подбери добычу с земли";
 
     private Quests() {}
 }

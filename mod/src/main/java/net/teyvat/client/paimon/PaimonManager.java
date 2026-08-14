@@ -116,6 +116,18 @@ public final class PaimonManager {
     private static final int ATTACK_TUTOR_GAP_TICKS = 80;
     /** Пауза после последней фразы перед уведомлением о новом задании (тики). */
     private static final int ATTACK_TUTOR_END_GAP = 30;
+    /** Фразы мини-урока про подбор: после победы над слаймами Паймон учит F. */
+    private static final String[] PICKUP_PHRASES = {
+        "Смотри, слаймы оставили после себя добычу!",
+        "Подойди к блестящим предметам — внизу экрана появятся вкладки.",
+        "Нажми F, чтобы подобрать. Так поднимается всё, что лежит на земле!"
+    };
+    /** Пауза перед первой фразой урока про подбор (тики). */
+    private static final int PICKUP_TUTOR_START_TICK = 40;
+    /** Каждая фраза урока про подбор держится 4 секунды (80 тиков). */
+    private static final int PICKUP_TUTOR_GAP_TICKS = 80;
+    /** Пауза после последней фразы перед уведомлением о новом задании (тики). */
+    private static final int PICKUP_TUTOR_END_GAP = 30;
     /** Дистанция до игрока во время знакомства. */
     private static final double INTRO_DIST = 2.4;
     /** Высота над игроком во время знакомства (чуть выше линии взгляда). */
@@ -155,6 +167,10 @@ public final class PaimonManager {
     private static boolean attackPromptShown;
     /** Отправлен ли запрос на спавн слаймов (чтобы не дублировать при повторе урока). */
     private static boolean attackSpawnRequested;
+    /** Таймер мини-урока про подбор предметов: -1 = не идёт, 0 = запущен после атаки. */
+    private static int pickupTutorTicks = -1;
+    /** Показано ли уведомление «есть новое задание» урока про подбор. */
+    private static boolean pickupPromptShown;
     /** Номера уроков для очереди: следующий урок ждёт, пока уведомление
      *  о выполненном задании не исчезнет с экрана. */
     private static final int TUTORIAL_SCROLL = 0;
@@ -162,6 +178,7 @@ public final class PaimonManager {
     private static final int TUTORIAL_SPRINT = 2;
     private static final int TUTORIAL_DASH = 3;
     private static final int TUTORIAL_ATTACK = 4;
+    private static final int TUTORIAL_PICKUP = 5;
     /** Очередь следующего урока: -1 = нет. */
     private static int queuedTutorial = -1;
 
@@ -251,6 +268,8 @@ public final class PaimonManager {
         attackTutorTicks = -1;
         attackPromptShown = false;
         attackSpawnRequested = false;
+        pickupTutorTicks = -1;
+        pickupPromptShown = false;
         // Точка знакомства фиксируется абсолютно: Паймон стоит на месте, пока говорит.
         introPos = playerPos(client.player).add(forwardDeg(refYaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
         entity.setPosition(introPos.x, introPos.y, introPos.z);
@@ -342,6 +361,16 @@ public final class PaimonManager {
                 queueTutorial(TUTORIAL_ATTACK);
             }
             tickAttackTutorial();
+            // Урок про подбор предметов идёт после победы над слаймами
+            // (добыча лежит на земле — Паймон учит поднимать её на F).
+            if (pickupTutorTicks < 0 && attackTutorTicks < 0 && dashTutorTicks < 0
+                    && sprintTutorTicks < 0 && zoomTutorTicks < 0 && tutorTicks < 0
+                    && questReportTimer < 0
+                    && QuestStateClient.isCompleted(Quests.TRY_ATTACK)
+                    && !QuestStateClient.isCompleted(Quests.TRY_PICKUP)) {
+                queueTutorial(TUTORIAL_PICKUP);
+            }
+            tickPickupTutorial();
         }
 
         Vec3d target;
@@ -572,6 +601,13 @@ public final class PaimonManager {
         DialogueOverlay.end();
     }
 
+    /** Квест про подбор выполнен (первый успешный F-подбор): урок завершается. */
+    public static void onPickupQuestCompleted() {
+        pickupTutorTicks = -1;
+        pickupPromptShown = false;
+        DialogueOverlay.end();
+    }
+
     /** Мини-урок про бег: Паймон рассказывает про двойной W и выносливость,
      *  затем всплывает уведомление о новом задании. Повторяется при перезаходе,
      *  пока квест не выполнен. */
@@ -651,6 +687,29 @@ public final class PaimonManager {
         }
     }
 
+    /** Мини-урок про подбор предметов: Паймон объясняет вкладки и кнопку F,
+     *  затем всплывает уведомление о новом задании. */
+    private static void tickPickupTutorial() {
+        if (pickupTutorTicks < 0) {
+            return;
+        }
+        pickupTutorTicks++;
+        for (int i = 0; i < PICKUP_PHRASES.length; i++) {
+            if (pickupTutorTicks == PICKUP_TUTOR_START_TICK + i * PICKUP_TUTOR_GAP_TICKS) {
+                DialogueOverlay.show("Паймон", PICKUP_PHRASES[i]);
+            }
+        }
+        int lastPhraseTick = PICKUP_TUTOR_START_TICK + (PICKUP_PHRASES.length - 1) * PICKUP_TUTOR_GAP_TICKS;
+        // Объявление задания — только после последней фразы Паймон. Подбор
+        // засчитывается, когда внизу экрана появились вкладки и игрок нажал F.
+        if (pickupTutorTicks >= lastPhraseTick + PICKUP_TUTOR_END_GAP && !pickupPromptShown
+                && !QuestStateClient.isCompleted(Quests.TRY_PICKUP)) {
+            pickupPromptShown = true;
+            announceNewQuest("«" + Quests.TRY_PICKUP_TITLE + "»");
+            DialogueOverlay.end();
+        }
+    }
+
     /** Объявить новое задание: окно «Новое задание» в углу висит, пока не выполнится. */
     private static void announceNewQuest(String questName) {
         MinecraftClient.getInstance().getToastManager().add(new QuestToast("Новое задание", questName, true));
@@ -694,6 +753,10 @@ public final class PaimonManager {
                 attackTutorTicks = 0;
                 attackPromptShown = false;
             }
+            case TUTORIAL_PICKUP -> {
+                pickupTutorTicks = 0;
+                pickupPromptShown = false;
+            }
             default -> { }
         }
     }
@@ -715,6 +778,9 @@ public final class PaimonManager {
         }
         if (Quests.TRY_ATTACK.equals(questId)) {
             return attackPromptShown;
+        }
+        if (Quests.TRY_PICKUP.equals(questId)) {
+            return pickupPromptShown;
         }
         return false;
     }
@@ -781,6 +847,11 @@ public final class PaimonManager {
         if (attackTutorTicks >= 0 && !attackPromptShown) {
             attackTutorTicks = announceTick(ATTACK_PHRASES, ATTACK_TUTOR_START_TICK, ATTACK_TUTOR_GAP_TICKS, ATTACK_TUTOR_END_GAP);
             DialogueOverlay.end();
+            return;
+        }
+        if (pickupTutorTicks >= 0 && !pickupPromptShown) {
+            pickupTutorTicks = announceTick(PICKUP_PHRASES, PICKUP_TUTOR_START_TICK, PICKUP_TUTOR_GAP_TICKS, PICKUP_TUTOR_END_GAP);
+            DialogueOverlay.end();
         }
     }
 
@@ -812,6 +883,7 @@ public final class PaimonManager {
                 || (zoomTutorTicks >= 0 && !zoomPromptShown)
                 || (sprintTutorTicks >= 0 && !sprintPromptShown)
                 || (dashTutorTicks >= 0 && !dashPromptShown)
-                || (attackTutorTicks >= 0 && !attackPromptShown);
+                || (attackTutorTicks >= 0 && !attackPromptShown)
+                || (pickupTutorTicks >= 0 && !pickupPromptShown);
     }
 }

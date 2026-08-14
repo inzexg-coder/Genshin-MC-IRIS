@@ -38,6 +38,7 @@ import net.teyvat.network.AdminNotesRequestPayload;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.BeachBoundary;
 import net.teyvat.server.BeachGuard;
+import net.teyvat.server.ItemPickup;
 import net.teyvat.server.PlayerCombat;
 import net.teyvat.server.SlimeTraining;
 import net.teyvat.server.TeyvatQuests;
@@ -54,6 +55,7 @@ import net.teyvat.network.SlimeTrainingSpawnPayload;
 import net.teyvat.network.PlayerAttackPayload;
 import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestStatePayload;
+import net.teyvat.network.PickupRequestPayload;
 import net.teyvat.progression.MobLevels;
 import net.teyvat.progression.MobXp;
 import net.teyvat.progression.ProgressionStore;
@@ -106,6 +108,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(QuestEventPayload.ID, QuestEventPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(SlimeTrainingSpawnPayload.ID, SlimeTrainingSpawnPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(PlayerAttackPayload.ID, PlayerAttackPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(PickupRequestPayload.ID, PickupRequestPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(AdminNotesRequestPayload.ID, AdminNotesRequestPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(QuestCompletePayload.ID, QuestCompletePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceSyncPayload.ID, TravelerChoiceSyncPayload.CODEC);
@@ -170,6 +173,13 @@ public class TeyvatMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(PlayerAttackPayload.ID, (payload, context) -> {
             if (context.player() != null) {
                 PlayerCombat.onAttack(context.player(), payload.hitIndex());
+            }
+        });
+
+        // F: игрок подбирает ближайший предмет с земли (автоподбор отключён).
+        ServerPlayNetworking.registerGlobalReceiver(PickupRequestPayload.ID, (payload, context) -> {
+            if (context.player() != null) {
+                ItemPickup.onPickupRequest(context.player());
             }
         });
 
@@ -292,7 +302,8 @@ public class TeyvatMod implements ModInitializer {
                     TeyvatQuests.isCompleted(player, Quests.TRY_ZOOM),
                     TeyvatQuests.isCompleted(player, Quests.TRY_SPRINT),
                     TeyvatQuests.isCompleted(player, Quests.TRY_DASH),
-                    TeyvatQuests.isCompleted(player, Quests.TRY_ATTACK)));
+                    TeyvatQuests.isCompleted(player, Quests.TRY_ATTACK),
+                    TeyvatQuests.isCompleted(player, Quests.TRY_PICKUP)));
             // Прогрессия: ранг, опыт, примогемы, ростера персонажей.
             ProgressionStore.sync(player);
             // Уровни уже загруженных мобов рядом: ENTITY_LOAD для них уже отработал,

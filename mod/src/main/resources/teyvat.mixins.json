@@ -32,6 +32,7 @@
     "common.SpawnHelperMixin",
     "common.RegenerationStatusEffectMixin",
     "common.InstantHealthOrDamageStatusEffectMixin",
-    "common.PlayerInventoryMixin"
+    "common.PlayerInventoryMixin",
+    "common.ItemEntityMixin"
   ]
 }

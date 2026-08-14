@@ -3,11 +3,14 @@ package net.teyvat.mixin.client;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.advancement.AdvancementsScreen;
+import net.minecraft.client.option.KeyBinding;
 import net.minecraft.util.hit.HitResult;
 import net.teyvat.client.CombatController;
+import net.teyvat.client.PickupController;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -51,5 +54,18 @@ public abstract class MinecraftClientMixin {
                 && client.crosshairTarget.getType() == HitResult.Type.BLOCK) {
             ci.cancel();
         }
+    }
+
+    /** F рядом с предметами — подбор (PickupController), а не «смена руки».
+     *  Перехватываем все wasPressed() в handleInputEvents и гасим только
+     *  swapHandsKey, пока рядом есть лежащие предметы. */
+    @Redirect(method = "handleInputEvents",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/option/KeyBinding;wasPressed()Z"))
+    private boolean teyvat$pickupInsteadOfSwap(KeyBinding keyBinding) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (keyBinding == client.options.swapHandsKey && PickupController.hasTargets()) {
+            return false;
+        }
+        return keyBinding.wasPressed();
     }
 }

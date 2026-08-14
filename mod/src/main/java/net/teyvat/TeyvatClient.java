@@ -28,6 +28,7 @@ import net.teyvat.client.WaterMistParticle;
 import net.teyvat.client.CombatController;
 import net.teyvat.client.FirstPersonBody;
 import net.teyvat.client.StaminaController;
+import net.teyvat.client.PickupController;
 import net.teyvat.client.hydro.HydroSlimeEntityRenderer;
 import net.teyvat.client.hydro.HydroSlimeProjectileRenderer;
 import net.teyvat.client.paimon.PaimonEntityRenderer;
@@ -74,6 +75,9 @@ public class TeyvatClient implements ClientModInitializer {
     /** Пропустить обучение Паймон: скипает текущую реплику/урок (знакомство, колесо, C, бег, рывок, атака). */
     public static final KeyBinding SKIP_TUTORIAL = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.skip_tutorial", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_X, CATEGORY));
+    /** Подобрать предмет с земли: нажатие F (как в Genshin). */
+    public static final KeyBinding PICKUP = KeyBindingHelper.registerKeyBinding(
+            new KeyBinding("key.teyvat.pickup", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F, CATEGORY));
 
     /** Тики до открытия экрана выбора (ждём, пока мир догрузится). -1 = не запрошено. */
     private static int choiceOpenDelay = -1;
@@ -106,6 +110,7 @@ public class TeyvatClient implements ClientModInitializer {
             CameraController.tick();
             StaminaController.tick();
             NotificationStack.tick();
+            PickupController.tick();
             // Комбо атак путешественника: ведёт тайминги ударов и шлёт урон серверу.
             CombatController.tick();
             // X — пропустить текущую фазу обучения Паймон (знакомство или мини-урок).
@@ -165,10 +170,17 @@ public class TeyvatClient implements ClientModInitializer {
             context.client().execute(() -> ProgressionToast.show(payload.amount(), payload.rankUp()));
         });
 
-        // Ресурс подобран: уведомление «+N Название» в колонке под опытом.
+        // Ресурс подобран (автоподбор отключён — только на F): уведомление
+        // «+N Название» в колонке под опытом + квест урока про подбор.
         ClientPlayNetworking.registerGlobalReceiver(ResourceGainPayload.ID, (payload, context) -> {
-            context.client().execute(() ->
-                    NotificationStack.showResource(payload.itemId(), payload.count()));
+            context.client().execute(() -> {
+                NotificationStack.showResource(payload.itemId(), payload.count());
+                if (PaimonManager.isQuestAnnounced(Quests.TRY_PICKUP)
+                        && !QuestStateClient.isCompleted(Quests.TRY_PICKUP)) {
+                    QuestClient.complete(Quests.TRY_PICKUP, Quests.TRY_PICKUP_TITLE);
+                    PaimonManager.onPickupQuestCompleted();
+                }
+            });
         });
 
         // /teyvat notes и Shift+N: сервер (проверив права) просит открыть «О сборке».
@@ -189,7 +201,7 @@ public class TeyvatClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(QuestStatePayload.ID, (payload, context) -> {
             context.client().execute(() ->
                     QuestStateClient.set(payload.meetPaimon(), payload.tryScroll(), payload.tryZoom(),
-                            payload.trySprint(), payload.tryDash(), payload.tryAttack()));
+                            payload.trySprint(), payload.tryDash(), payload.tryAttack(), payload.tryPickup()));
         });
 
         // Квест выполнен на сервере (победа над слаймами тренировки): тост
