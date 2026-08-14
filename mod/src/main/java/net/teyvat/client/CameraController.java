@@ -161,6 +161,19 @@ public final class CameraController {
             return;
         }
 
+        // Кинокамера (/cinema side|orbit): полностью задаёт кадр — позиция и взгляд
+        // на героя со стороны, поверх обычной Teyvat Camera. Активна до /cinema off.
+        if (CinematicCamera.isActive()) {
+            Vec3d eye = entity.getCameraPosVec(tickDelta);
+            double[] frame = CinematicCamera.frame(eye, tickDelta);
+            if (frame != null) {
+                ((CameraAccessor) camera).teyvatSetRotation((float) frame[0],
+                        (float) frame[1] + 2.5f * StaminaController.dashFactor());
+                ((CameraAccessor) camera).teyvatSetPos(frame[2], frame[3], frame[4]);
+            }
+            return;
+        }
+
         // Углы камеры: при свободной камере — орбита, иначе орбита плавно догоняет героя.
         float playerYaw = entity.getYaw(tickDelta);
         float playerPitch = entity.getPitch(tickDelta);

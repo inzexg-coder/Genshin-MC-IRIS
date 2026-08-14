@@ -1,6 +1,7 @@
 package net.teyvat;
 
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -16,6 +17,7 @@ import net.minecraft.util.Identifier;
 import net.teyvat.client.TravelerChoiceClient;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.teyvat.client.CameraController;
+import net.teyvat.client.CinemaCommand;
 import net.teyvat.client.ZoomController;
 import net.teyvat.client.TravelerNotesScreen;
 import net.teyvat.client.AboutPackScreen;
@@ -99,6 +101,9 @@ public class TeyvatClient implements ClientModInitializer {
                 (FabricSpriteProvider spriteProvider) -> new WaterRippleParticle.Factory(spriteProvider));
         ParticleFactoryRegistry.getInstance().register(TeyvatParticles.WATER_MIST,
                 (FabricSpriteProvider spriteProvider) -> new WaterMistParticle.Factory(spriteProvider));
+
+        // Кинокамера для съёмки боя со стороны: /cinema side|orbit|off.
+        ClientCommandRegistrationCallback.EVENT.register(CinemaCommand::register);
 
         // Первое лицо «глазами модельки»: собственное тело + разрез-дуга меча.
         WorldRenderEvents.BEFORE_ENTITIES.register(FirstPersonBody::render);
