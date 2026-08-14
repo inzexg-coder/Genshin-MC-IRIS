@@ -16,6 +16,7 @@ import net.teyvat.combat.SwordCombo;
 import net.teyvat.network.AttackResultPayload;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -119,6 +120,9 @@ public final class PlayerCombat {
         if (STAGGER.isEmpty()) {
             return;
         }
+        // ConcurrentHashMap не поддерживает Entry.setValue в removeIf,
+        // поэтому обновления копим в отдельной map и применяем после.
+        Map<Integer, Stagger> updates = new HashMap<>();
         STAGGER.entrySet().removeIf(entry -> {
             Entity entity = world.getEntityById(entry.getKey());
             if (entity == null || !entity.isAlive()) {
@@ -129,7 +133,7 @@ public final class PlayerCombat {
                 // Замерла на месте: гасим скорость (включая прыжок/хоп слайма).
                 entity.setVelocity(0, 0, 0);
                 entity.velocityModified = true;
-                entry.setValue(new Stagger(s.ticksLeft() - 1, s.knockback()));
+                updates.put(entry.getKey(), new Stagger(s.ticksLeft() - 1, s.knockback()));
                 return false;
             }
             // Стоп закончился: отброс цели.
@@ -137,6 +141,7 @@ public final class PlayerCombat {
             entity.velocityModified = true;
             return true;
         });
+        STAGGER.putAll(updates);
     }
 
     /** Игрок вышел: забываем его тайминг атак. */
