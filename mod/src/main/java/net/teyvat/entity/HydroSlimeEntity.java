@@ -36,6 +36,8 @@ import net.teyvat.item.TeyvatItems;
 import net.teyvat.particle.TeyvatParticles;
 import net.teyvat.progression.MobLevels;
 import net.teyvat.server.SlimeTraining;
+import net.teyvat.server.WikiDiscoveries;
+import net.teyvat.wiki.TeyvatWiki;
 
 import java.util.UUID;
 
@@ -282,6 +284,10 @@ public class HydroSlimeEntity extends HostileEntity {
     @Override
     public void onDeath(DamageSource damageSource) {
         if (this.getEntityWorld() instanceof ServerWorld serverWorld) {
+            // Вики: первый поверженный слайм открывает запись «Гидро слайм».
+            if (damageSource.getAttacker() instanceof ServerPlayerEntity killer) {
+                WikiDiscoveries.discover(killer, TeyvatWiki.ID_HYDRO_SLIME);
+            }
             if (this.ownerUuid != null) {
                 SlimeTraining.onSlimeKilled(serverWorld, this);
             }

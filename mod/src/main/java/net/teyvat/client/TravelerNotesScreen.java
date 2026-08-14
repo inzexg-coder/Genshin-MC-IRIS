@@ -8,21 +8,18 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.input.KeyInput;
 import net.minecraft.text.Text;
 import net.minecraft.util.Util;
+import net.teyvat.wiki.TeyvatWiki;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.function.Consumer;
-
-import static net.teyvat.client.TravelerGuideContent.*;
 
 /**
- * «Заметки путешественника» — гид по игре. Вёрстка по образцу книг-гидов
- * (Patchouli): фиксированные поля, единая сетка отступов, текст стандартного
- * размера, перенос строго по колонке — ничего не выходит за рамки. Слева список
- * вкладок с эмблемами и акцентными цветами, справа страница-карточка: заголовок,
- * текст урока. Длинный текст прокручивается, но не уменьшается.
- * Открывается клавишей N. «О сборке» — отдельный экран для администраторов (Shift+N).
+ * «Заметки путешественника» — глобальная энциклопедия Тейвата (как архив в Genshin).
+ * Слева разделы Мир / Битва / Сокровища / Приключения и открытые записи,
+ * справа страница. Запись открывается при первой встрече (короткая версия),
+ * после урока Паймон дополняется полной. Неоткрытые записи не показываются.
+ * Открывается клавишей N.
  */
 public class TravelerNotesScreen extends Screen {
     // --- Единая сетка: все отступы кратны 2, поля одинаковы со всех сторон. ---
@@ -39,7 +36,8 @@ public class TravelerNotesScreen extends Screen {
     private static final float TEXT_SCALE = 1.0f;
     private static final float TITLE_SCALE = 1.25f;
 
-    private static final int TAB_H = 30;
+    private static final int TAB_H = 30;        // высота строки записи в списке
+    private static final int SECTION_H = 20;    // высота заголовка раздела
     private static final int TAB_GAP = 4;
     private static final long SLIDE_MS = 220;
 
@@ -50,8 +48,14 @@ public class TravelerNotesScreen extends Screen {
     private static final int GOLD = 0xFFE8C86A;
     private static final int GOLD_DIM = 0xFF8C7440;
     private static final int LINE = 0xFF3A4A6A;
+    private static final int C_HINT = 0xFF9AA5B8;
+    private static final int C_BODY = 0xFFE8E4D8;
 
-    private final List<GuideTab> tabs = tabs();
+    /** Элемент сайдбара: 0 — заголовок раздела, 1 — запись. */
+    private record SideItem(int kind, TeyvatWiki.Section section, TeyvatWiki.Entry entry, int entryIdx) {}
+
+    private final List<TeyvatWiki.Entry> entries = new ArrayList<>();
+    private final List<SideItem> sideItems = new ArrayList<>();
     private int selected = 0;
     private int sidebarScroll = 0;
     private float scroll = 0;
@@ -68,21 +72,20 @@ public class TravelerNotesScreen extends Screen {
 
     private interface Row {
         int height();
-        void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip);
+        void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY);
     }
 
     private record TextRow(String text, int color) implements Row {
         public int height() { return LINE_H; }
-        public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {
+        public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY) {
             drawScaled(ctx, text, x, y, TEXT_SCALE, color);
         }
     }
 
     private record GapRow(int h) implements Row {
         public int height() { return h; }
-        public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY, Consumer<Text> tooltip) {}
+        public void draw(DrawContext ctx, int x, int y, int mouseX, int mouseY) {}
     }
-
 
     public TravelerNotesScreen() {
         super(Text.literal("Заметки путешественника"));
@@ -96,7 +99,28 @@ public class TravelerNotesScreen extends Screen {
     @Override
     protected void init() {
         super.init();
+        rebuildSidebar();
         rebuild();
+    }
+
+    /** Список записей (только открытые) и элементы сайдбара с заголовками разделов. */
+    private void rebuildSidebar() {
+        entries.clear();
+        entries.addAll(WikiStateClient.visibleEntries());
+        if (selected >= entries.size()) {
+            selected = Math.max(0, entries.size() - 1);
+        }
+        sideItems.clear();
+        TeyvatWiki.Section cur = null;
+        int idx = 0;
+        for (TeyvatWiki.Entry e : entries) {
+            if (e.section() != cur) {
+                cur = e.section();
+                sideItems.add(new SideItem(0, cur, null, -1));
+            }
+            sideItems.add(new SideItem(1, null, e, idx));
+            idx++;
+        }
     }
 
     private void rebuild() {
@@ -114,19 +138,31 @@ public class TravelerNotesScreen extends Screen {
         bodyH = bodyBottom - bodyTop;
         bodyW = ix1 - ix0;
 
-        GuideTab t = tabs.get(selected);
+        rows.clear();
+        TeyvatWiki.Entry e = entries.isEmpty() ? null : entries.get(selected);
+        if (e == null) {
+            rowsH = 0;
+            clampScroll();
+            return;
+        }
         int wrapW = Math.max(40, (int) (bodyW / TEXT_SCALE));
 
-        rows.clear();
-        for (int pi = 0; pi < t.paragraphs().size(); pi++) {
+        boolean full = isFull(e);
+        List<String> paras = full ? e.fullParas() : e.shortParas();
+        rows.add(new TextRow("— " + e.section().title + " —", C_HINT));
+        rows.add(new GapRow(2));
+        for (int pi = 0; pi < paras.size(); pi++) {
             if (pi > 0) {
                 rows.add(new GapRow(PARA_GAP));
             }
-            for (String line : wrap(t.paragraphs().get(pi), wrapW)) {
+            for (String line : wrap(paras.get(pi), wrapW)) {
                 rows.add(new TextRow(line, C_BODY));
             }
         }
         rows.add(new GapRow(6));
+        if (!full) {
+            rows.add(new TextRow("Полная запись откроется после урока Паймон.", C_HINT));
+        }
 
         rowsH = 0;
         for (Row r : rows) {
@@ -135,7 +171,12 @@ public class TravelerNotesScreen extends Screen {
         clampScroll();
     }
 
-    /** Название вкладки: до двух строк мелким шрифтом; вторая строка с «…», если длиннее. */
+    /** Полная ли запись: у записей без урока — сразу, иначе после квеста Паймон. */
+    private static boolean isFull(TeyvatWiki.Entry e) {
+        return !e.hasLesson() || QuestStateClient.isCompleted(e.lessonQuestId());
+    }
+
+    /** Название записи: до двух строк мелким шрифтом; вторая строка с «…», если длиннее. */
     private List<String> tabLines(String name, int maxW) {
         List<String> ls = wrap(name, maxW);
         List<String> out = new ArrayList<>();
@@ -199,8 +240,29 @@ public class TravelerNotesScreen extends Screen {
         return this.height - FOOTER_H - PAD;
     }
 
+    private int itemHeight(SideItem it) {
+        return it.kind() == 0 ? SECTION_H : TAB_H;
+    }
+
+    private int totalSidebarHeight() {
+        int h = 0;
+        for (SideItem it : sideItems) {
+            h += itemHeight(it) + TAB_GAP;
+        }
+        return h;
+    }
+
+    /** Верхняя граница элемента сайдбара с учётом прокрутки. */
+    private int itemTop(int idx) {
+        int y = sidebarTop();
+        for (int i = 0; i < idx; i++) {
+            y += itemHeight(sideItems.get(i)) + TAB_GAP;
+        }
+        return y - sidebarScroll;
+    }
+
     private int maxSidebarScroll() {
-        return Math.max(0, tabs.size() * (TAB_H + TAB_GAP) - (sidebarBottom() - sidebarTop()));
+        return Math.max(0, totalSidebarHeight() - (sidebarBottom() - sidebarTop()));
     }
 
     @Override
@@ -221,11 +283,14 @@ public class TravelerNotesScreen extends Screen {
         int button = click.button();
         int sbX0 = PAD;
         int sbX1 = PAD + sidebarW;
-        for (int i = 0; i < tabs.size(); i++) {
-            int ty = sidebarTop() + i * (TAB_H + TAB_GAP) - sidebarScroll;
-            if (mouseX >= sbX0 && mouseX <= sbX1 && mouseY >= ty && mouseY <= ty + TAB_H) {
-                if (selected != i) {
-                    selected = i;
+        for (int i = 0; i < sideItems.size(); i++) {
+            SideItem it = sideItems.get(i);
+            int ty = itemTop(i);
+            if (it.kind() == 1
+                    && mouseX >= sbX0 && mouseX <= sbX1
+                    && mouseY >= ty && mouseY <= ty + itemHeight(it)) {
+                if (selected != it.entryIdx()) {
+                    selected = it.entryIdx();
                     scroll = 0;
                     slideStart = Util.getMeasuringTimeMs();
                     rebuild();
@@ -297,7 +362,7 @@ public class TravelerNotesScreen extends Screen {
     private void drawFooter(DrawContext ctx) {
         ctx.fill(0, this.height - FOOTER_H, this.width, this.height, 0xFF1B2338);
         ctx.fill(0, this.height - FOOTER_H - 1, this.width, this.height - FOOTER_H, LINE);
-        String hint = "Колесо / стрелки — прокрутка · N — заметки · Shift+N — «О сборке» (только админ)";
+        String hint = "Колесо / стрелки — прокрутка · N — заметки";
         ctx.drawText(this.textRenderer, hint, 12, this.height - 17, C_HINT, true);
     }
 
@@ -317,49 +382,55 @@ public class TravelerNotesScreen extends Screen {
         }
     }
 
-    /** Список вкладок: единые отступы, эмблема + название, акцентный цвет. */
+    /** Сайдбар: заголовки разделов и открытые записи с эмблемами. */
     private void drawSidebar(DrawContext ctx, int mouseX, int mouseY) {
         int sbX0 = PAD;
         int sbX1 = PAD + sidebarW;
         ctx.fill(sbX0, HEADER_H + PAD, sbX1, sidebarBottom(), PANEL);
 
-        // Список вкладок не выходит за пределы панели (и золотой границы) при прокрутке.
         ctx.enableScissor(PAD, sidebarTop(), PAD + sidebarW, sidebarBottom());
-        for (int i = 0; i < tabs.size(); i++) {
-            int ty = sidebarTop() + i * (TAB_H + TAB_GAP) - sidebarScroll;
-            if (ty + TAB_H < sidebarTop() || ty > sidebarBottom()) {
+        for (int i = 0; i < sideItems.size(); i++) {
+            SideItem it = sideItems.get(i);
+            int ty = itemTop(i);
+            int h = itemHeight(it);
+            if (ty + h < sidebarTop() || ty > sidebarBottom()) {
                 continue;
             }
-            GuideTab t = tabs.get(i);
-            boolean sel = i == selected;
-            boolean hover = mouseX >= sbX0 && mouseX <= sbX1 && mouseY >= ty && mouseY <= ty + TAB_H;
-            ctx.fill(sbX0 + 6, ty, sbX1 - 6, ty + TAB_H, sel ? 0xFF222C44 : (hover ? 0xFF1A2338 : 0x00000000));
-            if (sel) {
-                ctx.fill(sbX0 + 6, ty, sbX0 + 8, ty + TAB_H, GOLD);
-            } else if (hover) {
-                ctx.fill(sbX0 + 6, ty, sbX0 + 7, ty + TAB_H, 0x668C7440);
+            if (it.kind() == 0) {
+                // Заголовок раздела: цвет раздела, мелким.
+                drawScaled(ctx, it.section().title.toUpperCase(), sbX0 + 14, ty + 5, 0.72f, it.section().color);
+                continue;
             }
-            int iconColor = sel ? t.color() : (t.color() & 0xFFFFFF) | 0x99000000;
-            drawIcon(ctx, sbX0 + 21, ty + TAB_H / 2, t.icon(), iconColor);
+            TeyvatWiki.Entry e = it.entry();
+            boolean sel = it.entryIdx() == selected;
+            boolean hover = mouseX >= sbX0 && mouseX <= sbX1 && mouseY >= ty && mouseY <= ty + h;
+            ctx.fill(sbX0 + 6, ty, sbX1 - 6, ty + h, sel ? 0xFF222C44 : (hover ? 0xFF1A2338 : 0x00000000));
+            if (sel) {
+                ctx.fill(sbX0 + 6, ty, sbX0 + 8, ty + h, GOLD);
+            } else if (hover) {
+                ctx.fill(sbX0 + 6, ty, sbX0 + 7, ty + h, 0x668C7440);
+            }
+            int iconColor = sel ? e.section().color : (e.section().color & 0xFFFFFF) | 0x99000000;
+            drawIcon(ctx, sbX0 + 21, ty + h / 2, e.icon(), iconColor);
             float ts = 0.85f;
             int textX = sbX0 + 34;
             int textMaxW = Math.max(24, sbX1 - textX - 12);
             int logical = Math.max(30, (int) (textMaxW / ts));
-            List<String> tl = tabLines(t.title(), logical);
+            List<String> tl = tabLines(e.title(), logical);
             int textH = tl.size() * 8;
-            int ly = ty + (TAB_H - textH) / 2;
+            int ly = ty + (h - textH) / 2;
             for (String ln : tl) {
-                drawScaled(ctx, ln, textX, ly, ts, sel ? t.color() : C_HINT);
+                drawScaled(ctx, ln, textX, ly, ts, sel ? e.section().color : C_HINT);
                 ly += 8;
             }
         }
         ctx.disableScissor();
-        // Золотая граница поверх вкладок при прокрутке.
+        // Золотая граница поверх списка при прокрутке.
         ctx.fill(sbX0, HEADER_H + PAD, sbX1, HEADER_H + PAD + 1, GOLD_DIM);
         int max = maxSidebarScroll();
         if (max > 0) {
             int trackH = sidebarBottom() - sidebarTop();
-            int thumbH = Math.max(14, trackH * trackH / (tabs.size() * (TAB_H + TAB_GAP)));
+            int thumbH = Math.max(14, trackH * trackH / Math.max(1, totalSidebarHeight()));
             int thumbY = sidebarTop() + (trackH - thumbH) * sidebarScroll / max;
             ctx.fill(sbX1 - 6, thumbY, sbX1 - 4, thumbY + thumbH, GOLD_DIM);
         }
@@ -367,8 +438,16 @@ public class TravelerNotesScreen extends Screen {
 
     /** Страница-карточка: рамка, заголовок с линией, текст, номер страницы. */
     private void drawPage(DrawContext ctx, int mouseX, int mouseY) {
-        GuideTab t = tabs.get(selected);
-        int color = t.color();
+        if (entries.isEmpty()) {
+            ctx.fill(cardX0 - 2, cardY0 - 2, cardX1 + 2, cardY1 + 2, GOLD_DIM);
+            ctx.fill(cardX0, cardY0, cardX1, cardY1, CARD);
+            String msg = "Здесь пока пусто. Исследуй мир — записи появятся сами.";
+            drawScaled(ctx, msg, (ix0 + ix1) / 2 - textRenderer.getWidth(msg) / 2,
+                    (cardY0 + cardY1) / 2, TEXT_SCALE, C_HINT);
+            return;
+        }
+        TeyvatWiki.Entry e = entries.get(selected);
+        int color = e.section().color;
 
         ctx.fill(cardX0 - 2, cardY0 - 2, cardX1 + 2, cardY1 + 2, GOLD_DIM);
         ctx.fill(cardX0 - 1, cardY0 - 1, cardX1 + 1, cardY1 + 1, GOLD);
@@ -382,14 +461,14 @@ public class TravelerNotesScreen extends Screen {
         int clipR = cardX0 + (int) ((cardX1 - cardX0) * reveal);
         ctx.enableScissor(cardX0, cardY0, Math.max(cardX0 + 1, clipR), cardY1);
 
-        drawPageTitle(ctx, t, color);
+        drawPageTitle(ctx, e, color);
 
         ctx.disableScissor();
         ctx.enableScissor(ix0, bodyTop, ix1, bodyBottom);
         int y = bodyTop - (int) scroll;
         for (Row r : rows) {
             if (y + r.height() >= bodyTop && y <= bodyBottom) {
-                r.draw(ctx, ix0, y, mouseX, mouseY, tt -> {});
+                r.draw(ctx, ix0, y, mouseX, mouseY);
             }
             y += r.height();
         }
@@ -404,14 +483,14 @@ public class TravelerNotesScreen extends Screen {
             ctx.fill(sbX, thumbY, sbX + 3, thumbY + thumbH, GOLD);
         }
 
-        String pageNo = (selected + 1) + " / " + tabs.size();
+        String pageNo = (selected + 1) + " / " + entries.size();
         ctx.drawText(this.textRenderer, pageNo, cardX1 - CARD_PAD - this.textRenderer.getWidth(pageNo),
                 cardY1 - CARD_PAD + 2, GOLD_DIM, true);
     }
 
     /** Заголовок: по центру, масштаб ограничен шириной карточки, линия-разделитель. */
-    private void drawPageTitle(DrawContext ctx, GuideTab t, int color) {
-        String title = t.title();
+    private void drawPageTitle(DrawContext ctx, TeyvatWiki.Entry e, int color) {
+        String title = e.title();
         int tw0 = this.textRenderer.getWidth(title);
         float ts = Math.min(TITLE_SCALE, (bodyW - 60f) / Math.max(1, tw0));
         ts = Math.max(0.75f, ts);

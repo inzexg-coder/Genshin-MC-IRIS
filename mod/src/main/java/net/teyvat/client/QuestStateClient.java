@@ -1,6 +1,7 @@
 package net.teyvat.client;
 
 import net.teyvat.quest.Quests;
+import net.teyvat.wiki.TeyvatWiki;
 
 /** Состояние квестов на клиенте: приходит с сервера при входе в мир,
  *  чтобы мини-уроки и уведомления не повторялись после выполнения. */
@@ -68,5 +69,7 @@ public final class QuestStateClient {
         } else if (Quests.TRY_PICKUP.equals(questId)) {
             tryPickup = true;
         }
+        // Урок открыл страницу вики: показываем её сразу, без ожидания сервера.
+        WikiStateClient.discoverLocal(TeyvatWiki.pageForQuest(questId));
     }
 }

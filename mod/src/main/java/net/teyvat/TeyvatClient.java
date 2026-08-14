@@ -45,14 +45,16 @@ import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.ExpGainPayload;
 import net.teyvat.network.MobLevelSyncPayload;
 import net.teyvat.network.NotesOpenPayload;
-import net.teyvat.network.AdminNotesRequestPayload;
 import net.teyvat.network.ResourceGainPayload;
 import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestCompletePayload;
 import net.teyvat.network.QuestStatePayload;
+import net.teyvat.network.WikiStatePayload;
+import net.teyvat.network.WikiDiscoveryPayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.quest.Quests;
 import net.teyvat.network.TravelerChoiceSyncPayload;
+import net.teyvat.client.WikiStateClient;
 import org.lwjgl.glfw.GLFW;
 
 public class TeyvatClient implements ClientModInitializer {
@@ -124,15 +126,9 @@ public class TeyvatClient implements ClientModInitializer {
                         || client.currentScreen instanceof TravelerChoiceScreen) {
                     continue;
                 }
-                var win = client.getWindow();
-                boolean shift = InputUtil.isKeyPressed(win, GLFW.GLFW_KEY_LEFT_SHIFT)
-                        || InputUtil.isKeyPressed(win, GLFW.GLFW_KEY_RIGHT_SHIFT);
-                if (shift) {
-                    // «О сборке» — сервер проверит права администратора и откроет экран.
-                    ClientPlayNetworking.send(new AdminNotesRequestPayload());
-                } else {
-                    client.setScreen(new TravelerNotesScreen());
-                }
+                // «О сборке» отключено — заметки теперь энциклопедия. Код экрана
+                // и серверный путь сохранены (AdminNotesRequestPayload/NotesOpenPayload).
+                client.setScreen(new TravelerNotesScreen());
             }
             if (choiceOpenDelay >= 0) {
                 choiceOpenDelay--;
@@ -190,6 +186,14 @@ public class TeyvatClient implements ClientModInitializer {
                     context.client().setScreen(new AboutPackScreen());
                 }
             });
+        });
+
+        // Вики: полный список открытых записей при входе + новые открытия.
+        ClientPlayNetworking.registerGlobalReceiver(WikiStatePayload.ID, (payload, context) -> {
+            context.client().execute(() -> WikiStateClient.set(payload.discovered()));
+        });
+        ClientPlayNetworking.registerGlobalReceiver(WikiDiscoveryPayload.ID, (payload, context) -> {
+            context.client().execute(() -> WikiStateClient.discoverLocal(payload.entryId()));
         });
 
         // Первый вход: сервер просит открыть экран выбора путешественника.

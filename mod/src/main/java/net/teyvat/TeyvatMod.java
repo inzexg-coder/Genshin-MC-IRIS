@@ -62,11 +62,15 @@ import net.teyvat.network.PlayerAttackPayload;
 import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestStatePayload;
 import net.teyvat.network.PickupRequestPayload;
+import net.teyvat.network.WikiStatePayload;
+import net.teyvat.network.WikiDiscoveryPayload;
 import net.teyvat.progression.MobLevels;
 import net.teyvat.progression.MobXp;
 import net.teyvat.progression.ProgressionStore;
 import net.teyvat.quest.Quests;
 import net.teyvat.network.TravelerChoiceSyncPayload;
+import net.teyvat.server.WikiDiscoveries;
+import net.teyvat.wiki.TeyvatWiki;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -127,6 +131,8 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(QuestCompletePayload.ID, QuestCompletePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceSyncPayload.ID, TravelerChoiceSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(QuestStatePayload.ID, QuestStatePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(WikiStatePayload.ID, WikiStatePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(WikiDiscoveryPayload.ID, WikiDiscoveryPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ProgressionSyncPayload.ID, ProgressionSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ExpGainPayload.ID, ExpGainPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(DamageNumberPayload.ID, DamageNumberPayload.CODEC);
@@ -268,6 +274,8 @@ public class TeyvatMod implements ModInitializer {
                 }
                 boolean rankUp = ProgressionStore.addArExp(player, xp);
                 ServerPlayNetworking.send(player, new ExpGainPayload(xp, rankUp));
+                // Первый опыт — открывает запись «Опыт и Ранг Приключений».
+                WikiDiscoveries.discover(player, TeyvatWiki.ID_EXP);
             } catch (Exception e) {
                 LOGGER.error("Ошибка начисления опыта за убийство {}: {}", entity.getType(), e.toString());
             }
@@ -327,6 +335,9 @@ public class TeyvatMod implements ModInitializer {
                     TeyvatQuests.isCompleted(player, Quests.TRY_DASH),
                     TeyvatQuests.isCompleted(player, Quests.TRY_ATTACK),
                     TeyvatQuests.isCompleted(player, Quests.TRY_PICKUP)));
+            // Вики: пляж открыт с первого входа, остальные записи — по встречам.
+            WikiDiscoveries.discover(player, TeyvatWiki.ID_BEACH);
+            ServerPlayNetworking.send(player, new WikiStatePayload(WikiDiscoveries.discoveredIds(player)));
             // Прогрессия: ранг, опыт, примогемы, ростера персонажей.
             ProgressionStore.sync(player);
             // Уровни уже загруженных мобов рядом: ENTITY_LOAD для них уже отработал,

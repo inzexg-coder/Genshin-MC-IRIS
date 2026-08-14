@@ -2,7 +2,10 @@ package net.teyvat.mixin.common;
 
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.teyvat.config.TeyvatConfig;
+import net.teyvat.server.WikiDiscoveries;
+import net.teyvat.wiki.TeyvatWiki;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.gen.Invoker;
@@ -29,7 +32,12 @@ public abstract class LivingEntityMixin {
         if (over <= 0) {
             return 0;
         }
-        return (int) Math.ceil(over * h.fall_damage_per_block);
+        int damage = (int) Math.ceil(over * h.fall_damage_per_block);
+        // Вики: первое падение с уроном открывает запись «Урон от падения».
+        if (damage > 0 && self instanceof ServerPlayerEntity serverPlayer) {
+            WikiDiscoveries.discover(serverPlayer, TeyvatWiki.ID_FALL_DAMAGE);
+        }
+        return damage;
     }
 
 }

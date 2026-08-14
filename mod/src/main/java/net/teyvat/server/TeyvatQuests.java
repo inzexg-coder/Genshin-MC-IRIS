@@ -31,6 +31,9 @@ public final class TeyvatQuests {
             return;
         }
         player.addCommandTag(TAG_PREFIX + questId);
+        // Урок Паймон открывает связанную страницу вики (короткая версия уже
+        // могла появиться при первой встрече — теперь запись дополняется).
+        WikiDiscoveries.onQuestCompleted(player, questId);
     }
 
     private static boolean isKnownQuest(String questId) {

@@ -10,6 +10,7 @@ import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryKeys;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
@@ -19,6 +20,8 @@ import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import net.teyvat.particle.TeyvatParticles;
+import net.teyvat.server.WikiDiscoveries;
+import net.teyvat.wiki.TeyvatWiki;
 
 /**
  * Водяной шар Гидро слайма: медленный снаряд с гравитацией,
@@ -64,6 +67,10 @@ public class HydroSlimeProjectileEntity extends SnowballEntity {
             Entity target = entityHit.getEntity();
             Entity owner = this.getOwner();
             if (target != owner && target instanceof LivingEntity living) {
+                // Вики: первое попадание снаряда открывает запись «Водяной снаряд».
+                if (target instanceof ServerPlayerEntity hitPlayer) {
+                    WikiDiscoveries.discover(hitPlayer, TeyvatWiki.ID_HYDRO_PROJECTILE);
+                }
                 if (this.getEntityWorld() instanceof ServerWorld serverWorld) {
                     LivingEntity attacker = owner instanceof LivingEntity le ? le : null;
                     if (attacker != null) {

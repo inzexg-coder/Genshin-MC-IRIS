@@ -7,6 +7,7 @@ import net.minecraft.registry.Registries;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.collection.DefaultedList;
 import net.teyvat.network.ResourceGainPayload;
+import net.teyvat.server.WikiDiscoveries;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -99,5 +100,7 @@ public abstract class PlayerInventoryMixin {
         }
         ServerPlayNetworking.send(serverPlayer,
                 new ResourceGainPayload(this.teyvat_pickupId, this.teyvat_pickupAmount));
+        // Вики: первый подбор предмета открывает запись (мора, слизь, Селестия).
+        WikiDiscoveries.onItemPickedUp(serverPlayer, this.teyvat_pickupId);
     }
 }
