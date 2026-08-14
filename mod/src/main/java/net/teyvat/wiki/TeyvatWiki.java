@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -84,7 +83,12 @@ public final class TeyvatWiki {
                 LOGGER.error("teyvat_wiki.json не найден в ресурсах мода — энциклопедия пуста");
                 return out;
             }
-            JsonObject root = JsonParser.parseReader(new InputStreamReader(in, StandardCharsets.UTF_8)).getAsJsonObject();
+            // Файл правится вручную (через GitHub), поэтому прощаем висячие запятые
+            // перед ] и } — иначе одна опечатка оставит энциклопедию пустой.
+            String raw = new String(in.readAllBytes(), StandardCharsets.UTF_8)
+                    .replaceAll(",\\s*\\]", "]")
+                    .replaceAll(",\\s*\\}", "}");
+            JsonObject root = JsonParser.parseString(raw).getAsJsonObject();
             JsonArray arr = root.getAsJsonArray("entries");
             for (JsonElement el : arr) {
                 JsonObject o = el.getAsJsonObject();
