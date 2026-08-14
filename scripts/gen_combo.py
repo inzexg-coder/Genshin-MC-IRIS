@@ -203,11 +203,11 @@ HIT2 = [
 HIT3 = [
     (0.00, E_LINEAR, P(rYaw=-68.0, rPitch=-47.0, rRoll=-58.0, lPitch=-39.0, lRoll=3.0, bYaw=-7.0, bPitch=2.0, rlPitch=12.0, llPitch=-3.0)),
     (0.12, E_IN_CUBIC, P(rYaw=-40.0, rPitch=-120.0, rRoll=-10.0, lPitch=-50.0, lRoll=-4.0, bYaw=-8.0, bPitch=1.0, rlPitch=6.0, llPitch=0.0)),
-    (0.24, E_IN_CUBIC, P(rYaw=-35.0, rPitch=-130.0, rRoll=-8.0, lPitch=-64.0, lRoll=-8.0, bYaw=-8.6, bPitch=-0.3, rlPitch=-6.0, llPitch=6.0)),
-    (0.36, E_IN_CUBIC, P(rYaw=-18.0, rPitch=-172.0, rRoll=-4.0, lPitch=-74.0, lRoll=-12.0, bYaw=-9.0, bPitch=-0.5, rlPitch=-10.0, llPitch=8.0)),
-    (0.44, E_IN_CUBIC, P(rYaw=-13.0, rPitch=-110.0, rRoll=-10.0, lPitch=-60.0, lRoll=-5.0, bYaw=1.0, bPitch=4.0, rlPitch=-18.0, llPitch=14.0)),
-    (0.58, E_OUT_CUBIC, P(rYaw=-9.0, rPitch=-90.0, rRoll=-6.0, lPitch=-46.0, lRoll=2.0, bYaw=4.5, bPitch=4.2, rlPitch=-8.0, llPitch=8.0)),
-    (0.75, E_OUT_BACK, P(rYaw=-10.0, rPitch=-72.0, rRoll=-5.0, lPitch=-24.0, lRoll=4.0, bYaw=7.0, bPitch=2.0, rlPitch=10.0, llPitch=-2.0)),
+    (0.24, E_IN_CUBIC, P(rYaw=-20.0, rPitch=-150.0, rRoll=-8.0, lPitch=-64.0, lRoll=-8.0, bYaw=-8.6, bPitch=-0.3, rlPitch=-6.0, llPitch=6.0)),
+    (0.36, E_IN_CUBIC, P(rYaw=-15.0, rPitch=-178.0, rRoll=-4.0, lPitch=-74.0, lRoll=-12.0, bYaw=-9.0, bPitch=-0.5, rlPitch=-10.0, llPitch=8.0)),
+    (0.44, E_IN_CUBIC, P(rYaw=-20.0, rPitch=-105.0, rRoll=-10.0, lPitch=-60.0, lRoll=-5.0, bYaw=1.0, bPitch=4.0, rlPitch=-18.0, llPitch=14.0)),
+    (0.58, E_OUT_CUBIC, P(rYaw=-25.0, rPitch=-78.0, rRoll=-6.0, lPitch=-46.0, lRoll=2.0, bYaw=4.5, bPitch=4.2, rlPitch=-8.0, llPitch=8.0)),
+    (0.75, E_OUT_BACK, P(rYaw=-70.0, rPitch=-40.0, rRoll=-5.0, lPitch=-24.0, lRoll=4.0, bYaw=7.0, bPitch=2.0, rlPitch=10.0, llPitch=-2.0)),
     (1.00, E_IN_OUT_SINE, P(rYaw=-10.0, rPitch=-72.0, rRoll=-5.0, lPitch=-15.0, bYaw=8.0, rlPitch=20.0)),
 ]
 
@@ -217,13 +217,13 @@ HIT3 = [
 # удара 5 (без паузы). ---
 HIT4 = [
     (0.00, E_LINEAR, P(rYaw=-10.0, rPitch=-72.0, rRoll=-5.0, lPitch=-15.0, bYaw=8.0, rlPitch=20.0)),
-    (0.08, E_IN_CUBIC, P(rYaw=-18.0, rPitch=-100.0, rRoll=-3.0, lPitch=-34.0, lRoll=-10.0, bYaw=9.5, rlPitch=12.0, llPitch=3.0)),
-    (0.14, E_IN_CUBIC, P(rYaw=-24.0, rPitch=-128.0, rRoll=-4.0, lPitch=-50.0, lRoll=-13.0, bYaw=12.0, rlPitch=0.0, llPitch=9.0)),
-    (0.20, E_IN_CUBIC, P(rYaw=-24.0, rPitch=-155.0, rRoll=6.0, lPitch=-62.0, lRoll=-14.0, bYaw=13.0, rlPitch=-16.0, llPitch=12.0)),
+    (0.08, E_IN_CUBIC, P(rYaw=-22.0, rPitch=-106.0, rRoll=-3.0, lPitch=-34.0, lRoll=-10.0, bYaw=9.5, rlPitch=12.0, llPitch=3.0)),
+    (0.14, E_IN_CUBIC, P(rYaw=-15.0, rPitch=-155.0, rRoll=-4.0, lPitch=-50.0, lRoll=-13.0, bYaw=12.0, rlPitch=0.0, llPitch=9.0)),
+    (0.20, E_IN_CUBIC, P(rYaw=-10.0, rPitch=-178.0, rRoll=6.0, lPitch=-62.0, lRoll=-14.0, bYaw=13.0, rlPitch=-16.0, llPitch=12.0)),
     (0.42, E_IN_CUBIC, P(rYaw=-12.0, rPitch=-55.0, rRoll=-15.0, lPitch=-40.0, lRoll=10.0, bYaw=2.0, bPitch=3.0, rlPitch=20.0, llPitch=-5.0)),
-    (0.55, E_OUT_CUBIC, P(rYaw=24.0, rPitch=-61.0, rRoll=-12.0, lPitch=-24.0, lRoll=6.0, bYaw=-5.0, bPitch=2.4, rlPitch=33.0, llPitch=-11.5)),
-    (0.70, E_OUT_BACK, P(rYaw=38.0, rPitch=-80.0, rRoll=-8.0, lPitch=-16.5, lRoll=1.5, bYaw=-8.4, bPitch=0.8, rlPitch=27.0, llPitch=-6.0)),
-    (0.88, E_IN_OUT_SINE, P(rYaw=42.0, rPitch=-85.0, rRoll=-8.0, lPitch=-15.0, bYaw=-9.6, bPitch=0.3, rlPitch=18.0, llPitch=-2.0)),
+    (0.55, E_OUT_CUBIC, P(rYaw=32.0, rPitch=-58.0, rRoll=-12.0, lPitch=-24.0, lRoll=6.0, bYaw=-5.0, bPitch=2.4, rlPitch=33.0, llPitch=-11.5)),
+    (0.70, E_OUT_BACK, P(rYaw=52.0, rPitch=-65.0, rRoll=-8.0, lPitch=-16.5, lRoll=1.5, bYaw=-8.4, bPitch=0.8, rlPitch=27.0, llPitch=-6.0)),
+    (0.88, E_IN_OUT_SINE, P(rYaw=60.0, rPitch=-58.0, rRoll=-8.0, lPitch=-15.0, bYaw=-9.6, bPitch=0.3, rlPitch=18.0, llPitch=-2.0)),
     (1.00, E_IN_OUT_SINE, P(rYaw=42.0, rPitch=-85.0, rRoll=-8.0, lPitch=-15.0, bYaw=-10.0, rlPitch=15.0)),
 ]
 
@@ -233,13 +233,13 @@ HIT4 = [
 # задержка с «дыханием» корпуса (сеam в восстановление). ---
 HIT5 = [
     (0.00, E_LINEAR, P(rYaw=42.0, rPitch=-85.0, rRoll=-8.0, lPitch=-15.0, bYaw=-10.0, rlPitch=15.0)),
-    (0.10, E_IN_CUBIC, P(rYaw=52.0, rPitch=-96.0, rRoll=-6.0, lPitch=-40.0, lRoll=-12.0, bYaw=-11.8, rlPitch=2.0, llPitch=8.0)),
-    (0.25, E_IN_CUBIC, P(rYaw=74.0, rPitch=-115.0, rRoll=0.0, lPitch=-86.0, lRoll=-20.0, bYaw=-13.0, bPitch=3.0, rlPitch=-24.0, llPitch=17.0)),
-    (0.45, E_IN_CUBIC, P(rYaw=32.0, rPitch=-78.0, rRoll=10.0, lPitch=-59.0, lRoll=-2.0, bYaw=-4.2, bPitch=6.4, rlPitch=7.0, llPitch=9.0)),
-    (0.58, E_OUT_CUBIC, P(rYaw=6.0, rPitch=-60.0, rRoll=15.0, lPitch=-38.0, lRoll=10.0, bYaw=1.5, bPitch=7.5, rlPitch=26.0, llPitch=-8.0)),
-    (0.72, E_OUT_BACK, P(rYaw=-20.0, rPitch=-58.0, rRoll=9.0, lPitch=-22.0, lRoll=6.0, bYaw=8.0, bPitch=4.5, rlPitch=40.0, llPitch=-13.0)),
-    (0.88, E_IN_OUT_SINE, P(rYaw=-30.0, rPitch=-58.0, rRoll=1.0, lPitch=-15.0, lRoll=0.5, bYaw=10.0, bPitch=3.6, rlPitch=32.0, llPitch=-7.0)),
-    (1.00, E_IN_OUT_SINE, P(rYaw=-30.0, rPitch=-58.0, lPitch=-15.0, bYaw=10.0, bPitch=2.0, rlPitch=30.0, llPitch=-6.0)),
+    (0.10, E_IN_CUBIC, P(rYaw=55.0, rPitch=-110.0, rRoll=-6.0, lPitch=-40.0, lRoll=-12.0, bYaw=-11.8, rlPitch=2.0, llPitch=8.0)),
+    (0.25, E_IN_CUBIC, P(rYaw=55.0, rPitch=-162.0, rRoll=0.0, lPitch=-86.0, lRoll=-20.0, bYaw=-13.0, bPitch=3.0, rlPitch=-24.0, llPitch=17.0)),
+    (0.45, E_IN_CUBIC, P(rYaw=28.0, rPitch=-80.0, rRoll=10.0, lPitch=-59.0, lRoll=-2.0, bYaw=-4.2, bPitch=6.4, rlPitch=7.0, llPitch=9.0)),
+    (0.58, E_OUT_CUBIC, P(rYaw=2.0, rPitch=-58.0, rRoll=15.0, lPitch=-38.0, lRoll=10.0, bYaw=1.5, bPitch=7.5, rlPitch=26.0, llPitch=-8.0)),
+    (0.72, E_OUT_BACK, P(rYaw=-42.0, rPitch=-50.0, rRoll=9.0, lPitch=-22.0, lRoll=6.0, bYaw=8.0, bPitch=4.5, rlPitch=40.0, llPitch=-13.0)),
+    (0.88, E_IN_OUT_SINE, P(rYaw=-70.0, rPitch=-32.0, rRoll=1.0, lPitch=-15.0, lRoll=0.5, bYaw=10.0, bPitch=3.6, rlPitch=32.0, llPitch=-7.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=-70.0, rPitch=-32.0, rRoll=0.0, lPitch=-15.0, bYaw=10.0, bPitch=2.0, rlPitch=30.0, llPitch=-6.0)),
 ]
 
 
