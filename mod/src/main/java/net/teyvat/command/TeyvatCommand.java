@@ -8,6 +8,7 @@ import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.command.CommandRegistryAccess;
 import net.minecraft.command.EntitySelector;
 import net.minecraft.command.argument.EntityArgumentType;
@@ -18,6 +19,8 @@ import net.minecraft.text.Text;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.progression.ProgressionStore;
+import net.teyvat.mixin.common.ItemEntityMixin;
+import net.teyvat.mixin.common.PlayerEntityPickupMixin;
 
 /** Корневая команда /teyvat: column, notes, choose и прогрессия (ar/char/reset). */
 public final class TeyvatCommand {
@@ -34,7 +37,37 @@ public final class TeyvatCommand {
                         .requires(src -> src.hasPermissionLevel(2))
                         .executes(TeyvatCommand::openNotes))
                 .then(CommandManager.literal("choose").executes(TeyvatCommand::openChoice))
+                .then(CommandManager.literal("pickup")
+                        .requires(src -> src.hasPermissionLevel(2))
+                        .executes(TeyvatCommand::pickupDebug))
                 .then(progression()));
+    }
+
+    /** Диагностика автоподбора: /teyvat pickup — версия мода и счётчики
+     *  заблокированных ванильных попыток подбора (миксины работают, если
+     *  счётчики растут при подходе к лежащим предметам). */
+    private static int pickupDebug(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
+        ServerPlayerEntity p = ctx.getSource().getPlayerOrThrow();
+        String version;
+        try {
+            version = FabricLoader.getInstance().getModContainer("teyvat")
+                    .map(c -> c.getMetadata().getVersion().getFriendlyString()).orElse("?");
+        } catch (Exception ignored) {
+            // версия — только для диагностики
+            version = "?";
+        }
+        final String ver = version;
+        final long blocked = ItemEntityMixin.blockedCount();
+        final long guarded = PlayerEntityPickupMixin.guardCount();
+        ctx.getSource().sendFeedback(() -> Text.literal(
+                "§e[Teyvat] §fВерсия мода: §b" + ver
+                        + "§f. Автоподбор: заблокировано попыток §b" + blocked
+                        + "§f (ItemEntity) и §b" + guarded
+                        + "§f (PlayerEntity). Пройдись по выпавшим предметам и повтори команду — "
+                        + (blocked > 0
+                                ? "счётчики растут, значит миксины активны."
+                                : "счётчики нулевые: игра запущена со старым jar, обнови мод.")), false);
+        return 1;
     }
 
     /** Новый аргумент-игрок (свежий билдер каждый раз — переиспользовать нельзя). */

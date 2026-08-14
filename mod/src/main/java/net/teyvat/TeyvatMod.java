@@ -288,7 +288,8 @@ public class TeyvatMod implements ModInitializer {
                 // версия в сообщении — для удобства, ошибка не должна ломать вход
             }
             player.sendMessage(Text.literal(
-                    "§b[Teyvat] §fМод загружен §7(v" + version + ")§f. Блоки: вкладка §e«Блоки Тейвата»§f в креативе."), false);
+                    "§b[Teyvat] §fМод загружен §7(v" + version + ")§f · автоподбор §aВЫКЛ§f (подбор на §eF§f). "
+                            + "Блоки: вкладка §e«Блоки Тейвата»§f в креативе."), false);
 
             String existing = null;
             for (String tag : player.getCommandTags()) {
