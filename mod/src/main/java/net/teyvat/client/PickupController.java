@@ -107,11 +107,6 @@ public final class PickupController {
         ClientPlayNetworking.send(new PickupRequestPayload());
     }
 
-    /** Есть ли рядом предметы: ванильная «смена руки» на F не сработает. */
-    public static boolean hasTargets() {
-        return !tabs.isEmpty();
-    }
-
     /** Вкладки предметов внизу по центру (над полосой HP, под диалогом Паймон). */
     public static void render(DrawContext context) {
         MinecraftClient client = MinecraftClient.getInstance();

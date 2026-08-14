@@ -56,14 +56,14 @@ public abstract class MinecraftClientMixin {
         }
     }
 
-    /** F рядом с предметами — подбор (PickupController), а не «смена руки».
-     *  Перехватываем все wasPressed() в handleInputEvents и гасим только
-     *  swapHandsKey, пока рядом есть лежащие предметы. */
+    /** F — только подбор предметов (PickupController). «Смена руки» на F
+     *  убрана полностью: перехватываем все wasPressed() в handleInputEvents
+     *  и гасим swapHandsKey всегда. */
     @Redirect(method = "handleInputEvents",
             at = @At(value = "INVOKE", target = "Lnet/minecraft/client/option/KeyBinding;wasPressed()Z"))
     private boolean teyvat$pickupInsteadOfSwap(KeyBinding keyBinding) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (keyBinding == client.options.swapHandsKey && PickupController.hasTargets()) {
+        if (keyBinding == client.options.swapHandsKey) {
             return false;
         }
         return keyBinding.wasPressed();
