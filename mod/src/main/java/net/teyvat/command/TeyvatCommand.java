@@ -21,6 +21,7 @@ import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.progression.ProgressionStore;
 import net.teyvat.mixin.common.ItemEntityMixin;
 import net.teyvat.mixin.common.PlayerEntityPickupMixin;
+import net.teyvat.server.PickupSelfTest;
 
 /** Корневая команда /teyvat: column, notes, choose и прогрессия (ar/char/reset). */
 public final class TeyvatCommand {
@@ -40,7 +41,15 @@ public final class TeyvatCommand {
                 .then(CommandManager.literal("pickup")
                         .requires(src -> src.hasPermissionLevel(2))
                         .executes(TeyvatCommand::pickupDebug))
+                .then(CommandManager.literal("selftest")
+                        .executes(TeyvatCommand::selfTest))
                 .then(progression()));
+    }
+
+    /** /teyvat selftest — бросить камень у ног и проверить, поднимется ли он сам. */
+    private static int selfTest(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
+        PickupSelfTest.start(ctx.getSource().getPlayerOrThrow());
+        return 1;
     }
 
     /** Диагностика автоподбора: /teyvat pickup — версия мода и счётчики

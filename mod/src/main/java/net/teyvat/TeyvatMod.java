@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -43,6 +44,7 @@ import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.BeachBoundary;
 import net.teyvat.server.BeachGuard;
 import net.teyvat.server.ItemPickup;
+import net.teyvat.server.PickupSelfTest;
 import net.teyvat.server.PlayerCombat;
 import net.teyvat.server.SlimeTraining;
 import net.teyvat.server.TeyvatQuests;
@@ -357,5 +359,8 @@ public class TeyvatMod implements ModInitializer {
         });
 
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> MobXp.resetSession());
+
+        // Автотест автоподбора (/teyvat selftest): тикает обратный отсчёт.
+        ServerTickEvents.END_SERVER_TICK.register(server -> PickupSelfTest.tick(server));
     }
 }
