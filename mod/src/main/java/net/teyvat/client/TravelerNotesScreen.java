@@ -585,6 +585,68 @@ public class TravelerNotesScreen extends Screen {
                 ctx.fill(cx - 1, cy - 2, cx + 2, cy + 2, color);  // рукоять
                 ctx.fill(cx - 1, cy + 2, cx + 2, cy + 4, color);  // навершие
             }
+            case "book" -> {
+                ctx.fill(cx - 6, cy - 4, cx, cy + 5, color);      // левая страница
+                ctx.fill(cx + 1, cy - 4, cx + 6, cy + 5, color);  // правая страница
+                ctx.fill(cx - 1, cy - 6, cx + 1, cy - 3, color);  // обложка
+            }
+            case "telescope" -> {
+                drawCircle(ctx, cx - 3, cy - 3, 4, color);
+                ctx.fill(cx + 1, cy + 1, cx + 3, cy + 2, color);
+                ctx.fill(cx + 3, cy + 2, cx + 5, cy + 3, color);
+                ctx.fill(cx + 5, cy + 3, cx + 7, cy + 5, color);
+            }
+            case "eye" -> {
+                for (int dy = -3; dy <= 3; dy++) {
+                    int w = 4 - Math.abs(dy);
+                    for (int x = cx - w; x <= cx + w; x++) {
+                        boolean pupil = Math.abs(x - cx) <= 1 && Math.abs(dy) <= 1;
+                        if (!pupil) {
+                            ctx.fill(x, cy + dy, x + 1, cy + dy + 1, color);
+                        }
+                    }
+                }
+            }
+            case "wave" -> {
+                ctx.fill(cx - 6, cy - 1, cx - 2, cy, color);
+                ctx.fill(cx - 1, cy - 1, cx + 2, cy, color);
+                ctx.fill(cx + 3, cy - 1, cx + 6, cy, color);
+                ctx.fill(cx - 5, cy + 2, cx - 2, cy + 3, color);
+                ctx.fill(cx - 1, cy + 2, cx + 3, cy + 3, color);
+                ctx.fill(cx + 4, cy + 2, cx + 6, cy + 3, color);
+            }
+            case "tower" -> {
+                ctx.fill(cx - 3, cy - 7, cx + 3, cy - 3, color);   // башня
+                ctx.fill(cx - 1, cy - 9, cx + 1, cy - 6, color);   // шпиль
+                ctx.fill(cx - 5, cy - 3, cx + 5, cy - 1, color);   // карниз
+                ctx.fill(cx - 4, cy - 1, cx - 2, cy + 6, color);   // стены
+                ctx.fill(cx + 2, cy - 1, cx + 4, cy + 6, color);   // стены
+                ctx.fill(cx - 2, cy + 3, cx + 2, cy + 6, PANEL);   // арка-вход
+            }
+            case "slime" -> {
+                for (int dy = -3; dy <= 4; dy++) {
+                    int w = (int) Math.round(Math.sqrt(16.0 - (dy - 1) * (dy - 1)));
+                    for (int x = cx - w; x <= cx + w; x++) {
+                        boolean eye = (x == cx - 2 || x == cx + 2) && (dy == -1 || dy == 0);
+                        boolean mouth = x >= cx - 1 && x <= cx + 1 && dy == 2;
+                        if (!eye && !mouth) {
+                            ctx.fill(x, cy + dy, x + 1, cy + dy + 1, color);
+                        }
+                    }
+                }
+            }
+            case "fall" -> {
+                ctx.fill(cx - 1, cy - 6, cx + 2, cy + 2, color);   // древко
+                ctx.fill(cx - 3, cy, cx + 4, cy + 3, color);       // наконечник
+                ctx.fill(cx - 6, cy + 5, cx + 7, cy + 6, color);   // земля
+            }
+            case "hand" -> {
+                ctx.fill(cx - 3, cy - 4, cx - 2, cy + 3, color);   // мизинец
+                ctx.fill(cx - 1, cy - 6, cx, cy + 3, color);       // палец
+                ctx.fill(cx + 1, cy - 6, cx + 2, cy + 3, color);   // палец
+                ctx.fill(cx + 3, cy - 2, cx + 4, cy + 3, color);   // большой палец
+                ctx.fill(cx - 3, cy + 3, cx + 4, cy + 5, color);   // ладонь
+            }
             default -> drawCircle(ctx, cx, cy, 6, color);
         }
     }
