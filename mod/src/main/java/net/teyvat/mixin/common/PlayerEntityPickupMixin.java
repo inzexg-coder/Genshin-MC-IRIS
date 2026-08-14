@@ -3,8 +3,8 @@ package net.teyvat.mixin.common;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.ItemEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.teyvat.server.AutoPickupStats;
 import org.spongepowered.asm.mixin.Mixin;
-import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
@@ -18,19 +18,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(PlayerEntity.class)
 public abstract class PlayerEntityPickupMixin {
-    /** Сколько раз отменена коллизия игрока с ItemEntity (для /teyvat pickup). */
-    @Unique
-    private static long teyvat_guardCount;
-
-    @Unique
-    public static long guardCount() {
-        return teyvat_guardCount;
-    }
-
     @Inject(method = "collideWithEntity", at = @At("HEAD"), cancellable = true)
     private void teyvat$noItemPickup(Entity entity, CallbackInfo ci) {
         if (entity instanceof ItemEntity) {
-            teyvat_guardCount++;
+            AutoPickupStats.onGuarded();
             ci.cancel();
         }
     }

@@ -19,8 +19,7 @@ import net.minecraft.text.Text;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.progression.ProgressionStore;
-import net.teyvat.mixin.common.ItemEntityMixin;
-import net.teyvat.mixin.common.PlayerEntityPickupMixin;
+import net.teyvat.server.AutoPickupStats;
 import net.teyvat.server.PickupSelfTest;
 
 /** Корневая команда /teyvat: column, notes, choose и прогрессия (ar/char/reset). */
@@ -66,8 +65,8 @@ public final class TeyvatCommand {
             version = "?";
         }
         final String ver = version;
-        final long blocked = ItemEntityMixin.blockedCount();
-        final long guarded = PlayerEntityPickupMixin.guardCount();
+        final long blocked = AutoPickupStats.blockedCount();
+        final long guarded = AutoPickupStats.guardCount();
         ctx.getSource().sendFeedback(() -> Text.literal(
                 "§e[Teyvat] §fВерсия мода: §b" + ver
                         + "§f. Автоподбор: заблокировано попыток §b" + blocked
