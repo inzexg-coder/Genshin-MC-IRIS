@@ -1,8 +1,6 @@
 package net.teyvat.server;
 
-import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.teyvat.network.QuestStatePayload;
 import net.teyvat.quest.Quests;
 
 /**
@@ -42,33 +40,5 @@ public final class TeyvatQuests {
             }
         }
         return false;
-    }
-
-    /** Сбросить ВСЕ квесты (для /teyvat lessons reset — быстрый повторный тест). */
-    public static void reset(ServerPlayerEntity player) {
-        for (String id : ALL_QUEST_IDS) {
-            player.removeCommandTag(TAG_PREFIX + id);
-        }
-    }
-
-    /** Отметить все квесты выполненными (для /teyvat lessons complete). */
-    public static void completeAll(ServerPlayerEntity player) {
-        for (String id : ALL_QUEST_IDS) {
-            if (!isCompleted(player, id)) {
-                player.addCommandTag(TAG_PREFIX + id);
-            }
-        }
-    }
-
-    /** Синхронизировать состояние квестов клиенту (вход в мир или смена состояния). */
-    public static void sync(ServerPlayerEntity player) {
-        ServerPlayNetworking.send(player, new QuestStatePayload(
-                isCompleted(player, Quests.MEET_PAIMON),
-                isCompleted(player, Quests.TRY_SCROLL),
-                isCompleted(player, Quests.TRY_ZOOM),
-                isCompleted(player, Quests.TRY_SPRINT),
-                isCompleted(player, Quests.TRY_DASH),
-                isCompleted(player, Quests.TRY_ATTACK),
-                isCompleted(player, Quests.TRY_PICKUP)));
     }
 }

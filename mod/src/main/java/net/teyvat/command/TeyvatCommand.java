@@ -17,12 +17,7 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
-import net.teyvat.network.TutorialControlPayload;
 import net.teyvat.progression.ProgressionStore;
-import net.teyvat.quest.Quests;
-import net.teyvat.server.TeyvatQuests;
-
-import java.util.Map;
 
 /** Корневая команда /teyvat: column, notes, choose и прогрессия (ar/char/reset). */
 public final class TeyvatCommand {
@@ -39,68 +34,7 @@ public final class TeyvatCommand {
                         .requires(src -> src.hasPermissionLevel(2))
                         .executes(TeyvatCommand::openNotes))
                 .then(CommandManager.literal("choose").executes(TeyvatCommand::openChoice))
-                .then(lessons())
                 .then(progression()));
-    }
-
-    /** Уроки Паймон для быстрого тестирования: /teyvat lessons reset|complete|jump <урок>. */
-    private static LiteralArgumentBuilder<ServerCommandSource> lessons() {
-        return CommandManager.literal("lessons")
-                .requires(src -> src.hasPermissionLevel(2))
-                .then(CommandManager.literal("reset").executes(TeyvatCommand::lessonsReset))
-                .then(CommandManager.literal("complete").executes(TeyvatCommand::lessonsComplete))
-                .then(CommandManager.literal("jump")
-                        .then(CommandManager.argument("lesson", StringArgumentType.word())
-                                .executes(TeyvatCommand::lessonsJump)));
-    }
-
-    /** Какие квесты нужно пометить выполненными, чтобы урок начался сразу. */
-    private static final Map<String, String[]> LESSON_PREREQS = Map.of(
-            "scroll", new String[]{Quests.MEET_PAIMON},
-            "zoom", new String[]{Quests.MEET_PAIMON, Quests.TRY_SCROLL},
-            "sprint", new String[]{Quests.MEET_PAIMON, Quests.TRY_SCROLL, Quests.TRY_ZOOM},
-            "dash", new String[]{Quests.MEET_PAIMON, Quests.TRY_SCROLL, Quests.TRY_ZOOM, Quests.TRY_SPRINT},
-            "attack", new String[]{Quests.MEET_PAIMON, Quests.TRY_SCROLL, Quests.TRY_ZOOM, Quests.TRY_SPRINT, Quests.TRY_DASH},
-            "pickup", new String[]{Quests.MEET_PAIMON, Quests.TRY_SCROLL, Quests.TRY_ZOOM, Quests.TRY_SPRINT, Quests.TRY_DASH, Quests.TRY_ATTACK});
-
-    private static int lessonsReset(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
-        ServerPlayerEntity p = ctx.getSource().getPlayerOrThrow();
-        TeyvatQuests.reset(p);
-        TeyvatQuests.sync(p);
-        ServerPlayNetworking.send(p, new TutorialControlPayload("reset", ""));
-        ctx.getSource().sendFeedback(() -> Text.literal(
-                "§e[Teyvat] §fУроки Паймон сброшены — знакомство начнётся заново."), false);
-        return 1;
-    }
-
-    private static int lessonsComplete(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
-        ServerPlayerEntity p = ctx.getSource().getPlayerOrThrow();
-        TeyvatQuests.completeAll(p);
-        TeyvatQuests.sync(p);
-        ServerPlayNetworking.send(p, new TutorialControlPayload("complete", ""));
-        ctx.getSource().sendFeedback(() -> Text.literal(
-                "§e[Teyvat] §fВсе уроки отмечены выполненными — Паймон больше не будет учить."), false);
-        return 1;
-    }
-
-    private static int lessonsJump(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
-        ServerPlayerEntity p = ctx.getSource().getPlayerOrThrow();
-        String lesson = StringArgumentType.getString(ctx, "lesson");
-        String[] prereqs = LESSON_PREREQS.get(lesson);
-        if (prereqs == null) {
-            ctx.getSource().sendFeedback(() -> Text.literal(
-                    "§e[Teyvat] §fНеизвестный урок. Доступны: scroll, zoom, sprint, dash, attack, pickup."), false);
-            return 0;
-        }
-        TeyvatQuests.reset(p);
-        for (String prereq : prereqs) {
-            TeyvatQuests.complete(p, prereq);
-        }
-        TeyvatQuests.sync(p);
-        ServerPlayNetworking.send(p, new TutorialControlPayload("jump", lesson));
-        ctx.getSource().sendFeedback(() -> Text.literal(
-                "§e[Teyvat] §fУрок «" + lesson + "» запущен сразу."), false);
-        return 1;
     }
 
     /** Новый аргумент-игрок (свежий билдер каждый раз — переиспользовать нельзя). */
