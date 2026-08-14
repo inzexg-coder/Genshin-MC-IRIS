@@ -56,6 +56,7 @@ import net.teyvat.network.PlayerAttackPayload;
 import net.teyvat.network.ProgressionSyncPayload;
 import net.teyvat.network.QuestStatePayload;
 import net.teyvat.network.PickupRequestPayload;
+import net.teyvat.network.TutorialControlPayload;
 import net.teyvat.progression.MobLevels;
 import net.teyvat.progression.MobXp;
 import net.teyvat.progression.ProgressionStore;
@@ -118,6 +119,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(DamageNumberPayload.ID, DamageNumberPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ResourceGainPayload.ID, ResourceGainPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(MobLevelSyncPayload.ID, MobLevelSyncPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(TutorialControlPayload.ID, TutorialControlPayload.CODEC);
         // Shift+N: «О сборке» — только для администраторов мира/сервера.
         ServerPlayNetworking.registerGlobalReceiver(AdminNotesRequestPayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
@@ -296,14 +298,7 @@ public class TeyvatMod implements ModInitializer {
                 }
             }
             // Состояние квестов: клиент не повторяет уроки, которые уже пройдены.
-            ServerPlayNetworking.send(player, new QuestStatePayload(
-                    TeyvatQuests.isCompleted(player, Quests.MEET_PAIMON),
-                    TeyvatQuests.isCompleted(player, Quests.TRY_SCROLL),
-                    TeyvatQuests.isCompleted(player, Quests.TRY_ZOOM),
-                    TeyvatQuests.isCompleted(player, Quests.TRY_SPRINT),
-                    TeyvatQuests.isCompleted(player, Quests.TRY_DASH),
-                    TeyvatQuests.isCompleted(player, Quests.TRY_ATTACK),
-                    TeyvatQuests.isCompleted(player, Quests.TRY_PICKUP)));
+            TeyvatQuests.sync(player);
             // Прогрессия: ранг, опыт, примогемы, ростера персонажей.
             ProgressionStore.sync(player);
             // Уровни уже загруженных мобов рядом: ENTITY_LOAD для них уже отработал,

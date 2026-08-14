@@ -53,6 +53,7 @@ import net.teyvat.network.QuestStatePayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.quest.Quests;
 import net.teyvat.network.TravelerChoiceSyncPayload;
+import net.teyvat.network.TutorialControlPayload;
 import org.lwjgl.glfw.GLFW;
 
 public class TeyvatClient implements ClientModInitializer {
@@ -202,6 +203,12 @@ public class TeyvatClient implements ClientModInitializer {
             context.client().execute(() ->
                     QuestStateClient.set(payload.meetPaimon(), payload.tryScroll(), payload.tryZoom(),
                             payload.trySprint(), payload.tryDash(), payload.tryAttack(), payload.tryPickup()));
+        });
+
+        // Управление уроками из /teyvat lessons (быстрое тестирование).
+        ClientPlayNetworking.registerGlobalReceiver(TutorialControlPayload.ID, (payload, context) -> {
+            context.client().execute(() ->
+                    PaimonManager.handleTutorialControl(payload.action(), payload.lesson()));
         });
 
         // Квест выполнен на сервере (победа над слаймами тренировки): тост

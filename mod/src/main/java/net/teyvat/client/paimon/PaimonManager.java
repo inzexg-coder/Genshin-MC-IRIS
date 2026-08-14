@@ -860,6 +860,98 @@ public final class PaimonManager {
         return start + (phrases.length - 1) * gap + endGap;
     }
 
+    /** Управление уроками из /teyvat lessons (быстрое тестирование без переигрывания всего). */
+    public static void handleTutorialControl(String action, String lesson) {
+        if ("reset".equals(action)) {
+            resetAndRestartIntro();
+        } else if ("complete".equals(action)) {
+            cancelAllTutorials();
+        } else if ("jump".equals(action)) {
+            startLesson(lessonToTutorial(lesson));
+        }
+    }
+
+    private static int lessonToTutorial(String lesson) {
+        switch (lesson) {
+            case "scroll":
+                return TUTORIAL_SCROLL;
+            case "zoom":
+                return TUTORIAL_ZOOM;
+            case "sprint":
+                return TUTORIAL_SPRINT;
+            case "dash":
+                return TUTORIAL_DASH;
+            case "attack":
+                return TUTORIAL_ATTACK;
+            case "pickup":
+                return TUTORIAL_PICKUP;
+            default:
+                return -1;
+        }
+    }
+
+    /** Полный перезапуск обучения: Паймон снова представляется, уроки идут по порядку. */
+    public static void resetAndRestartIntro() {
+        remove();
+        cancelAllTutorials();
+        startIntro();
+    }
+
+    /** Остановить любой идущий урок/знакомство (состояние квестов не трогаем). */
+    public static void cancelAllTutorials() {
+        questReportTimer = -1;
+        tutorTicks = -1;
+        tutorPromptShown = false;
+        zoomTutorTicks = -1;
+        zoomPromptShown = false;
+        sprintTutorTicks = -1;
+        sprintPromptShown = false;
+        dashTutorTicks = -1;
+        dashPromptShown = false;
+        attackTutorTicks = -1;
+        attackPromptShown = false;
+        attackSpawnRequested = false;
+        pickupTutorTicks = -1;
+        pickupPromptShown = false;
+        queuedTutorial = -1;
+        DialogueOverlay.end();
+    }
+
+    /** Запустить конкретный урок сразу, с первой фразы (прыжок из команды). */
+    public static void startLesson(int tutorial) {
+        if (tutorial < 0) {
+            return;
+        }
+        cancelAllTutorials();
+        switch (tutorial) {
+            case TUTORIAL_SCROLL -> {
+                tutorTicks = 0;
+                tutorPromptShown = false;
+            }
+            case TUTORIAL_ZOOM -> {
+                zoomTutorTicks = 0;
+                zoomPromptShown = false;
+            }
+            case TUTORIAL_SPRINT -> {
+                sprintTutorTicks = 0;
+                sprintPromptShown = false;
+            }
+            case TUTORIAL_DASH -> {
+                dashTutorTicks = 0;
+                dashPromptShown = false;
+            }
+            case TUTORIAL_ATTACK -> {
+                attackTutorTicks = 0;
+                attackPromptShown = false;
+            }
+            case TUTORIAL_PICKUP -> {
+                pickupTutorTicks = 0;
+                pickupPromptShown = false;
+            }
+            default -> { }
+        }
+    }
+
     public static void remove() {
         if (paimon != null && !paimon.isRemoved()) {
             paimon.discard();
