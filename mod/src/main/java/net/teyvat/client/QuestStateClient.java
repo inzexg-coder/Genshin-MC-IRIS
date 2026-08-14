@@ -13,6 +13,9 @@ public final class QuestStateClient {
     private static boolean tryDash;
     private static boolean tryAttack;
     private static boolean tryPickup;
+    /** Статус квестов получен с сервера (при входе в мир). До этого момента
+     *  Паймон не начинает уроки — чтобы при перезаходе гайд не проигрывался с нуля. */
+    private static boolean loaded;
 
     private QuestStateClient() {}
 
@@ -26,6 +29,12 @@ public final class QuestStateClient {
         tryDash = tryDashCompleted;
         tryAttack = tryAttackCompleted;
         tryPickup = tryPickupCompleted;
+        loaded = true;
+    }
+
+    /** Синхронизация квестов с сервера уже получена. */
+    public static boolean isLoaded() {
+        return loaded;
     }
 
     public static boolean isCompleted(String questId) {

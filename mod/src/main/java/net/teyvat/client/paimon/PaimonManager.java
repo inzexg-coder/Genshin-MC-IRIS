@@ -252,6 +252,14 @@ public final class PaimonManager {
         if (!TeyvatConfig.get().paimon.enabled) {
             return;
         }
+        // Ждём синхронизацию квестов с сервера: при перезаходе статус уроков
+        // приходит в первые тики, и знакомство не должно проигрываться заново.
+        if (!QuestStateClient.isLoaded()) {
+            return;
+        }
+        // Знакомство уже было: Паймон просто летит за спину героя, без реплик
+        // и без отчёта о задании. Уроки, которые ещё не пройдены, начнутся сами.
+        boolean alreadyMet = QuestStateClient.isCompleted(Quests.MEET_PAIMON);
         PaimonEntity entity = new PaimonEntity(PaimonEntity.TYPE, world);
         entity.setOwner(client.player.getUuid());
         refYaw = client.player.getYaw();
@@ -274,6 +282,9 @@ public final class PaimonManager {
         introPos = playerPos(client.player).add(forwardDeg(refYaw, INTRO_DIST)).add(0.0, INTRO_UP, 0.0);
         entity.setPosition(introPos.x, introPos.y, introPos.z);
         entity.setYaw(client.player.getYaw());
+        // Уже знакомый путешественник: Паймон появляется сразу в полёте за спиной
+        // (из точки перед игроком плавно уйдёт за спину — как маленький пролёт).
+        entity.setFollowing(alreadyMet);
         world.addEntity(entity);
         paimon = entity;
         // Реплики Паймон рисуются оверлеем прямо на экране (не в чате).
