@@ -76,5 +76,24 @@ public final class StaminaOverlay {
             context.fill((int) (RADIUS - 2), -THICKNESS / 2, (int) (RADIUS + 2), (THICKNESS + 1) / 2, col);
             m.popMatrix();
         }
+        // Заряженная атака: поверх дуги растёт яркая бело-голубая полоса.
+        float charge = CombatController.chargeProgress();
+        if (charge > 0f) {
+            int ca = 220;
+            int chargeCol = (ca << 24) | 0xFFBFE8FF;
+            double charged = Math.min(1.0, charge);
+            for (int seg = 0; seg < segs; seg++) {
+                double t = (seg + 0.5) / segs;
+                if (t > charged) {
+                    break;
+                }
+                float angle = (float) Math.toRadians(180 + (seg + 0.5) * (180.0 / segs));
+                m.pushMatrix();
+                m.translate(cx, cy);
+                m.rotate(angle);
+                context.fill((int) (RADIUS - 2), -THICKNESS / 2, (int) (RADIUS + 2), (THICKNESS + 1) / 2, chargeCol);
+                m.popMatrix();
+            }
+        }
     }
 }

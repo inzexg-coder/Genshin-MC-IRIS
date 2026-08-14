@@ -256,8 +256,24 @@ HIT5 = [
     (1.00, E_IN_OUT_SINE, P(rYaw=-70.0, rPitch=-32.0, rRoll=0.0, lPitch=-15.0, bYaw=10.0, bPitch=2.0, rlPitch=30.0, llPitch=-6.0)),
 ]
 
+# --- charged: заряженный спин на 360° (удержание ЛКМ, как у путешественника
+# в начале Genshin). Сжатый замах уводит клинок вверх-за спину, на пике
+# (момент урона) клинок горизонтально вбок и начинает ОРБИТУ вокруг тела —
+# полный оборот делает root (chargedSpinTurn), рука ведёт клинок по кругу
+# и на хвосте опускает его вниз-вперёд. Хит по всей площади вокруг героя
+# (сервер: полный круг, «орбиты атомов»). ---
+CHARGED = [
+    (0.00, E_LINEAR, P(rPitch=-20.0, lPitch=-10.0)),
+    (0.12, E_IN_CUBIC, P(rYaw=-42.0, rPitch=-120.0, rRoll=-8.0, lPitch=-55.0, lRoll=-10.0, bYaw=-7.0, rlPitch=-12.0, llPitch=8.0)),
+    (0.24, E_IN_CUBIC, P(rYaw=-25.0, rPitch=-165.0, rRoll=-5.0, lPitch=-72.0, lRoll=-14.0, bYaw=-9.0, rlPitch=-18.0, llPitch=12.0)),
+    (0.40, E_IN_CUBIC, P(rYaw=-20.0, rPitch=-60.0, rRoll=10.0, lPitch=-38.0, lRoll=12.0, bYaw=2.0, bPitch=4.0, rlPitch=20.0, llPitch=-6.0)),
+    (0.55, E_OUT_CUBIC, P(rYaw=34.0, rPitch=-62.0, rRoll=6.0, lPitch=-22.0, lRoll=4.0, bYaw=6.0, bPitch=3.0, rlPitch=26.0, llPitch=-8.0)),
+    (0.72, E_OUT_BACK, P(rYaw=-16.0, rPitch=-44.0, rRoll=-2.0, lPitch=-16.0, lRoll=1.0, bYaw=5.0, bPitch=2.0, rlPitch=16.0, llPitch=-4.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=-16.0, rPitch=-44.0, lPitch=-16.0, bYaw=5.0, bPitch=2.0, rlPitch=14.0, llPitch=-4.0)),
+]
 
-CLIPS = [bake(HIT1), bake(HIT2), bake(HIT3), bake(HIT4), bake(HIT5)]
+
+CLIPS = [bake(HIT1), bake(HIT2), bake(HIT3), bake(HIT4), bake(HIT5), bake(CHARGED)]
 
 
 
@@ -265,7 +281,7 @@ CLIPS = [bake(HIT1), bake(HIT2), bake(HIT3), bake(HIT4), bake(HIT5)]
 
 
 
-NAMES = ["hit1", "hit2", "hit3", "hit4", "hit5"]
+NAMES = ["hit1", "hit2", "hit3", "hit4", "hit5", "charged"]
 
 
 def to_radians(clip):

@@ -22,6 +22,8 @@ public final class StaminaController {
     private static final float SPRINT_DRAIN = 15f / 20f;
     /** Стоимость рывка. */
     private static final float DASH_COST = 25f;
+    /** Стоимость заряженной атаки (спин): дороже рывка, как в Genshin. */
+    public static final float CHARGE_COST = 30f;
     /** Восстановление: 30 ед/сек. */
     private static final float REGEN_RATE = 30f / 20f;
     /** Пауза перед восстановлением после траты (1 сек). */
@@ -248,6 +250,17 @@ public final class StaminaController {
         boolean event = dashEvent;
         dashEvent = false;
         return event;
+    }
+
+    /** Снять стамину за заряженную атаку. Возвращает false, если не хватило —
+     *  заряд не выстрелит (как в Genshin: пустая шкала не даёт заряженный удар). */
+    public static boolean trySpendCharge() {
+        if (stamina < CHARGE_COST) {
+            return false;
+        }
+        stamina -= CHARGE_COST;
+        regenDelay = REGEN_DELAY;
+        return true;
     }
 
     /** Идёт ли сейчас рывок. */

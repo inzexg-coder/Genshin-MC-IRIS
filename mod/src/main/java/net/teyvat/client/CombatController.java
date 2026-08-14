@@ -52,11 +52,14 @@ import java.util.List;
  * переступают с выпадом в момент урона. Каждый клип непрерывен
  * (t=0 = финал предыдущего удара); разворот на 360° делает root ванильной
  * модели (getRootPart().yaw): торс, голова, руки и клинок поворачиваются
- * как единое целое. Полный круг ≈ 3.5 с, серия идёт по КЛИКАМ (удержание
- * ЛКМ НЕ цепляет следующий удар): пока с последнего клика прошло ≤ ~1 с,
- * комбо продолжается со следующего удара (после пятого — снова первый);
- * пауза дольше секунды сбрасывает серию (следующий клик — первый удар).
- * После пятого удара — обязательная пауза ~1 сек (клики глотаются).
+ * как единое целое. Полный круг ≈ 3.5 с, серия идёт по КЛИКАМ: быстрый
+ * тап — удар комбо, удержание ЛКМ ~0.3 с — ЗАРЯД (спин на 360° по
+ * отпусканию, как у путешественника в начале Genshin: хит по полному кругу
+ * вокруг тела, «орбиты атомов», тратит стамину, после неё серия сброшена).
+ * Пока с последнего клика прошло ≤ ~1 с, комбо продолжается со следующего
+ * удара (после пятого — снова первый); пауза дольше секунды сбрасывает
+ * серию (следующий клик — первый удар). После пятого удара — обязательная
+ * пауза ~1 сек (клики глотаются).
  * Клинок вырисовывает разрез: во время свинга
  * рисуется светящаяся дуга-полумесяц (трейл по траектории клинка +
  * усиленные частицы). Между анимациями — плавные переходы (первые ~5%
@@ -98,6 +101,20 @@ public final class CombatController {
     /** Тики хит-стопа (hitlag) при ПОПАДАНИИ: поза и тайминги комбо замерли
      *  на пару кадров, ввод движения заблокирован. Промах хит-стопа не даёт. */
     private static int hitlagTicks;
+    /** Заряженная атака (удержание ЛКМ): идёт ли заряд сейчас. */
+    private static boolean charging;
+    /** Тики с начала заряда (для минимального заряда и индикатора). */
+    private static int chargeTicks;
+    /** Нажатие ЛКМ ещё не распознано (тап или удержание). */
+    private static boolean pendingClick;
+    /** Тики удержания ЛКМ с последнего нажатия. */
+    private static int holdTicks;
+
+    /** Тиков удержания ЛКМ, после которых это считается зарядом (~0.15 сек).
+     *  Быстрый тап (отпустили раньше) — обычный удар комбо. */
+    private static final int HOLD_DETECT_TICKS = 3;
+    /** Минимальный заряд, чтобы отпускание выстрелило спин (~0.25 сек). */
+    private static final int MIN_CHARGE_TICKS = 5;
 
     /** Тиков восстановления после одиночного удара: поза плавно уходит в
      *  боевую стойку READY_POSE (клинок остаётся горизонтальным — никакого
@@ -161,6 +178,7 @@ public final class CombatController {
             {0f, -18f, -38f, -16f, -4f, 0f},  // hit3: рубящий по диагонали
             {0f, 24f, 0f, -20f, 6f, 0f},      // hit4: зеркало hit1
             {0f, -30f, 0f, 26f, 8f, 0f},      // hit5: мощный свинг — ведущее ребро
+            {0f, -18f, 0f, 24f, 6f, 0f},      // charged: спин — лезвие вбок, орбита
     };
     /** Моменты кадров BLADE_DEG (доли клипа): замах сжат, выравнивание
      *  лезвия и перехлёст (whip) сдвинуты к мгновенному удару. */
@@ -208,6 +226,38 @@ public final class CombatController {
             finalCooldownTicks = 0;
             exitBlendTicks = 0;
         }
+        // --- Заряженная атака: тап — обычный удар, удержание ~0.3 с — заряд,
+        // отпускание — спин на 360° (хит по кругу, как в Genshin). ---
+        boolean lmbHeld = client.options.attackKey.isPressed();
+        holdTicks = lmbHeld ? holdTicks + 1 : 0;
+        if (charging && !client.player.isOnGround()) {
+            // Прыжок (или обрыв) прерывает заряд.
+            charging = false;
+            chargeTicks = 0;
+        }
+        if (pendingClick) {
+            if (holdTicks >= HOLD_DETECT_TICKS) {
+                // Удержание: вместо обычного удара начинаем заряжать.
+                pendingClick = false;
+                startCharging(client);
+            } else if (!lmbHeld) {
+                // Быстрый тап: обычный удар комбо.
+                pendingClick = false;
+                onAttackClick();
+            }
+        }
+        if (charging) {
+            chargeTicks++;
+            spawnChargeParticles(client, client.player);
+            if (!lmbHeld) {
+                charging = false;
+                int ready = chargeTicks;
+                chargeTicks = 0;
+                if (ready >= MIN_CHARGE_TICKS) {
+                    startChargedAttack(client);
+                }
+            }
+        }
         if (hitlagTicks > 0) {
             // Хит-стоп: всё замерло — поза удара, тайминги комбо и пауза после
             // 5-го удара. Отдача камеры держится на месте и гаснет после.
@@ -218,6 +268,39 @@ public final class CombatController {
             finalCooldownTicks--;
         }
         if (comboStep >= 0) {
+            if (comboStep == SwordCombo.CHARGE_INDEX) {
+                // Заряженный спин: клинок ведёт орбиту вокруг тела, урон
+                // на тике DAMAGE_TICKS по полному кругу (сервер, «орбиты
+                // атомов»). После спина серия сброшена.
+                if (recoveryTicks > 0) {
+                    recoveryTicks--;
+                    if (recoveryTicks == 0) {
+                        comboStep = -1;
+                        exitBlendTicks = EXIT_BLEND_TICKS;
+                    }
+                } else {
+                    hitTicks++;
+                    if (hitTicks == 1) {
+                        applyStep(client.player);
+                    }
+                    if (hitTicks == SwordCombo.DAMAGE_TICKS[SwordCombo.CHARGE_INDEX] && !sentHit) {
+                        sentHit = true;
+                        sendHit(SwordCombo.CHARGE_INDEX);
+                        CinematicShots.onDamageTick();
+                        spawnSlashEffects(client, client.player);
+                        applyLunge(client.player);
+                    }
+                    if (hitTicks >= SwordCombo.DURATION_TICKS[SwordCombo.CHARGE_INDEX]) {
+                        lastStep = -1;
+                        lastClickTick = -1;
+                        recoveryTicks = RECOVERY_TICKS;
+                        sentHit = false;
+                        bufferedNext = false;
+                    }
+                }
+                impactKick *= 0.84f;
+                return;
+            }
             if (recoveryTicks > 0) {
                 // Восстановление после одиночного удара: поза тает в нейтраль,
                 // чтобы между тапами не было отскока в ванильную стойку.
@@ -287,7 +370,25 @@ public final class CombatController {
         impactKick *= 0.84f;
     }
 
-    /** ЛКМ нажат (вместо ванильной атаки). Возвращает true, если клик съеден комбо. */
+    /** ЛКМ нажат (вместо ванильной атаки). Клик не стреляет сразу: пару тиков
+     *  он ждёт распознавания — быстрый тап станет обычным ударом комбо,
+     *  удержание ~0.3 с — зарядом (спин по отпусканию), как в Genshin.
+     *  Возвращает true, если клик съеден (ванильная атака подавлена). */
+    public static boolean onAttackPress() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || client.world == null || client.isPaused()) {
+            return false;
+        }
+        if (charging) {
+            // Уже заряжаем: повторное нажатие ничего не делает.
+            return true;
+        }
+        pendingClick = true;
+        holdTicks = 0;
+        return true;
+    }
+
+    /** Быстрый тап подтверждён: обычный удар комбо (см. onAttackPress). */
     public static boolean onAttackClick() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.world == null || client.isPaused()) {
@@ -338,6 +439,73 @@ public final class CombatController {
             bufferedNext = true;
         }
         return true;
+    }
+
+    /** Начать заряд: сброс атаки/комбо, поза заряда, индикатор на дуге стамины. */
+    private static void startCharging(MinecraftClient client) {
+        if (client.player == null || !client.player.isOnGround()) {
+            return;
+        }
+        cancelAttack();
+        charging = true;
+        chargeTicks = 0;
+        exitBlendTicks = 0;
+        // Серия сбрасывается: после заряженного удара обычный клик начнёт
+        // комбо с первого удара (как в Genshin).
+        lastStep = -1;
+        lastClickTick = -1;
+        client.world.playSound(null, client.player.getX(), client.player.getY(), client.player.getZ(),
+                SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 0.3f, 1.6f,
+                client.world.random.nextLong());
+    }
+
+    /** Отпускание после заряда: спин на 360° с хитом по кругу, трата стамины. */
+    private static void startChargedAttack(MinecraftClient client) {
+        if (client.player == null || client.world == null || !client.player.isOnGround()) {
+            return;
+        }
+        if (!StaminaController.trySpendCharge()) {
+            // Стамины не хватило — заряд отменяется, спин не выстрелит.
+            return;
+        }
+        comboStep = SwordCombo.CHARGE_INDEX;
+        hitTicks = 0;
+        sentHit = false;
+        bufferedNext = false;
+        recoveryTicks = 0;
+        finalCooldownTicks = 0;
+        exitBlendTicks = 0;
+        lastStep = -1;
+        lastClickTick = -1;
+        client.world.playSound(null, client.player.getX(), client.player.getY(), client.player.getZ(),
+                SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 0.5f, 0.7f,
+                client.world.random.nextLong());
+    }
+
+    /** Частицы заряда: искры-«орбиты» вокруг тела с растущим радиусом. */
+    private static void spawnChargeParticles(MinecraftClient client, ClientPlayerEntity player) {
+        if (client.world == null || chargeTicks % 3 != 0) {
+            return;
+        }
+        for (int i = 0; i < 4; i++) {
+            double a = client.world.random.nextDouble() * Math.PI * 2.0;
+            double r = 1.0 + chargeTicks * 0.05;
+            client.world.addParticleClient(ParticleTypes.END_ROD,
+                    player.getX() + Math.cos(a) * r,
+                    player.getY() + 0.8 + client.world.random.nextDouble() * 1.2,
+                    player.getZ() + Math.sin(a) * r,
+                    -Math.sin(a) * 0.4, 0.25, Math.cos(a) * 0.4);
+        }
+        client.world.addParticleClient(ParticleTypes.END_ROD,
+                player.getX(), player.getY() + 2.1, player.getZ(), 0, 0.15, 0);
+    }
+
+    /** Прогресс заряда 0..1 (для индикатора на дуге стамины). */
+    public static float chargeProgress() {
+        if (!charging) {
+            return 0f;
+        }
+        return MathHelper.clamp(chargeTicks / (float) MIN_CHARGE_TICKS, 0f, 1f);
     }
 
     /** Радиус поиска ближайшего врага для доворота в кинокамере-орбите. */
@@ -421,7 +589,8 @@ public final class CombatController {
         // Полумесяцы-разрезы: серпы рисуются ТОЧНО по траектории клинка (та же
         // цепочка, что у трейла — bladeTipWorld), поэтому дуга визуала удара
         // совпадает с направлением движения меча (с поворотом лезвия).
-        int crescents = 3;
+        boolean charged = comboStep == SwordCombo.CHARGE_INDEX;
+        int crescents = charged ? 6 : 3;
         float rootYaw = currentRootYawRad();
         Vec3d slashPos = new Vec3d(player.getX(), player.getY(), player.getZ());
         // Серп идёт по новой траектории: сжатый замах + удар (0.04) и
@@ -442,10 +611,11 @@ public final class CombatController {
                     dir.x, dir.y, dir.z);
         }
         // Дуга размаха: плотные штрихи-искры вдоль траектории меча.
+        // У заряженного спина — полный круг (орбита вокруг тела).
         int count = 16;
         double radius = 2.4;
         double height = 1.0 + comboStep * 0.09;
-        float span = 1.55f + comboStep * 0.12f;
+        float span = charged ? 6.2f : 1.55f + comboStep * 0.12f;
         for (int i = 0; i < count; i++) {
             float t = (float) i / (count - 1);
             double ang = yaw + (t - 0.5f) * span;
@@ -460,6 +630,17 @@ public final class CombatController {
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 0.5f, 1.0f,
                 world.random.nextLong());
+        // Кольцо «орбит» заряженного спина: искры по кругу вокруг героя.
+        if (charged) {
+            for (int i = 0; i < 24; i++) {
+                double a = i / 24.0 * Math.PI * 2.0;
+                world.addParticleClient(ParticleTypes.END_ROD,
+                        player.getX() + Math.cos(a) * 3.0,
+                        player.getY() + 0.2,
+                        player.getZ() + Math.sin(a) * 3.0,
+                        Math.cos(a) * 1.2, 0.1, Math.sin(a) * 1.2);
+            }
+        }
         // Пыль из-под ног на ударах с шагом/выпадом.
         if (SwordCombo.LUNGE_STRENGTH[comboStep] >= 0.18f) {
             for (int i = 0; i < 3; i++) {
@@ -552,9 +733,14 @@ public final class CombatController {
     }
 
     /** Общая отмена атаки: сбрасываем удар в нейтраль с плавным выходом.
+     *  Так же прерывает заряд (dash/jump-cancel заряженной атаки).
      *  Возвращает true, если что-то было отменено. */
     private static boolean cancelAttack() {
-        if (comboStep < 0 && finalCooldownTicks <= 0) {
+        boolean wasActive = comboStep >= 0 || finalCooldownTicks > 0 || charging;
+        charging = false;
+        chargeTicks = 0;
+        pendingClick = false;
+        if (!wasActive) {
             return false;
         }
         comboStep = -1;
@@ -607,7 +793,9 @@ public final class CombatController {
         if (!isLocalPlayer(state.id)) {
             return;
         }
-        if (comboStep >= 0) {
+        if (charging) {
+            applyChargePose(model, state);
+        } else if (comboStep >= 0) {
             applyPose(model, state.id);
         } else {
             model.getRootPart().yaw = 0f;
@@ -636,6 +824,41 @@ public final class CombatController {
         model.head.yaw = 0f;
         model.head.pitch = 0f;
         model.head.roll = 0f;
+    }
+
+    /** Поза заряда: клинок поднят вверх-вперёд обеими руками, готовность
+     *  к спину; лёгкое покачивание и мягкий въезд из предыдущей позы.
+     *  Голова не трогается (всегда смотрит вперёд). */
+    private static void applyChargePose(PlayerEntityModel model, PlayerEntityRenderState state) {
+        float t = state.age * 0.06f;
+        float sway = MathHelper.sin(t);
+        float breath = MathHelper.sin(state.age * 0.11f);
+        float w = MathHelper.clamp(chargeTicks / 6f, 0f, 1f);
+        Pose base = hasPrevAppliedPose ? prevAppliedPose : CHARGE_POSE;
+        Pose pose = mix(base, CHARGE_POSE, ease(E_IN_OUT_SINE, w));
+        pose = new Pose(
+                pose.rYaw() + sway * 0.01f,
+                pose.rPitch() + breath * 0.012f,
+                pose.rRoll() + sway * 0.008f,
+                pose.lYaw(),
+                pose.lPitch() + sway * 0.008f,
+                pose.lRoll(),
+                pose.bYaw() + sway * 0.02f,
+                pose.bPitch() + breath * 0.02f,
+                pose.bRoll(),
+                Float.NaN, Float.NaN, Float.NaN,
+                pose.rlYaw(),
+                pose.rlPitch() + sway * 0.006f,
+                pose.rlRoll(),
+                pose.llYaw(),
+                pose.llPitch() - sway * 0.006f,
+                pose.llRoll());
+        applyPoseToModel(model, pose);
+        model.getRootPart().yaw = sway * 0.03f;
+        model.getRootPart().pitch = breath * 0.01f;
+        model.getRootPart().originY = 0f;
+        prevAppliedPose = poseFromModel(model);
+        hasPrevAppliedPose = true;
     }
 
     /** Прочитать текущие углы модели как позу (для плавных переходов). */
@@ -754,7 +977,8 @@ public final class CombatController {
         // «отдельного вращения тела»). 2π ≡ 0, поэтому на стыке с ударами
         // 2 и 4 рывка не видно. Вне разворота root = 0 (сброс stale-угла).
         model.getRootPart().yaw = MathHelper.lerp(rootBlend, lastLocoRootYaw,
-                comboStep == 2 ? spinTurn(p) : 0f);
+                comboStep == 2 ? spinTurn(p)
+                        : comboStep == SwordCombo.CHARGE_INDEX ? chargedSpinTurn(p) : 0f);
         lastCombatRootY = model.getRootPart().originY;
         lastCombatRootPitch = model.getRootPart().pitch;
         lastCombatRootYaw = model.getRootPart().yaw;
@@ -830,12 +1054,16 @@ public final class CombatController {
         }
     }
 
-    /** Поворот root модели на текущем прогрессe (удар 3 — полный оборот). */
+    /** Поворот root модели на текущем прогрессe: удар 3 и заряженный спин —
+     *  полный оборот вокруг своей оси (клинок ведёт орбиту). */
     public static float currentRootYawRad() {
-        if (comboStep != 2) {
-            return 0f;
+        if (comboStep == 2) {
+            return spinTurn(progress());
         }
-        return spinTurn(progress());
+        if (comboStep == SwordCombo.CHARGE_INDEX) {
+            return chargedSpinTurn(progress());
+        }
+        return 0f;
     }
 
     /** Текущий поворот лезвия в локальном пространстве предмета (item-local,
@@ -958,10 +1186,10 @@ public final class CombatController {
      *  (мгновенный удар, ~0.12 клипа) и спадает к концу. Удар 3 (разворот) —
      *  без наклона. Углы малые (6..10°) — пивот root на уровне шеи, ноги
      *  не отрываются. */
-    private static final float[] ROOT_LEAN_DEG = {6f, 8f, 0f, 6f, 10f};
+    private static final float[] ROOT_LEAN_DEG = {6f, 8f, 0f, 6f, 10f, 0f};
 
     private static float rootLean(float p) {
-        if (comboStep < 0 || comboStep == 2) {
+        if (comboStep < 0 || comboStep == 2 || comboStep == SwordCombo.CHARGE_INDEX) {
             return 0f;
         }
         float peak = 0.10f;
@@ -987,6 +1215,14 @@ public final class CombatController {
         return (float) (-Math.PI * 2.0) * ease(E_IN_OUT_CUBIC, u);
     }
 
+    /** Прогресс оборота заряженного спина 0..1: полный круг к ~0.25 клипа
+     *  (урон на 0.077 — в начале орбиты, дальше клинок продолжает круг),
+     *  затем стабилизация (E_IN_OUT_CUBIC). */
+    private static float chargedSpinTurn(float p) {
+        float u = MathHelper.clamp(p / 0.25f, 0f, 1f);
+        return (float) (-Math.PI * 2.0) * ease(E_IN_OUT_CUBIC, u);
+    }
+
     /** Боевая стойка (покой/после удара): клинок держим горизонтально слева —
      *  не «дефолтный майнкрафт» (меч вертикально). В неё уходит восстановление
      *  после удара, из неё же растёт АФК-покачивание и стартует бег. */
@@ -996,6 +1232,16 @@ public final class CombatController {
             READY_BYAW, READY_BPITCH, 0f,
             Float.NaN, Float.NaN, Float.NaN,
             0f, 0f, 0f, 0f, 0f, 0f);
+
+    /** Поза заряда (удержание ЛКМ): клинок поднят вверх-вперёд обеими руками,
+     *  корпус чуть назад — готовность к спину. Голова — NaN (смотрит вперёд). */
+    private static final Pose CHARGE_POSE = new Pose(
+            (float) Math.toRadians(-20f), (float) Math.toRadians(-98f), (float) Math.toRadians(-10f),
+            0f, (float) Math.toRadians(-72f), (float) Math.toRadians(-6f),
+            (float) Math.toRadians(-6f), (float) Math.toRadians(4f), 0f,
+            Float.NaN, Float.NaN, Float.NaN,
+            0f, (float) Math.toRadians(-8f), 0f,
+            0f, (float) Math.toRadians(6f), 0f);
 
     /** Смешать позу с боевой стойкой (клинок остаётся горизонтальным). */
     private static Pose relax(Pose p, float w) {
@@ -1284,6 +1530,48 @@ public final class CombatController {
     private static final Pose hit5_39 = new Pose(-1.221730f, -0.558505f, 0.000818f, 0.000000f, -0.261799f, 0.000409f, 0.174533f, 0.036215f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.525234f, 0.000000f, 0.000000f, -0.105537f, 0.000000f);
     private static final Pose hit5_40 = new Pose(-1.221730f, -0.558505f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, 0.174533f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.523599f, 0.000000f, 0.000000f, -0.104720f, 0.000000f);
 
+    private static final Pose charged_00 = new Pose(0.000000f, -0.349066f, 0.000000f, 0.000000f, -0.174533f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
+    private static final Pose charged_01 = new Pose(-0.610865f, -1.803507f, -0.116355f, 0.000000f, -0.829031f, -0.145444f, -0.101811f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.174533f, 0.000000f, 0.000000f, 0.116355f, 0.000000f);
+    private static final Pose charged_02 = new Pose(-0.645125f, -2.327106f, -0.124112f, 0.000000f, -1.047844f, -0.195218f, -0.132516f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.240468f, 0.000000f, 0.000000f, 0.160312f, 0.000000f);
+    private static final Pose charged_03 = new Pose(-0.431730f, -2.783152f, -0.073461f, 0.000000f, -1.225344f, -0.220416f, -0.146955f, 0.003682f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.279185f, 0.000000f, 0.000000f, 0.192873f, 0.000000f);
+    private static final Pose charged_04 = new Pose(-0.349066f, -1.047198f, 0.174533f, 0.000000f, -0.663225f, 0.209440f, 0.034907f, 0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.349066f, 0.000000f, 0.000000f, -0.104720f, 0.000000f);
+    private static final Pose charged_05 = new Pose(-0.347773f, -1.047245f, 0.174437f, 0.000000f, -0.662842f, 0.209248f, 0.035002f, 0.069789f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.349209f, 0.000000f, 0.000000f, -0.104768f, 0.000000f);
+    private static final Pose charged_06 = new Pose(-0.338723f, -1.047581f, 0.173767f, 0.000000f, -0.660161f, 0.207907f, 0.035673f, 0.069622f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.350215f, 0.000000f, 0.000000f, -0.105103f, 0.000000f);
+    private static final Pose charged_07 = new Pose(-0.314159f, -1.048490f, 0.171947f, 0.000000f, -0.652882f, 0.204268f, 0.037492f, 0.069167f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.352944f, 0.000000f, 0.000000f, -0.106013f, 0.000000f);
+    private static final Pose charged_08 = new Pose(-0.266324f, -1.050262f, 0.168404f, 0.000000f, -0.638709f, 0.197182f, 0.041036f, 0.068281f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.358259f, 0.000000f, 0.000000f, -0.107784f, 0.000000f);
+    private static final Pose charged_09 = new Pose(-0.187461f, -1.053183f, 0.162562f, 0.000000f, -0.615342f, 0.185498f, 0.046877f, 0.066820f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.367022f, 0.000000f, 0.000000f, -0.110705f, 0.000000f);
+    private static final Pose charged_10 = new Pose(-0.069813f, -1.057540f, 0.153848f, 0.000000f, -0.580484f, 0.168069f, 0.055592f, 0.064642f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.380094f, 0.000000f, 0.000000f, -0.115062f, 0.000000f);
+    private static final Pose charged_11 = new Pose(0.094377f, -1.063621f, 0.141685f, 0.000000f, -0.531835f, 0.143744f, 0.067754f, 0.061601f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.398337f, 0.000000f, 0.000000f, -0.121144f, 0.000000f);
+    private static final Pose charged_12 = new Pose(0.312866f, -1.071714f, 0.125501f, 0.000000f, -0.467097f, 0.111375f, 0.083939f, 0.057555f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.422614f, 0.000000f, 0.000000f, -0.129236f, 0.000000f);
+    private static final Pose charged_13 = new Pose(0.593412f, -1.082104f, 0.104720f, 0.000000f, -0.383972f, 0.069813f, 0.104720f, 0.052360f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.453786f, 0.000000f, 0.000000f, -0.139626f, 0.000000f);
+    private static final Pose charged_14 = new Pose(0.361087f, -0.998467f, 0.067548f, 0.000000f, -0.356093f, 0.055874f, 0.100073f, 0.047713f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.407321f, 0.000000f, 0.000000f, -0.121040f, 0.000000f);
+    private static final Pose charged_15 = new Pose(0.174155f, -0.931171f, 0.037639f, 0.000000f, -0.333662f, 0.044658f, 0.096335f, 0.043975f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.369934f, 0.000000f, 0.000000f, -0.106086f, 0.000000f);
+    private static final Pose charged_16 = new Pose(0.027681f, -0.878441f, 0.014203f, 0.000000f, -0.316085f, 0.035869f, 0.093405f, 0.041045f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.340639f, 0.000000f, 0.000000f, -0.094368f, 0.000000f);
+    private static final Pose charged_17 = new Pose(-0.083268f, -0.838499f, -0.003549f, 0.000000f, -0.302771f, 0.029212f, 0.091186f, 0.038826f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.318450f, 0.000000f, 0.000000f, -0.085492f, 0.000000f);
+    private static final Pose charged_18 = new Pose(-0.163626f, -0.809570f, -0.016406f, 0.000000f, -0.293128f, 0.024391f, 0.089579f, 0.037219f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.302378f, 0.000000f, 0.000000f, -0.079063f, 0.000000f);
+    private static final Pose charged_19 = new Pose(-0.218328f, -0.789878f, -0.025159f, 0.000000f, -0.286564f, 0.021109f, 0.088485f, 0.036125f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.291438f, 0.000000f, 0.000000f, -0.074687f, 0.000000f);
+    private static final Pose charged_20 = new Pose(-0.252307f, -0.777645f, -0.030595f, 0.000000f, -0.282486f, 0.019070f, 0.087805f, 0.035446f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.284642f, 0.000000f, 0.000000f, -0.071969f, 0.000000f);
+    private static final Pose charged_21 = new Pose(-0.270496f, -0.771097f, -0.033506f, 0.000000f, -0.280303f, 0.017979f, 0.087442f, 0.035082f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.281004f, 0.000000f, 0.000000f, -0.070514f, 0.000000f);
+    private static final Pose charged_22 = new Pose(-0.277832f, -0.768456f, -0.034679f, 0.000000f, -0.279423f, 0.017539f, 0.087295f, 0.034935f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.279537f, 0.000000f, 0.000000f, -0.069927f, 0.000000f);
+    private static final Pose charged_23 = new Pose(-0.279246f, -0.767947f, -0.034906f, 0.000000f, -0.279253f, 0.017454f, 0.087267f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.279254f, 0.000000f, 0.000000f, -0.069814f, 0.000000f);
+    private static final Pose charged_24 = new Pose(-0.279253f, -0.767945f, -0.028495f, 0.000000f, -0.279253f, 0.014248f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.272841f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_25 = new Pose(-0.279253f, -0.767945f, -0.021566f, 0.000000f, -0.279253f, 0.010783f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.265912f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_26 = new Pose(-0.279253f, -0.767945f, -0.015756f, 0.000000f, -0.279253f, 0.007878f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.260103f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_27 = new Pose(-0.279253f, -0.767945f, -0.010973f, 0.000000f, -0.279253f, 0.005487f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.255319f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_28 = new Pose(-0.279253f, -0.767945f, -0.007124f, 0.000000f, -0.279253f, 0.003562f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.251470f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_29 = new Pose(-0.279253f, -0.767945f, -0.004115f, 0.000000f, -0.279253f, 0.002058f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.248461f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_30 = new Pose(-0.279253f, -0.767945f, -0.001855f, 0.000000f, -0.279253f, 0.000928f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.246201f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_31 = new Pose(-0.279253f, -0.767945f, -0.000250f, 0.000000f, -0.279253f, 0.000125f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.244597f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_32 = new Pose(-0.279253f, -0.767945f, 0.000792f, 0.000000f, -0.279253f, -0.000396f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.243555f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_33 = new Pose(-0.279253f, -0.767945f, 0.001364f, 0.000000f, -0.279253f, -0.000682f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.242983f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_34 = new Pose(-0.279253f, -0.767945f, 0.001558f, 0.000000f, -0.279253f, -0.000779f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.242788f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_35 = new Pose(-0.279253f, -0.767945f, 0.001469f, 0.000000f, -0.279253f, -0.000734f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.242877f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_36 = new Pose(-0.279253f, -0.767945f, 0.001187f, 0.000000f, -0.279253f, -0.000594f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.243159f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_37 = new Pose(-0.279253f, -0.767945f, 0.000807f, 0.000000f, -0.279253f, -0.000403f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.243539f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_38 = new Pose(-0.279253f, -0.767945f, 0.000421f, 0.000000f, -0.279253f, -0.000210f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.243926f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_39 = new Pose(-0.279253f, -0.767945f, 0.000121f, 0.000000f, -0.279253f, -0.000060f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.244226f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_40 = new Pose(-0.279253f, -0.767945f, 0.000000f, 0.000000f, -0.279253f, 0.000000f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.244346f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+
     private static final Clip[] CLIPS = {
         new Clip(new Keyframe[] { // hit1
                 new Keyframe(0.000f, 0, hit1_00),
@@ -1499,6 +1787,49 @@ public final class CombatController {
                 new Keyframe(0.950f, 0, hit5_38),
                 new Keyframe(0.975f, 0, hit5_39),
                 new Keyframe(1.000f, 0, hit5_40),
+        }),
+        new Clip(new Keyframe[] { // charged
+                new Keyframe(0.000f, 0, charged_00),
+                new Keyframe(0.025f, 0, charged_01),
+                new Keyframe(0.050f, 0, charged_02),
+                new Keyframe(0.075f, 0, charged_03),
+                new Keyframe(0.100f, 0, charged_04),
+                new Keyframe(0.125f, 0, charged_05),
+                new Keyframe(0.150f, 0, charged_06),
+                new Keyframe(0.175f, 0, charged_07),
+                new Keyframe(0.200f, 0, charged_08),
+                new Keyframe(0.225f, 0, charged_09),
+                new Keyframe(0.250f, 0, charged_10),
+                new Keyframe(0.275f, 0, charged_11),
+                new Keyframe(0.300f, 0, charged_12),
+                new Keyframe(0.325f, 0, charged_13),
+                new Keyframe(0.350f, 0, charged_14),
+                new Keyframe(0.375f, 0, charged_15),
+                new Keyframe(0.400f, 0, charged_16),
+                new Keyframe(0.425f, 0, charged_17),
+                new Keyframe(0.450f, 0, charged_18),
+                new Keyframe(0.475f, 0, charged_19),
+                new Keyframe(0.500f, 0, charged_20),
+                new Keyframe(0.525f, 0, charged_21),
+                new Keyframe(0.550f, 0, charged_22),
+                new Keyframe(0.575f, 0, charged_23),
+                new Keyframe(0.600f, 0, charged_24),
+                new Keyframe(0.625f, 0, charged_25),
+                new Keyframe(0.650f, 0, charged_26),
+                new Keyframe(0.675f, 0, charged_27),
+                new Keyframe(0.700f, 0, charged_28),
+                new Keyframe(0.725f, 0, charged_29),
+                new Keyframe(0.750f, 0, charged_30),
+                new Keyframe(0.775f, 0, charged_31),
+                new Keyframe(0.800f, 0, charged_32),
+                new Keyframe(0.825f, 0, charged_33),
+                new Keyframe(0.850f, 0, charged_34),
+                new Keyframe(0.875f, 0, charged_35),
+                new Keyframe(0.900f, 0, charged_36),
+                new Keyframe(0.925f, 0, charged_37),
+                new Keyframe(0.950f, 0, charged_38),
+                new Keyframe(0.975f, 0, charged_39),
+                new Keyframe(1.000f, 0, charged_40),
         }),
     };
 
