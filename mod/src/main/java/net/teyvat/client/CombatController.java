@@ -6,11 +6,14 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.passive.FishEntity;
 import net.minecraft.entity.passive.PassiveEntity;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.TypeFilter;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
@@ -91,6 +94,9 @@ public final class CombatController {
     private static int exitBlendTicks;
     /** Тики паузы после 5-го удара: пока > 0, клики ЛКМ глотаются. */
     private static int finalCooldownTicks;
+    /** Тики хит-стопа (hitlag) при ПОПАДАНИИ: поза и тайминги комбо замерли
+     *  на пару кадров, ввод движения заблокирован. Промах хит-стопа не даёт. */
+    private static int hitlagTicks;
 
     /** Тиков восстановления после одиночного удара: поза плавно уходит в
      *  боевую стойку READY_POSE (клинок остаётся горизонтальным — никакого
@@ -186,9 +192,6 @@ public final class CombatController {
             return;
         }
         tickCount++;
-        if (finalCooldownTicks > 0) {
-            finalCooldownTicks--;
-        }
         if (comboStep >= 0 && !client.player.isOnGround()) {
             // В воздухе удары не работают (как в Genshin): прыжок прерывает комбо,
             // следующий клик на земле начнёт серию заново.
@@ -201,6 +204,15 @@ public final class CombatController {
             lastClickTick = -1;
             finalCooldownTicks = 0;
             exitBlendTicks = 0;
+        }
+        if (hitlagTicks > 0) {
+            // Хит-стоп: всё замерло — поза удара, тайминги комбо и пауза после
+            // 5-го удара. Отдача камеры держится на месте и гаснет после.
+            hitlagTicks--;
+            return;
+        }
+        if (finalCooldownTicks > 0) {
+            finalCooldownTicks--;
         }
         if (comboStep >= 0) {
             if (recoveryTicks > 0) {
@@ -216,12 +228,20 @@ public final class CombatController {
                 // Кинокамера-орбита (/cinema orbit): герой доворачивается к ближайшему
                 // врагу, чтобы каждый удар шёл в его сторону — для съёмки боя со стороны.
                 faceNearestEnemyDuringCinema(client);
+                if (hitTicks == 1) {
+                    // Шаг вперёд с началом удара (часть LUNGE_STRENGTH): серия
+                    // продвигает героя с каждым ударом, как в Genshin.
+                    applyStep(client.player);
+                }
                 if (hitTicks == SwordCombo.DAMAGE_TICKS[comboStep] && !sentHit) {
                     sentHit = true;
                     sendHit(comboStep);
+                    // Автоскриншоты ударов (/cinema shots): следующий кадр — кинокамера сбоку.
+                    CinematicShots.onDamageTick();
+                    // Свинг: разрез-дуга и свист всегда; толчок на тике урона
+                    // (остаток LUNGE_STRENGTH после шага в начале удара).
                     spawnSlashEffects(client, client.player);
                     applyLunge(client.player);
-                    impactKick = 1.6f;
                 }
                 if (hitTicks >= SwordCombo.DURATION_TICKS[comboStep]) {
                     if (comboStep == SwordCombo.HIT_COUNT - 1) {
@@ -274,6 +294,10 @@ public final class CombatController {
             // В воздухе обычные атаки не работают (только приземление), клик съедается.
             return true;
         }
+        if (hitlagTicks > 0) {
+            // Хит-стоп: клики глотаются, следующий удар цепляется после замирания.
+            return true;
+        }
         if (finalCooldownTicks > 0) {
             // Пауза после пятого удара: клик съедается, комбо не начинается.
             return true;
@@ -322,7 +346,7 @@ public final class CombatController {
     /** В режиме кинокамеры-орбиты плавно доворачивает героя к ближайшему врагу.
      *  Вне орбиты и без врагов рядом ничего не делает — управление не трогается. */
     private static void faceNearestEnemyDuringCinema(MinecraftClient client) {
-        if (CinematicCamera.mode() != CinematicCamera.Mode.ORBIT) {
+        if (CinematicCamera.mode() != CinematicCamera.Mode.ORBIT && !CinematicShots.isEnabled()) {
             return;
         }
         LivingEntity target = nearestEnemy(client);
@@ -426,17 +450,11 @@ public final class CombatController {
                     player.getZ() + Math.cos(ang) * radius,
                     -Math.cos(ang) * 1.6, 0.0, -Math.sin(ang) * 1.6);
         }
-        // Вспышка в точке контакта: белый крест искр прямо перед героем.
-        world.addParticleClient(ParticleTypes.END_ROD,
-                player.getX() + d * 1.1,
-                player.getY() + 1.15 + comboStep * 0.06,
-                player.getZ() + e * 1.1,
-                d * 0.8, 0.12, e * 0.8);
-        world.addParticleClient(ParticleTypes.END_ROD,
-                player.getX() + d * 1.1,
-                player.getY() + 1.35 + comboStep * 0.06,
-                player.getZ() + e * 1.1,
-                -d * 0.5, 0.05, -e * 0.5);
+        // Свист свинга (тихий, всегда): «клац» попадания — только на хите
+        // (звук с сервера по AttackResultPayload).
+        world.playSound(null, player.getX(), player.getY(), player.getZ(),
+                SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 0.5f, 1.0f,
+                world.random.nextLong());
         // Пыль из-под ног на ударах с шагом/выпадом.
         if (SwordCombo.LUNGE_STRENGTH[comboStep] >= 0.18f) {
             for (int i = 0; i < 3; i++) {
@@ -449,10 +467,24 @@ public final class CombatController {
         }
     }
 
-    /** Шаг героя вперёд на момент удара: лёгкий толчок по направлению взгляда,
-     *  на пятом ударе — ещё и маленький подброс. Клиентское движение, как у рывка. */
+    /** Шаг героя вперёд в начале удара: часть LUNGE_STRENGTH, чтобы серия
+     *  продвигала героя с каждым ударом (как в Genshin), а не толчком в один
+     *  момент. Клиентское движение, как у рывка. */
+    private static void applyStep(ClientPlayerEntity player) {
+        float strength = SwordCombo.LUNGE_STRENGTH[comboStep] * SwordCombo.START_STEP_FACTOR;
+        if (strength <= 0f) {
+            return;
+        }
+        float yaw = (float) Math.toRadians(player.getYaw());
+        Vec3d v = player.getVelocity();
+        player.setVelocity(v.x - Math.sin(yaw) * strength, v.y, v.z + Math.cos(yaw) * strength);
+        player.velocityModified = true;
+    }
+
+    /** Толчок героя вперёд на тике урона: остаток LUNGE_STRENGTH после шага
+     *  в начале удара. На пятом ударе — мощный прокат. */
     private static void applyLunge(ClientPlayerEntity player) {
-        float strength = SwordCombo.LUNGE_STRENGTH[comboStep];
+        float strength = SwordCombo.LUNGE_STRENGTH[comboStep] * (1f - SwordCombo.START_STEP_FACTOR);
         float up = SwordCombo.LUNGE_UP[comboStep];
         if (strength <= 0f && up <= 0f) {
             return;
@@ -463,7 +495,75 @@ public final class CombatController {
         player.velocityModified = true;
     }
 
-    /** Отдача удара 0..1: пульс FOV и наклона камеры на момент разреза. */
+    /** Подтверждение попадания от сервера (AttackResultPayload): хит-стоп,
+     *  отдача камеры и искры в точке контакта — строго на хите. Промах
+     *  (пустой массив) ничего не делает: свинг остаётся визуальным. */
+    public static void onHitConfirmed(MinecraftClient client, int[] entityIds) {
+        if (entityIds == null || entityIds.length == 0) {
+            return;
+        }
+        ClientWorld world = client.world;
+        if (world == null) {
+            return;
+        }
+        if (comboStep >= 0) {
+            hitlagTicks = Math.max(hitlagTicks, SwordCombo.HITLAG_TICKS[comboStep]);
+        } else {
+            hitlagTicks = Math.max(hitlagTicks, 3);
+        }
+        // Отдача камеры (FOV/наклон) — только при попадании.
+        impactKick = 1.6f;
+        // Искры в точке контакта каждой задетой цели.
+        for (int id : entityIds) {
+            Entity target = world.getEntityById(id);
+            if (target == null) {
+                continue;
+            }
+            Vec3d p = target.getBoundingBox().getCenter();
+            for (int i = 0; i < 10; i++) {
+                double vx = (world.random.nextDouble() - 0.5) * 1.3;
+                double vy = world.random.nextDouble() * 1.5 + 0.2;
+                double vz = (world.random.nextDouble() - 0.5) * 1.3;
+                world.addParticleClient(ParticleTypes.CRIT, p.x, p.y, p.z, vx, vy, vz);
+            }
+            world.addParticleClient(ParticleTypes.END_ROD, p.x, p.y, p.z, 0, 0.5, 0);
+        }
+    }
+
+    /** Атака идёт прямо сейчас (включая хит-стоп и фазу восстановления). */
+    public static boolean isAttacking() {
+        return comboStep >= 0 || finalCooldownTicks > 0;
+    }
+
+    /** Dash-cancel: рывок прерывает анимацию атаки, как в Genshin. Серия
+     *  комбо при этом сохраняется (lastStep) — следующий клик продолжит цепочку. */
+    public static boolean tryCancelByDash() {
+        return cancelAttack();
+    }
+
+    /** Jump-cancel: прыжок прерывает атаку (как в Genshin). */
+    public static boolean tryCancelByJump() {
+        return cancelAttack();
+    }
+
+    /** Общая отмена атаки: сбрасываем удар в нейтраль с плавным выходом.
+     *  Возвращает true, если что-то было отменено. */
+    private static boolean cancelAttack() {
+        if (comboStep < 0 && finalCooldownTicks <= 0) {
+            return false;
+        }
+        comboStep = -1;
+        hitTicks = 0;
+        recoveryTicks = 0;
+        exitBlendTicks = EXIT_BLEND_TICKS;
+        bufferedNext = false;
+        sentHit = false;
+        finalCooldownTicks = 0;
+        hitlagTicks = 0;
+        return true;
+    }
+
+    /** Отдача удара 0..1: пульс FOV и наклона камеры на момент попадания. */
     public static float impactKick() {
         return impactKick;
     }

@@ -18,6 +18,7 @@ import net.teyvat.client.TravelerChoiceClient;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.teyvat.client.CameraController;
 import net.teyvat.client.CinemaCommand;
+import net.teyvat.client.CinematicShots;
 import net.teyvat.client.ZoomController;
 import net.teyvat.client.TravelerNotesScreen;
 import net.teyvat.client.AboutPackScreen;
@@ -43,6 +44,7 @@ import net.teyvat.client.ProgressionToast;
 import net.teyvat.client.QuestClient;
 import net.teyvat.client.QuestStateClient;
 import net.teyvat.particle.TeyvatParticles;
+import net.teyvat.network.AttackResultPayload;
 import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.ExpGainPayload;
 import net.teyvat.network.MobLevelSyncPayload;
@@ -104,6 +106,9 @@ public class TeyvatClient implements ClientModInitializer {
 
         // Кинокамера для съёмки боя со стороны: /cinema side|orbit|off.
         ClientCommandRegistrationCallback.EVENT.register(CinemaCommand::register);
+        // Автоскриншоты ударов комбо (/cinema shots): кадр снимается после рендера мира,
+        // пока камера сбоку ещё стоит (сам HUD рисуется позже — в скриншот не попадёт).
+        WorldRenderEvents.END_MAIN.register(context -> CinematicShots.renderCapture());
 
         // Первое лицо «глазами модельки»: собственное тело + разрез-дуга меча.
         WorldRenderEvents.BEFORE_ENTITIES.register(FirstPersonBody::render);
@@ -140,6 +145,12 @@ public class TeyvatClient implements ClientModInitializer {
                 }
             }
             PaimonManager.tick();
+        });
+
+        // Попадание удара комбо: сервер подтверждает — hitlag, отдача камеры и
+        // искры в точке контакта строго на хите (промах ничего не подтверждает).
+        ClientPlayNetworking.registerGlobalReceiver(AttackResultPayload.ID, (payload, context) -> {
+            context.client().execute(() -> CombatController.onHitConfirmed(context.client(), payload.entityIds()));
         });
 
         // Числа урона от сервера: всплывают над целью атаки, уровень моба — на полоску HP.

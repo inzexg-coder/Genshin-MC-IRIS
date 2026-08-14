@@ -161,6 +161,18 @@ public final class CameraController {
             return;
         }
 
+        // Автоскриншот удара (/cinema shots): только в кадре захвата ставим камеру
+        // сбоку от героя — сам скриншот снимается в WorldRenderEvents.END.
+        if (CinematicShots.isCaptureFrame()) {
+            Vec3d eye = entity.getCameraPosVec(tickDelta);
+            double[] shotFrame = CinematicShots.frame(eye);
+            if (shotFrame != null) {
+                ((CameraAccessor) camera).teyvatSetRotation((float) shotFrame[0], (float) shotFrame[1]);
+                ((CameraAccessor) camera).teyvatSetPos(shotFrame[2], shotFrame[3], shotFrame[4]);
+            }
+            return;
+        }
+
         // Кинокамера (/cinema side|orbit): полностью задаёт кадр — позиция и взгляд
         // на героя со стороны, поверх обычной Teyvat Camera. Активна до /cinema off.
         if (CinematicCamera.isActive()) {

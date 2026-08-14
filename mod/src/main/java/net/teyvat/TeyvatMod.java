@@ -36,6 +36,7 @@ import net.teyvat.item.TeyvatItems;
 import net.teyvat.particle.TeyvatParticles;
 import net.teyvat.command.TeyvatCommand;
 import net.teyvat.config.TeyvatConfig;
+import net.teyvat.network.AttackResultPayload;
 import net.teyvat.network.DamageNumberPayload;
 import net.teyvat.network.ExpGainPayload;
 import net.teyvat.network.MobLevelSyncPayload;
@@ -137,6 +138,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(ExpGainPayload.ID, ExpGainPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(DamageNumberPayload.ID, DamageNumberPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(ResourceGainPayload.ID, ResourceGainPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(AttackResultPayload.ID, AttackResultPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(MobLevelSyncPayload.ID, MobLevelSyncPayload.CODEC);
         // Shift+N: «О сборке» — только для администраторов мира/сервера.
         ServerPlayNetworking.registerGlobalReceiver(AdminNotesRequestPayload.ID, (payload, context) -> {
@@ -373,5 +375,11 @@ public class TeyvatMod implements ModInitializer {
 
         // Автотест автоподбора (/teyvat selftest): тикает обратный отсчёт.
         ServerTickEvents.END_SERVER_TICK.register(server -> PickupSelfTest.tick(server));
+        // Хит-стоп врагов: замирание на ударе, затем отброс (реакция на удар).
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            for (ServerWorld world : server.getWorlds()) {
+                PlayerCombat.tick(world);
+            }
+        });
     }
 }

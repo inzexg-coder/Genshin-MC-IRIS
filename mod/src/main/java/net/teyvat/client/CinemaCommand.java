@@ -38,6 +38,17 @@ public final class CinemaCommand {
                                                 .executes(ctx -> startOrbit(ctx, DoubleArgumentType.getDouble(ctx, "dist"),
                                                         DoubleArgumentType.getDouble(ctx, "height"),
                                                         DoubleArgumentType.getDouble(ctx, "speed")))))))
+                .then(ClientCommandManager.literal("shots")
+                        .executes(ctx -> startShots(ctx, 5.5, 0.4, false))
+                        .then(ClientCommandManager.argument("dist", DoubleArgumentType.doubleArg(2.0, 40.0))
+                                .executes(ctx -> startShots(ctx, DoubleArgumentType.getDouble(ctx, "dist"), 0.4, false))
+                                .then(ClientCommandManager.argument("height", DoubleArgumentType.doubleArg(-5.0, 10.0))
+                                        .executes(ctx -> startShots(ctx, DoubleArgumentType.getDouble(ctx, "dist"),
+                                                DoubleArgumentType.getDouble(ctx, "height"), false))
+                                        .then(ClientCommandManager.argument("side", StringArgumentType.word())
+                                                .executes(ctx -> startShots(ctx, DoubleArgumentType.getDouble(ctx, "dist"),
+                                                        DoubleArgumentType.getDouble(ctx, "height"),
+                                                        "left".equalsIgnoreCase(StringArgumentType.getString(ctx, "side"))))))))
                 .then(ClientCommandManager.literal("off").executes(CinemaCommand::off)));
     }
 
@@ -57,9 +68,15 @@ public final class CinemaCommand {
         return 1;
     }
 
+    private static int startShots(CommandContext<FabricClientCommandSource> ctx, double dist, double height, boolean left) {
+        CinematicShots.arm(dist, height, left);
+        return 1;
+    }
+
     private static int off(CommandContext<FabricClientCommandSource> ctx) {
         CinematicCamera.stop();
-        ctx.getSource().sendFeedback(Text.literal("§b[Teyvat] §fКинокамера выключена — обычная Teyvat Camera."));
+        CinematicShots.disarm();
+        ctx.getSource().sendFeedback(Text.literal("§b[Teyvat] §fКинокамера и съёмка ударов выключены — обычная Teyvat Camera."));
         return 1;
     }
 }

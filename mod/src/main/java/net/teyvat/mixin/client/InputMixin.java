@@ -22,6 +22,16 @@ public abstract class InputMixin {
     @Inject(method = "getMovementInput", at = @At("HEAD"), cancellable = true)
     private void teyvat$lockDuringAttack(CallbackInfoReturnable<Vec2f> cir) {
         if (CombatController.lockInputDuringAttack()) {
+            PlayerInput in = this.playerInput;
+            // Jump-cancel: прыжок прерывает атаку (как в Genshin), сам прыжок
+            // пропускаем дальше — остальное движение на время удара глушится.
+            if (in != null && in.jump() && CombatController.tryCancelByJump()) {
+                this.playerInput = new PlayerInput(
+                        in.forward(), in.backward(), in.left(), in.right(),
+                        true, in.sneak(), in.sprint());
+                cir.setReturnValue(Vec2f.ZERO);
+                return;
+            }
             this.playerInput = new PlayerInput(false, false, false, false, false, false, false);
             cir.setReturnValue(Vec2f.ZERO);
         }

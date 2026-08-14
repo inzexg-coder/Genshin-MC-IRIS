@@ -65,20 +65,32 @@ public final class CinematicCamera {
         if (mode == Mode.OFF || eye == null) {
             return null;
         }
-        Vec3d camPos;
         if (mode == Mode.ORBIT) {
             double elapsed = (Util.getMeasuringTimeMs() - startMs) / 1000.0;
             double a = elapsed * speed;
-            camPos = eye.add(Math.cos(a) * distance, height, Math.sin(a) * distance);
-        } else {
-            MinecraftClient client = MinecraftClient.getInstance();
-            float yawRad = client.player == null ? 0f
-                    : client.player.getYaw() * ((float) Math.PI / 180.0f);
-            camPos = eye.add(
-                    -Math.cos(yawRad) * sideSign * distance,
-                    height,
-                    -Math.sin(yawRad) * sideSign * distance);
+            Vec3d camPos = eye.add(Math.cos(a) * distance, height, Math.sin(a) * distance);
+            return lookFrame(eye, camPos);
         }
+        return sideFrame(eye, distance, height, sideSign);
+    }
+
+    /** Кадр сбоку от героя (по его текущему yaw): sign = -1 справа (со стороны
+     *  меча), +1 слева. Используется режимом SIDE и автоскриншотами ударов. */
+    public static double[] sideFrame(Vec3d eye, double dist, double extraHeight, double sign) {
+        if (eye == null) {
+            return null;
+        }
+        MinecraftClient client = MinecraftClient.getInstance();
+        float yawRad = client.player == null ? 0f
+                : client.player.getYaw() * ((float) Math.PI / 180.0f);
+        Vec3d camPos = eye.add(
+                -Math.cos(yawRad) * sign * dist,
+                extraHeight,
+                -Math.sin(yawRad) * sign * dist);
+        return lookFrame(eye, camPos);
+    }
+
+    private static double[] lookFrame(Vec3d eye, Vec3d camPos) {
         Vec3d look = eye.subtract(camPos);
         double len = look.length();
         if (len < 1.0E-4) {
