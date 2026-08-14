@@ -150,7 +150,7 @@ public class TravelerNotesScreen extends Screen {
         boolean full = isFull(e);
         List<String> paras = full ? e.fullParas() : e.shortParas();
         rows.add(new TextRow("— " + e.section().title + " —", C_HINT));
-        rows.add(new GapRow(2));
+        rows.add(new GapRow(PARA_GAP));
         for (int pi = 0; pi < paras.size(); pi++) {
             if (pi > 0) {
                 rows.add(new GapRow(PARA_GAP));
@@ -159,7 +159,7 @@ public class TravelerNotesScreen extends Screen {
                 rows.add(new TextRow(line, C_BODY));
             }
         }
-        rows.add(new GapRow(6));
+        rows.add(new GapRow(PARA_GAP));
         if (!full) {
             rows.add(new TextRow("Полная запись откроется после урока Паймон.", C_HINT));
         }

@@ -158,12 +158,26 @@ def _clip_at(anchors, p):
     return anchors[-1][2]
 
 
+def warp(p):
+    """Сжатие таймлайна: замах (клип-время 0..0.40) умещается в первые
+    ~10% игрового прогресса — размах перед ударом очень быстрый, урон
+    (DAMAGE_TICKS) наносится почти сразу после клика, дальше идёт широкое
+    сопровождение клинка. Пик свинга (0.40 в клипе) оказывается на 0.10
+    игрового прогресса, 1.0 остаётся 1.0 (финал удара не двигаем)."""
+    PEAK_GAME = 0.10
+    PEAK_CLIP = 0.40
+    if p <= PEAK_GAME:
+        return p / PEAK_GAME * PEAK_CLIP
+    return PEAK_CLIP + (p - PEAK_GAME) / (1.0 - PEAK_GAME) * (1.0 - PEAK_CLIP)
+
+
 def bake(anchors, n=41):
-    """Якоря -> плотная последовательность линейных кадров 0..1 (как раньше)."""
+    """Якоря -> плотная последовательность линейных кадров 0..1 (как раньше),
+    но с warp(): замах сжат в первые ~12% клипа (мгновенный удар)."""
     frames = []
     for i in range(n):
         p = i / (n - 1)
-        frames.append((round(p, 3), E_LINEAR, _clip_at(anchors, p)))
+        frames.append((round(p, 3), E_LINEAR, _clip_at(anchors, warp(p))))
     return frames
 
 
