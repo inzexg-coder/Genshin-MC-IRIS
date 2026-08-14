@@ -2,6 +2,17 @@
   "required": true,
   "package": "net.teyvat.mixin",
   "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "common.HungerManagerMixin",
+    "common.LivingEntityMixin",
+    "common.ServerPlayerEntityMixin",
+    "common.SpawnHelperMixin",
+    "common.RegenerationStatusEffectMixin",
+    "common.InstantHealthOrDamageStatusEffectMixin",
+    "common.PlayerInventoryMixin",
+    "common.ItemEntityMixin",
+    "common.PlayerEntityPickupMixin"
+  ],
   "client": [
     "client.PlayerListEntryMixin",
     "client.AbstractClientPlayerEntityMixin",
@@ -24,16 +35,5 @@
   ],
   "injectors": {
     "defaultRequire": 1
-  },
-  "common": [
-    "common.HungerManagerMixin",
-    "common.LivingEntityMixin",
-    "common.ServerPlayerEntityMixin",
-    "common.SpawnHelperMixin",
-    "common.RegenerationStatusEffectMixin",
-        "common.InstantHealthOrDamageStatusEffectMixin",
-        "common.PlayerInventoryMixin",
-        "common.ItemEntityMixin",
-        "common.PlayerEntityPickupMixin"
-    ]
+  }
 }
