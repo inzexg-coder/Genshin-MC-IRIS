@@ -46,8 +46,9 @@ public final class PlayerCombat {
 
     private PlayerCombat() {}
 
-    /** Обработать удар комбо от игрока. */
-    public static void onAttack(ServerPlayerEntity player, int hitIndex) {
+    /** Обработать удар комбо от игрока (chargeLevel — уровень заряда спина 0..1:
+     *  урон зависит от него, ранний отпуск = слабее). */
+    public static void onAttack(ServerPlayerEntity player, int hitIndex, float chargeLevel) {
         if (hitIndex < 0 || hitIndex > SwordCombo.CHARGE_INDEX) {
             return;
         }
@@ -81,7 +82,14 @@ public final class PlayerCombat {
                         && !(e instanceof ArmorStandEntity));
 
         float base = (float) player.getAttributeValue(EntityAttributes.ATTACK_DAMAGE);
-        float amount = Math.max(0.5f, base * SwordCombo.MULTIPLIERS[hitIndex]);
+        float mult = SwordCombo.MULTIPLIERS[hitIndex];
+        if (hitIndex == SwordCombo.CHARGE_INDEX) {
+            // Заряженный спин: урон масштабируется уровнем заряда — от
+            // CHARGE_MIN_MULT (ранний отпуск) до полного (3 сек / автозапуск).
+            float lv = Math.max(0f, Math.min(1f, chargeLevel));
+            mult *= SwordCombo.CHARGE_MIN_MULT + (1f - SwordCombo.CHARGE_MIN_MULT) * lv;
+        }
+        float amount = Math.max(0.5f, base * mult);
         List<Integer> hitIds = new ArrayList<>();
         for (LivingEntity target : targets) {
             Vec3d to = target.getBoundingBox().getCenter().subtract(eye);

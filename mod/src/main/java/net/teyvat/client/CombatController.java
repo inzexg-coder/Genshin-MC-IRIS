@@ -53,9 +53,12 @@ import java.util.List;
  * (t=0 = финал предыдущего удара); разворот на 360° делает root ванильной
  * модели (getRootPart().yaw): торс, голова, руки и клинок поворачиваются
  * как единое целое. Полный круг ≈ 3.5 с, серия идёт по КЛИКАМ: быстрый
- * тап — удар комбо, удержание ЛКМ ~0.3 с — ЗАРЯД (спин на 360° по
- * отпусканию, как у путешественника в начале Genshin: хит по полному кругу
- * вокруг тела, «орбиты атомов», тратит стамину, после неё серия сброшена).
+ * тап — МГНОВЕННЫЙ удар комбо; если ЛКМ не отпускать, после удара начинается
+ * ЗАРЯД — накопление 3 секунды (FULL_CHARGE_TICKS): отпускание в любой
+ * момент — спин на 360° с уроном по уровню заряда, не отпускать — через
+ * 3 сек автозапуск максимальной (как у путешественника в начале Genshin:
+ * хит по полному кругу вокруг тела, «орбиты атомов», полупрозрачная сфера
+ * из ударов лезвием, тратит стамину, после неё серия сброшена).
  * Пока с последнего клика прошло ≤ ~1 с, комбо продолжается со следующего
  * удара (после пятого — снова первый); пауза дольше секунды сбрасывает
  * серию (следующий клик — первый удар). После пятого удара — обязательная
@@ -103,18 +106,17 @@ public final class CombatController {
     private static int hitlagTicks;
     /** Заряженная атака (удержание ЛКМ): идёт ли заряд сейчас. */
     private static boolean charging;
-    /** Тики с начала заряда (для минимального заряда и индикатора). */
+    /** Тики с начала заряда (0..FULL_CHARGE_TICKS): урон и индикатор. */
     private static int chargeTicks;
-    /** Нажатие ЛКМ ещё не распознано (тап или удержание). */
-    private static boolean pendingClick;
-    /** Тики удержания ЛКМ с последнего нажатия. */
-    private static int holdTicks;
+    /** Уровень заряда выстрелившего спина 0..1 (для вихря и серверного урона). */
+    private static float chargeLevel;
+    /** Тик последнего нажатия ЛКМ, вооружившего удержание (-1 = нет).
+     *  Если ЛКМ не отпустить в течение CHARGE_START_TICKS, начнётся заряд. */
+    private static int holdStartTick = -1;
 
-    /** Тиков удержания ЛКМ, после которых это считается зарядом (~0.15 сек).
-     *  Быстрый тап (отпустили раньше) — обычный удар комбо. */
-    private static final int HOLD_DETECT_TICKS = 3;
-    /** Минимальный заряд, чтобы отпускание выстрелило спин (~0.25 сек). */
-    private static final int MIN_CHARGE_TICKS = 5;
+    /** Тиков удержания ЛКМ после удара, после которых начинается заряд
+     *  (~0.2 сек). Быстрый тап (отпустили раньше) — обычный удар комбо. */
+    private static final int CHARGE_START_TICKS = 4;
 
     /** Тиков восстановления после одиночного удара: поза плавно уходит в
      *  боевую стойку READY_POSE (клинок остаётся горизонтальным — никакого
@@ -226,37 +228,35 @@ public final class CombatController {
             finalCooldownTicks = 0;
             exitBlendTicks = 0;
         }
-        // --- Заряженная атака: тап — обычный удар, удержание ~0.3 с — заряд,
-        // отпускание — спин на 360° (хит по кругу, как в Genshin). ---
+        // --- Заряженная атака: тап — мгновенный удар комбо; если ЛКМ не
+        // отпускать, после удара начинается накопление (3 сек). Отпускание
+        // в любой момент — спин с уроном по уровню заряда; не отпускать —
+        // через 3 сек автозапуск максимальной. ---
         boolean lmbHeld = client.options.attackKey.isPressed();
-        holdTicks = lmbHeld ? holdTicks + 1 : 0;
         if (charging && !client.player.isOnGround()) {
             // Прыжок (или обрыв) прерывает заряд.
             charging = false;
             chargeTicks = 0;
-        }
-        if (pendingClick) {
-            if (holdTicks >= HOLD_DETECT_TICKS) {
-                // Удержание: вместо обычного удара начинаем заряжать.
-                pendingClick = false;
-                startCharging(client);
-            } else if (!lmbHeld) {
-                // Быстрый тап: обычный удар комбо.
-                pendingClick = false;
-                onAttackClick();
-            }
+            holdStartTick = -1;
         }
         if (charging) {
             chargeTicks++;
             spawnChargeParticles(client, client.player);
             if (!lmbHeld) {
-                charging = false;
-                int ready = chargeTicks;
-                chargeTicks = 0;
-                if (ready >= MIN_CHARGE_TICKS) {
-                    startChargedAttack(client);
-                }
+                // Отпустили: спин с текущим уровнем заряда (ранний отпуск = слабее).
+                fireCharged();
+            } else if (chargeTicks >= SwordCombo.FULL_CHARGE_TICKS) {
+                // 3 секунды заряда — автозапуск максимальной.
+                fireCharged();
             }
+        } else if (lmbHeld && holdStartTick >= 0
+                && tickCount - holdStartTick >= CHARGE_START_TICKS
+                && client.player.isOnGround()) {
+            // ЛКМ держим после удара: начинаем накопление.
+            startCharging(client);
+        }
+        if (!lmbHeld) {
+            holdStartTick = -1;
         }
         if (hitlagTicks > 0) {
             // Хит-стоп: всё замерло — поза удара, тайминги комбо и пауза после
@@ -283,9 +283,11 @@ public final class CombatController {
                     if (hitTicks == 1) {
                         applyStep(client.player);
                     }
+                    // Вихрь: серпы и граница шара — «удары лезвием в секунду».
+                    spawnWhirlwindEffects(client, client.player);
                     if (hitTicks == SwordCombo.DAMAGE_TICKS[SwordCombo.CHARGE_INDEX] && !sentHit) {
                         sentHit = true;
-                        sendHit(SwordCombo.CHARGE_INDEX);
+                        sendHit(SwordCombo.CHARGE_INDEX, chargeLevel);
                         CinematicShots.onDamageTick();
                         spawnSlashEffects(client, client.player);
                         applyLunge(client.player);
@@ -321,7 +323,7 @@ public final class CombatController {
                 }
                 if (hitTicks == SwordCombo.DAMAGE_TICKS[comboStep] && !sentHit) {
                     sentHit = true;
-                    sendHit(comboStep);
+                    sendHit(comboStep, 0f);
                     // Автоскриншоты ударов (/cinema shots): следующий кадр — кинокамера сбоку.
                     CinematicShots.onDamageTick();
                     // Свинг: разрез-дуга и свист всегда; толчок на тике урона
@@ -370,9 +372,9 @@ public final class CombatController {
         impactKick *= 0.84f;
     }
 
-    /** ЛКМ нажат (вместо ванильной атаки). Клик не стреляет сразу: пару тиков
-     *  он ждёт распознавания — быстрый тап станет обычным ударом комбо,
-     *  удержание ~0.3 с — зарядом (спин по отпусканию), как в Genshin.
+    /** ЛКМ нажат (вместо ванильной атаки). Тап — МГНОВЕННЫЙ удар комбо;
+     *  если ЛКМ не отпускать ~0.2 с, после удара начнётся накопление заряда
+     *  (3 сек), отпускание — спин с уроном по уровню заряда, как в Genshin.
      *  Возвращает true, если клик съеден (ванильная атака подавлена). */
     public static boolean onAttackPress() {
         MinecraftClient client = MinecraftClient.getInstance();
@@ -383,12 +385,16 @@ public final class CombatController {
             // Уже заряжаем: повторное нажатие ничего не делает.
             return true;
         }
-        pendingClick = true;
-        holdTicks = 0;
+        if (onAttackClick()) {
+            // Удар (или буфер следующего) принят — вооружаем удержание:
+            // если кнопку не отпустить, через CHARGE_START_TICKS начнётся заряд.
+            holdStartTick = tickCount;
+        }
         return true;
     }
 
-    /** Быстрый тап подтверждён: обычный удар комбо (см. onAttackPress). */
+    /** Обычный удар комбо (мгновенно, на сам клик). Возвращает true, если
+     *  удар/буфер принят; false — клик проглочен (воздух, хит-стоп, пауза). */
     public static boolean onAttackClick() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.world == null || client.isPaused()) {
@@ -396,15 +402,15 @@ public final class CombatController {
         }
         if (!client.player.isOnGround()) {
             // В воздухе обычные атаки не работают (только приземление), клик съедается.
-            return true;
+            return false;
         }
         if (hitlagTicks > 0) {
             // Хит-стоп: клики глотаются, следующий удар цепляется после замирания.
-            return true;
+            return false;
         }
         if (finalCooldownTicks > 0) {
             // Пауза после пятого удара: клик съедается, комбо не начинается.
-            return true;
+            return false;
         }
         // Окно комбо — от последнего клика: пока прошло ≤ ~1 с, серия
         // продолжается со следующего удара (после пятого — снова первый);
@@ -459,8 +465,26 @@ public final class CombatController {
                 client.world.random.nextLong());
     }
 
-    /** Отпускание после заряда: спин на 360° с хитом по кругу, трата стамины. */
-    private static void startChargedAttack(MinecraftClient client) {
+    /** Отпускание/автозапуск заряда: спин с текущим уровнем. */
+    private static void fireCharged() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || client.world == null) {
+            return;
+        }
+        charging = false;
+        int ready = chargeTicks;
+        chargeTicks = 0;
+        holdStartTick = -1;
+        if (client.player.isOnGround()) {
+            float level = Math.min(1f, ready / (float) SwordCombo.FULL_CHARGE_TICKS);
+            startChargedAttack(client, level);
+        }
+    }
+
+    /** Выстрел заряженного спина: спин на 360° с хитом по кругу (сервер сам
+     *  бьёт всех вокруг), трата стамины. level — уровень заряда 0..1: от него
+     *  зависит урон и размер вихря. */
+    private static void startChargedAttack(MinecraftClient client, float level) {
         if (client.player == null || client.world == null || !client.player.isOnGround()) {
             return;
         }
@@ -468,6 +492,7 @@ public final class CombatController {
             // Стамины не хватило — заряд отменяется, спин не выстрелит.
             return;
         }
+        chargeLevel = level;
         comboStep = SwordCombo.CHARGE_INDEX;
         hitTicks = 0;
         sentHit = false;
@@ -478,26 +503,110 @@ public final class CombatController {
         lastStep = -1;
         lastClickTick = -1;
         client.world.playSound(null, client.player.getX(), client.player.getY(), client.player.getZ(),
-                SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 0.5f, 0.7f,
+                SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 0.4f + 0.5f * level, 0.7f,
                 client.world.random.nextLong());
+        // Вспышка запуска: кольцо-волна по земле.
+        if (client.world != null) {
+            for (int i = 0; i < 18; i++) {
+                double a = i / 18.0 * Math.PI * 2.0;
+                double r = 2.0 + 3.5 * level;
+                client.world.addParticleClient(ParticleTypes.END_ROD,
+                        client.player.getX() + Math.cos(a) * r,
+                        client.player.getY() + 0.15,
+                        client.player.getZ() + Math.sin(a) * r,
+                        Math.cos(a) * 1.4, 0.4, Math.sin(a) * 1.4);
+            }
+        }
     }
 
-    /** Частицы заряда: искры-«орбиты» вокруг тела с растущим радиусом. */
+    /** Частицы заряда (3 секунды накопления): спираль-«магнит» сходится
+     *  к клинку, радиус и плотность растут, на полном заряде — вспышка. */
     private static void spawnChargeParticles(MinecraftClient client, ClientPlayerEntity player) {
-        if (client.world == null || chargeTicks % 3 != 0) {
+        if (client.world == null) {
             return;
         }
-        for (int i = 0; i < 4; i++) {
+        float level = chargeProgress();
+        int step = chargeTicks % 2 == 0 ? 1 : 2;
+        double baseR = 1.2 + 3.2 * level;
+        // Спираль искр, закрученная вокруг героя (радиус растёт с зарядом).
+        for (int i = 0; i < 6 / step; i++) {
             double a = client.world.random.nextDouble() * Math.PI * 2.0;
-            double r = 1.0 + chargeTicks * 0.05;
+            double r = baseR * (0.5 + client.world.random.nextDouble() * 0.7);
             client.world.addParticleClient(ParticleTypes.END_ROD,
                     player.getX() + Math.cos(a) * r,
-                    player.getY() + 0.8 + client.world.random.nextDouble() * 1.2,
+                    player.getY() + 0.5 + client.world.random.nextDouble() * 1.6,
                     player.getZ() + Math.sin(a) * r,
-                    -Math.sin(a) * 0.4, 0.25, Math.cos(a) * 0.4);
+                    -Math.cos(a) * 0.35, 0.3, -Math.sin(a) * 0.35);
         }
+        // Кольцо на земле, расширяющееся с зарядом.
+        if (chargeTicks % 4 == 0) {
+            int n = 8 + (int) (level * 16);
+            for (int i = 0; i < n; i++) {
+                double a = i / (double) n * Math.PI * 2.0 + 0.4;
+                client.world.addParticleClient(ParticleTypes.END_ROD,
+                        player.getX() + Math.cos(a) * baseR,
+                        player.getY() + 0.1,
+                        player.getZ() + Math.sin(a) * baseR,
+                        Math.cos(a) * 0.4, 0.35, Math.sin(a) * 0.4);
+            }
+        }
+        // Свечение клинка (рука поднята вверх-вперёд).
         client.world.addParticleClient(ParticleTypes.END_ROD,
-                player.getX(), player.getY() + 2.1, player.getZ(), 0, 0.15, 0);
+                player.getX(), player.getY() + 2.0, player.getZ(), 0, 0.2, 0);
+        // Полный заряд: вспышка один раз.
+        if (level >= 1f && chargeTicks == SwordCombo.FULL_CHARGE_TICKS) {
+            for (int i = 0; i < 26; i++) {
+                double a = i / 26.0 * Math.PI * 2.0;
+                client.world.addParticleClient(ParticleTypes.CRIT,
+                        player.getX() + Math.cos(a) * 4.6,
+                        player.getY() + 0.4 + Math.sin(a * 2.0) * 1.4,
+                        player.getZ() + Math.sin(a) * 4.6,
+                        0, 0, 0);
+            }
+            client.world.playSound(null, player.getX(), player.getY(), player.getZ(),
+                    SoundEvents.ENTITY_EXPERIENCE_ORB_PICKUP, SoundCategory.PLAYERS, 0.5f, 1.4f,
+                    client.world.random.nextLong());
+        }
+    }
+
+    /** Вихрь заряженного спина: серпы-удары по всей сфере вокруг героя и
+     *  полупрозрачная «граница шара» из искр — десятки ударов лезвием
+     *  в секунду. Радиус зависит от уровня заряда. */
+    private static void spawnWhirlwindEffects(MinecraftClient client, ClientPlayerEntity player) {
+        if (client.world == null) {
+            return;
+        }
+        float level = chargeLevel;
+        double r = 3.0 + 2.6 * level;
+        // Серпы-удары: лезвия режут сферу по касательной на разной высоте.
+        for (int i = 0; i < 5; i++) {
+            double a = client.world.random.nextDouble() * Math.PI * 2.0;
+            double h = 0.5 + client.world.random.nextDouble() * 1.7;
+            client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
+                    player.getX() + Math.cos(a) * r,
+                    player.getY() + h,
+                    player.getZ() + Math.sin(a) * r,
+                    Math.cos(a + Math.PI / 2.0), 0, Math.sin(a + Math.PI / 2.0));
+        }
+        // Полупрозрачная граница шара: плотный слой искр на сфере.
+        for (int i = 0; i < 8; i++) {
+            double theta = client.world.random.nextDouble() * Math.PI * 2.0;
+            double phi = Math.acos(2.0 * client.world.random.nextDouble() - 1.0);
+            client.world.addParticleClient(ParticleTypes.CRIT,
+                    player.getX() + r * Math.sin(phi) * Math.cos(theta),
+                    player.getY() + 1.0 + r * Math.cos(phi) * 0.55,
+                    player.getZ() + r * Math.sin(phi) * Math.sin(theta),
+                    0, 0, 0);
+        }
+        // Кольцо по земле.
+        for (int i = 0; i < 5; i++) {
+            double a = client.world.random.nextDouble() * Math.PI * 2.0;
+            client.world.addParticleClient(ParticleTypes.END_ROD,
+                    player.getX() + Math.cos(a) * r,
+                    player.getY() + 0.1,
+                    player.getZ() + Math.sin(a) * r,
+                    Math.cos(a) * 0.4, 0.3, Math.sin(a) * 0.4);
+        }
     }
 
     /** Прогресс заряда 0..1 (для индикатора на дуге стамины). */
@@ -505,7 +614,7 @@ public final class CombatController {
         if (!charging) {
             return 0f;
         }
-        return MathHelper.clamp(chargeTicks / (float) MIN_CHARGE_TICKS, 0f, 1f);
+        return MathHelper.clamp(chargeTicks / (float) SwordCombo.FULL_CHARGE_TICKS, 0f, 1f);
     }
 
     /** Радиус поиска ближайшего врага для доворота в кинокамере-орбите. */
@@ -567,11 +676,12 @@ public final class CombatController {
         return nearest;
     }
 
-    /** Пакет урона серверу: сервер сам находит цели в конусе перед игроком. */
-    private static void sendHit(int hitIndex) {
+    /** Пакет урона серверу: сервер сам находит цели по хитбоксу удара.
+     *  chargeLevel — уровень заряда спина (у обычных ударов 0). */
+    private static void sendHit(int hitIndex, float chargeLevel) {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.getNetworkHandler() != null) {
-            ClientPlayNetworking.send(new PlayerAttackPayload(hitIndex));
+            ClientPlayNetworking.send(new PlayerAttackPayload(hitIndex, chargeLevel));
         }
     }
 
@@ -739,7 +849,7 @@ public final class CombatController {
         boolean wasActive = comboStep >= 0 || finalCooldownTicks > 0 || charging;
         charging = false;
         chargeTicks = 0;
-        pendingClick = false;
+        holdStartTick = -1;
         if (!wasActive) {
             return false;
         }

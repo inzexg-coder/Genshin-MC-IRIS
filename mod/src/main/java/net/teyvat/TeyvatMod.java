@@ -194,7 +194,7 @@ public class TeyvatMod implements ModInitializer {
         // и наносит урон с множителем текущего удара (как размах мечом в Genshin).
         ServerPlayNetworking.registerGlobalReceiver(PlayerAttackPayload.ID, (payload, context) -> {
             if (context.player() != null) {
-                PlayerCombat.onAttack(context.player(), payload.hitIndex());
+                PlayerCombat.onAttack(context.player(), payload.hitIndex(), payload.chargeLevel());
             }
         });
 

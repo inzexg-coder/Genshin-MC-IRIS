@@ -29,9 +29,10 @@ public abstract class MinecraftClientMixin {
     }
 
     /** ЛКМ всегда уходит в боевку путешественника — по врагу, по воздуху и даже
-     *  по блоку (свинг анимируется и двигает героя). Тап — удар комбо, удержание
-     *  ~0.3 с — заряд (спин по отпусканию), см. CombatController.onAttackPress.
-     *  Исключение: в креативе по блоку остаётся ванильная добыча. */
+     *  по блоку (свинг анимируется и двигает героя). Тап — мгновенный удар
+     *  комбо; удержание после удара — заряд 3 сек (спин по отпусканию или
+     *  автозапуск), см. CombatController.onAttackPress. Исключение: в креативе
+     *  по блоку остаётся ванильная добыча. */
     @Inject(method = "doAttack", at = @At("HEAD"), cancellable = true)
     private void teyvat$swordComboAttack(CallbackInfoReturnable<Boolean> cir) {
         MinecraftClient client = MinecraftClient.getInstance();
