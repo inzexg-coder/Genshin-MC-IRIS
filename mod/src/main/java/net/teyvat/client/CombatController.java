@@ -6,9 +6,16 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.decoration.ArmorStandEntity;
+import net.minecraft.entity.passive.FishEntity;
+import net.minecraft.entity.passive.PassiveEntity;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.util.TypeFilter;
+import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.combat.SwordCombo;
 import net.teyvat.network.PlayerAttackPayload;
 import org.joml.Matrix4f;
@@ -17,6 +24,7 @@ import org.joml.Vector3f;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.List;
 
 /**
  * Боевка путешественника: комбо из 5 ударов мечом по ЛКМ, как у Итэра/Люмин
@@ -205,6 +213,9 @@ public final class CombatController {
                 }
             } else {
                 hitTicks++;
+                // Кинокамера-орбита (/cinema orbit): герой доворачивается к ближайшему
+                // врагу, чтобы каждый удар шёл в его сторону — для съёмки боя со стороны.
+                faceNearestEnemyDuringCinema(client);
                 if (hitTicks == SwordCombo.DAMAGE_TICKS[comboStep] && !sentHit) {
                     sentHit = true;
                     sendHit(comboStep);
@@ -300,6 +311,65 @@ public final class CombatController {
             bufferedNext = true;
         }
         return true;
+    }
+
+    /** Радиус поиска ближайшего врага для доворота в кинокамере-орбите. */
+    private static final double CINEMA_TARGET_RANGE = 12.0;
+    /** Скорость доворота к врагу за тик (20 тиков/сек): видимый плавный поворот,
+     *  к концу первого удара герой уже почти смотрит на цель. */
+    private static final float CINEMA_TURN_RATE = 0.2f;
+
+    /** В режиме кинокамеры-орбиты плавно доворачивает героя к ближайшему врагу.
+     *  Вне орбиты и без врагов рядом ничего не делает — управление не трогается. */
+    private static void faceNearestEnemyDuringCinema(MinecraftClient client) {
+        if (CinematicCamera.mode() != CinematicCamera.Mode.ORBIT) {
+            return;
+        }
+        LivingEntity target = nearestEnemy(client);
+        if (target == null || client.player == null) {
+            return;
+        }
+        double dx = target.getX() - client.player.getX();
+        double dz = target.getZ() - client.player.getZ();
+        if (dx * dx + dz * dz < 1.0E-8) {
+            return;
+        }
+        float desiredYaw = (float) Math.toDegrees(-Math.atan2(dx, dz));
+        float smoothed = MathHelper.lerpAngleDegrees(CINEMA_TURN_RATE, client.player.getYaw(), desiredYaw);
+        client.player.setYaw(smoothed);
+        client.player.setBodyYaw(smoothed);
+        client.player.setHeadYaw(smoothed);
+    }
+
+    /** Ближайший живой враг в радиусе CINEMA_TARGET_RANGE (без игроков, Паймон
+     *  и мирных животных). Возвращает null, если таких рядом нет. */
+    private static LivingEntity nearestEnemy(MinecraftClient client) {
+        ClientWorld world = client.world;
+        if (world == null || client.player == null) {
+            return null;
+        }
+        double px = client.player.getX();
+        double py = client.player.getY();
+        double pz = client.player.getZ();
+        List<LivingEntity> mobs = world.getEntitiesByType(
+                TypeFilter.instanceOf(LivingEntity.class),
+                new Box(px - CINEMA_TARGET_RANGE, py - CINEMA_TARGET_RANGE, pz - CINEMA_TARGET_RANGE,
+                        px + CINEMA_TARGET_RANGE, py + CINEMA_TARGET_RANGE, pz + CINEMA_TARGET_RANGE),
+                e -> e != client.player && !e.isPlayer() && e.isAlive()
+                        && e.getType() != PaimonEntity.TYPE
+                        && !(e instanceof ArmorStandEntity)
+                        && !(e instanceof PassiveEntity)
+                        && !(e instanceof FishEntity));
+        LivingEntity nearest = null;
+        double best = Double.MAX_VALUE;
+        for (LivingEntity mob : mobs) {
+            double d = mob.squaredDistanceTo(client.player);
+            if (d < best) {
+                best = d;
+                nearest = mob;
+            }
+        }
+        return nearest;
     }
 
     /** Пакет урона серверу: сервер сам находит цели в конусе перед игроком. */
