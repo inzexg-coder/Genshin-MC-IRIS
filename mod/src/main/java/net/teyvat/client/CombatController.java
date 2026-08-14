@@ -237,6 +237,61 @@ public final class CombatController {
     private static final Deque<Crescent> crescents = new ArrayDeque<>();
     private static final int MAX_CRESCENTS = 512;
 
+    // --- Визуал заряженной атаки: растущая сфера в руке, разлёт сферы на
+    // отпускании и «шерстяная дуга» по поверхности (1..6 оборотов). ---
+
+    /** Сфера заряда в руке (у клинка): центр, радиус, альфа. */
+    public record ChargeSphere(Vec3d center, float radius, float alpha) {}
+    private static Vec3d chargeSphereCenter = Vec3d.ZERO;
+    private static float chargeSphereRadius = 0f;
+    private static float chargeSphereAlpha = 0f;
+
+    /** Сфера разлёта вокруг игрока: радиус, альфа, сколько тиков идёт разлёт. */
+    public record BurstSphere(float radius, float alpha, int ticks) {}
+    private static int burstTicks = -1;
+    private static float burstRadius = 0f;
+    private static float burstAlpha = 0f;
+
+    /** Шерстяная дуга: путь по поверхности сферы спина. */
+    private static Vec3d wrapCenter = Vec3d.ZERO;
+    private static float wrapRadius = 0f;
+    private static float wrapTurns = 1f;
+    private static float wrapTiltYaw = 0f;
+    private static float wrapTiltPitch = 0f;
+    private static int wrapDrawn = 0;
+    private static int wrapTotal = 0;
+    private static final Deque<Vec3d> wrapPath = new ArrayDeque<>();
+
+    /** Активная сфера заряда (пустая, если заряда нет). */
+    public static ChargeSphere chargeSphere() {
+        if (chargeSphereRadius <= 0f) {
+            return null;
+        }
+        return new ChargeSphere(chargeSphereCenter, chargeSphereRadius, chargeSphereAlpha);
+    }
+
+    /** Активная сфера разлёта (пустая, если разлёт закончился). */
+    public static BurstSphere burstSphere() {
+        if (burstTicks < 0) {
+            return null;
+        }
+        return new BurstSphere(burstRadius, burstAlpha, burstTicks);
+    }
+
+    /** Путь шерстяной дуги по поверхности сферы. */
+    public static Deque<Vec3d> wrapPath() {
+        return wrapPath;
+    }
+
+    /** Сколько точек дуги уже нарисовано / всего. */
+    public static int wrapDrawn() {
+        return wrapDrawn;
+    }
+
+    public static int wrapTotal() {
+        return wrapTotal;
+    }
+
     /** Список активных серпов-дуг для рендера. */
     public static Deque<Crescent> crescents() {
         return crescents;
@@ -318,6 +373,10 @@ public final class CombatController {
         if (!lmbHeld) {
             holdStartTick = -1;
         }
+        if (!charging) {
+            // Сфера заряда живёт только пока копим; на спине её сменяет разлёт.
+            chargeSphereRadius = 0f;
+        }
         if (hitlagTicks > 0) {
             // Хит-стоп: всё замерло — поза удара, тайминги комбо и пауза после
             // 5-го удара. Отдача камеры держится на месте и гаснет после.
@@ -340,6 +399,24 @@ public final class CombatController {
                 }
                 // Вихрь: серпы и граница шара — «удары лезвием в секунду».
                 spawnWhirlwindEffects(client, client.player);
+                // Разлёт сферы: первые тики быстро расширяется вокруг игрока.
+                if (burstTicks >= 0) {
+                    burstTicks++;
+                    burstRadius = 0.8f + (wrapRadius - 0.8f)
+                            * Math.min(1f, burstTicks / 4f);
+                    if (burstTicks > 5) {
+                        burstTicks = -1;
+                    }
+                }
+                // Шерстяная дуга: молниеносно рисует путь по поверхности
+                // сферы (1..6 оборотов по уровню заряда).
+                wrapCenter = new Vec3d(client.player.getX(), client.player.getY() + 1.0, client.player.getZ());
+                int perTick = Math.max(1, (wrapTotal + 19) / 20);
+                int target = Math.min(wrapTotal, wrapDrawn + perTick);
+                while (wrapDrawn < target) {
+                    wrapPath.addLast(wrapPoint(wrapDrawn));
+                    wrapDrawn++;
+                }
                 if (hitTicks == SwordCombo.DAMAGE_TICKS[SwordCombo.CHARGE_INDEX] && !sentHit) {
                     sentHit = true;
                     sendHit(SwordCombo.CHARGE_INDEX, chargeLevel);
@@ -354,6 +431,10 @@ public final class CombatController {
                     bufferedNext = false;
                     comboStep = -1;
                     exitBlendTicks = EXIT_BLEND_TICKS;
+                    wrapPath.clear();
+                    wrapDrawn = 0;
+                    wrapTotal = 0;
+                    burstTicks = -1;
                 }
                 impactKick *= 0.84f;
                 return;
@@ -561,6 +642,21 @@ public final class CombatController {
         exitBlendTicks = 0;
         lastStep = -1;
         lastClickTick = -1;
+        // Разлёт сферы вокруг игрока: резкое расширение в первые тики спина,
+        // прозрачность зависит от длины удержания (уровня заряда).
+        burstTicks = 0;
+        burstAlpha = 0.25f + 0.65f * level;
+        burstRadius = 0.8f;
+        // Шерстяная дуга по поверхности сферы: 1..6 оборотов (от удержания),
+        // «плетение» по широте и случайный наклон — витки не наслаиваются.
+        wrapCenter = new Vec3d(client.player.getX(), client.player.getY() + 1.0, client.player.getZ());
+        wrapRadius = (float) (1.6 + 0.8 * level);
+        wrapTurns = 1f + 5f * level;
+        wrapTiltYaw = client.world.random.nextFloat() * (float) Math.PI * 2.0f;
+        wrapTiltPitch = (client.world.random.nextFloat() - 0.5f) * 1.1f;
+        wrapTotal = (int) (wrapTurns * 48f);
+        wrapDrawn = 0;
+        wrapPath.clear();
         client.world.playSound(null, client.player.getX(), client.player.getY(), client.player.getZ(),
                 SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 0.4f + 0.5f * level, 0.7f,
                 client.world.random.nextLong());
@@ -585,6 +681,12 @@ public final class CombatController {
             return;
         }
         float level = chargeProgress();
+        // Растущая светлая сфера в руке (у клинка): радиус и яркость растут
+        // с зарядом, центр — кончик меча в позе заряда.
+        chargeSphereRadius = 0.12f + 0.88f * level;
+        chargeSphereAlpha = 0.35f + 0.55f * level;
+        chargeSphereCenter = bladeTipWorld(CHARGE_POSE, currentRootYawRad(),
+                player.getBodyYaw(), new Vec3d(player.getX(), player.getY(), player.getZ()));
         int step = chargeTicks % 2 == 0 ? 1 : 2;
         double baseR = 1.2 + 3.2 * level;
         // Спираль искр, закрученная вокруг героя (радиус растёт с зарядом).
@@ -990,6 +1092,11 @@ public final class CombatController {
         sentHit = false;
         finalCooldownTicks = 0;
         hitlagTicks = 0;
+        chargeSphereRadius = 0f;
+        burstTicks = -1;
+        wrapPath.clear();
+        wrapDrawn = 0;
+        wrapTotal = 0;
         return true;
     }
 
@@ -1460,6 +1567,28 @@ public final class CombatController {
     private static float chargedSpinTurn(float p) {
         float u = MathHelper.clamp(p / 0.25f, 0f, 1f);
         return (float) (-Math.PI * 2.0) * ease(E_IN_OUT_CUBIC, u);
+    }
+
+    /** Точка «шерстяной дуги» на сфере спина: θ — долгота (1..6 оборотов),
+     *  φ — широта с некратным «плетением» (0.618 — золотое сечение), чтобы
+     *  витки не ложились друг на друга; вся «сфера параллелей» наклонена
+     *  на случайный угол — как нити шерстяного клубка. */
+    private static Vec3d wrapPoint(int i) {
+        double t = i / (double) Math.max(1, wrapTotal);
+        double theta = Math.PI * 2.0 * wrapTurns * t;
+        double phi = 0.9 * Math.sin(theta * 0.618);
+        double x0 = Math.cos(phi) * Math.cos(theta);
+        double y0 = Math.sin(phi);
+        double z0 = Math.cos(phi) * Math.sin(theta);
+        double cy = Math.cos(wrapTiltYaw);
+        double sy = Math.sin(wrapTiltYaw);
+        double cx = Math.cos(wrapTiltPitch);
+        double sx = Math.sin(wrapTiltPitch);
+        double x = x0 * cy + z0 * sy;
+        double z = -x0 * sy + z0 * cy;
+        double y = y0 * cx - z * sx;
+        z = y0 * sx + z * cx;
+        return wrapCenter.add(x * wrapRadius, y * wrapRadius, z * wrapRadius);
     }
 
     /** Боевая стойка (покой/после удара): клинок держим горизонтально слева —
