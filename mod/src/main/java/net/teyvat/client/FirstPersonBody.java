@@ -48,9 +48,6 @@ public final class FirstPersonBody {
 
     public static void render(WorldRenderContext ctx) {
         MinecraftClient client = MinecraftClient.getInstance();
-        // Серпы-дуги ударов: рендерим в любом ракурсе (1-е и 3-е лицо) —
-        // ванильный SWEEP_ATTACK-билборд заменён на 3D-дуги.
-        renderCrescents(ctx, client);
         // Сфера заряда/разлёта и «шерстяная дуга» заряженной атаки.
         renderChargeFx(ctx, client);
         if (!active()) {
@@ -94,43 +91,6 @@ public final class FirstPersonBody {
 
     private static void sampleTrail(ClientPlayerEntity player, float tickDelta) {
         CombatController.sampleCurrentSlashTrail(player.getBodyYaw(), player.getLerpedPos(tickDelta));
-    }
-
-    /** Серпы-дуги в 3D: ТОЛСТАЯ лента-свет по ломаной точек (обычный удар —
-     *  ровно по траектории клинка, вихрь — за кончиком меча и дуги орбит).
-     *  Ориентация полностью 3D; в отличие от ванильного SWEEP_ATTACK-билборда
-     *  серп наклоняется по направлению удара. */
-    private static void renderCrescents(WorldRenderContext ctx, MinecraftClient client) {
-        // Возраст серпов наращивает CombatController.tick (по тикам, а не по
-        // кадрам), здесь только рисуем активные.
-        Deque<CombatController.Crescent> crescents = CombatController.crescents();
-        if (crescents.isEmpty()) {
-            return;
-        }
-        RenderLayer layer = RenderLayer.getEntityTranslucentEmissive(TRAIL_GLOW);
-        CameraRenderState camera = client.gameRenderer.getEntityRenderStates().cameraRenderState;
-        ctx.commandQueue().submitCustom(ctx.matrices(), layer, (entry, consumer) -> {
-            Vec3d cam = camera.pos;
-            for (CombatController.Crescent c : crescents) {
-                float t = c.age / (float) c.maxAge;
-                float alpha = (1f - t) * 0.95f;
-                Vec3d prev = null;
-                for (int i = 0; i < c.pts.length; i++) {
-                    Vec3d p = c.pts[i].subtract(cam);
-                    if (prev != null) {
-                        Vec3d seg = p.subtract(prev);
-                        double slen = seg.length();
-                        if (slen > 1.0e-5) {
-                            Vec3d sdir = seg.multiply(1.0 / slen);
-                            float u = (float) i / (c.pts.length - 1);
-                            ribbonQuad(entry, consumer, prev, p, ribbonRight(sdir, prev),
-                                    c.width, c.width, alpha, alpha, u - 0.05f, u + 0.05f);
-                        }
-                    }
-                    prev = p;
-                }
-            }
-        });
     }
 
     /** Растущая светлая сфера В КИСТЯХ, где меч, во время накопления заряда.

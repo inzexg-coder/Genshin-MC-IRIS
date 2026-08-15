@@ -11,7 +11,10 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.passive.FishEntity;
 import net.minecraft.entity.passive.PassiveEntity;
+import net.minecraft.particle.ParticleType;
 import net.minecraft.particle.ParticleTypes;
+import net.teyvat.particle.TeyvatSlashEffect;
+import net.teyvat.particle.TeyvatParticles;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.TypeFilter;
@@ -27,7 +30,6 @@ import org.joml.Vector3f;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -207,27 +209,6 @@ public final class CombatController {
     private static final Deque<SlashPoint> slashTrail = new ArrayDeque<>();
     private static final int SLASH_TRAIL_AGE = 7;
 
-    /** Серп-дуга в 3D: ТОЛСТАЯ лента по ломаной из мировых точек (обычный
-     *  удар — точки по траектории клинка bladeTipWorld, вихрь спина — дуги
-     *  орбит). Рисуется в FirstPersonBody лентой-светом; в отличие от
-     *  ванильного SWEEP_ATTACK (билборд) ориентируется в полном 3D. */
-    public static final class Crescent {
-        public final Vec3d[] pts;
-        public final float width;
-        public final int maxAge;
-        public int age;
-
-        Crescent(Vec3d[] pts, float width, int maxAge) {
-            this.pts = pts;
-            this.width = width;
-            this.maxAge = maxAge;
-        }
-    }
-
-    /** Активные серпы-дуги (для рендера в FirstPersonBody). */
-    private static final Deque<Crescent> crescents = new ArrayDeque<>();
-    private static final int MAX_CRESCENTS = 512;
-
     // --- Визуал заряженной атаки: растущая сфера в руке, разлёт сферы на
     // отпускании и «шерстяная дуга» по поверхности (1..6 оборотов). ---
 
@@ -252,7 +233,7 @@ public final class CombatController {
     private static int wrapDrawn = 0;
     private static int wrapTotal = 0;
 
-    /** Предыдущая точка кончика клинка (для цепочки серпов за мечом в вихре). */
+    /** Предыдущая точка кончика клинка (для цепочки дуг за мечом в вихре). */
     private static Vec3d lastWhirlBlade = null;
 
     /** Активная сфера заряда (пустая, если заряда нет). */
@@ -263,56 +244,6 @@ public final class CombatController {
         return new ChargeSphere(chargeSphereCenter, chargeSphereRadius, chargeSphereAlpha);
     }
 
-    /** Список активных серпов-дуг для рендера. */
-    public static Deque<Crescent> crescents() {
-        return crescents;
-    }
-
-    /** Добавить 3D-серп: лента шириной width по точкам pts; живёт maxAge тиков. */
-    public static void spawnCrescent(Vec3d[] pts, float width, int maxAge) {
-        if (pts == null || pts.length < 2) {
-            return;
-        }
-        if (crescents.size() >= MAX_CRESCENTS) {
-            crescents.removeFirst();
-        }
-        crescents.addLast(new Crescent(pts, width, maxAge));
-    }
-
-    /** Точки дуги-окружности радиуса radius в плоскости (dir, up), от start
-     *  на span радиан (для орбит вихря/спина). */
-    private static Vec3d[] arcPoints(Vec3d center, Vec3d dir, Vec3d up,
-                                     float radius, float start, float span, int segments) {
-        Vec3d[] pts = new Vec3d[segments + 1];
-        for (int i = 0; i <= segments; i++) {
-            float t = start + span * (float) i / segments;
-            pts[i] = center.add(dir.multiply(radius * Math.cos(t)))
-                    .add(up.multiply(radius * Math.sin(t)));
-        }
-        return pts;
-    }
-
-    /** Точки отрезка a->b (для «дуги за клинком» вихря спина). */
-    private static Vec3d[] linePoints(Vec3d a, Vec3d b, int segments) {
-        Vec3d[] pts = new Vec3d[segments + 1];
-        for (int i = 0; i <= segments; i++) {
-            float k = (float) i / segments;
-            pts[i] = a.lerp(b, k);
-        }
-        return pts;
-    }
-
-    /** Состарить серпы и выкинуть истёкшие. */
-    public static void ageCrescents() {
-        Iterator<Crescent> it = crescents.iterator();
-        while (it.hasNext()) {
-            Crescent c = it.next();
-            if (++c.age >= c.maxAge) {
-                it.remove();
-            }
-        }
-    }
-
     private CombatController() {}
 
     /** Вызывается каждый клиентский тик (END_CLIENT_TICK). */
@@ -321,9 +252,6 @@ public final class CombatController {
         if (client.player == null || client.world == null || client.isPaused()) {
             return;
         }
-        // Серпы-дуги стареют по тикам (как ванильные частицы): плотность
-        // шара не зависит от FPS — каждый серп живёт ~5 тиков.
-        ageCrescents();
         tickCount++;
         if (comboStep >= 0 && !client.player.isOnGround()) {
             // В воздухе удары не работают (как в Genshin): прыжок прерывает комбо,
@@ -754,34 +682,30 @@ public final class CombatController {
         float level = chargeLevel;
         double r = 1.6 + 0.8 * level;
         Vec3d center = new Vec3d(player.getX(), player.getY() + 1.0, player.getZ());
-        // Серп-«хвост за клинком»: толстая лента РОВНО по траектории кончика
-        // меча (как трейл, но дискретными дугами) — удары совпадают с мечом.
+        // Серп-«хвост за клинком»: маленькая дуга-частица РОВНО по траектории
+        // кончика меча (удары совпадают с мечом — техника Better Combat).
         float p = Math.min(1f, hitTicks / (float) SwordCombo.DURATION_TICKS[SwordCombo.CHARGE_INDEX]);
         Vec3d slashPos = new Vec3d(player.getX(), player.getY(), player.getZ());
         Vec3d tip = bladeTipWorld(computePose(p), chargedSpinTurn(p), player.getBodyYaw(), slashPos);
         if (lastWhirlBlade != null && lastWhirlBlade.squaredDistanceTo(tip) > 1.0e-6) {
-            spawnCrescent(linePoints(lastWhirlBlade, tip, 8), 0.17f, 5);
+            spawnSlashArc(client.world, TeyvatParticles.SLASH_90,
+                    new Vec3d[]{lastWhirlBlade, tip}, 2.6f, 0x88FFFFFF);
         }
         lastWhirlBlade = tip;
-        // Дуги-орбиты: плотный шар из ТОЛСТЫХ серпов в наклонных плоскостях
-        // (НЕ ванильный SWEEP_ATTACK-билборд — тот всегда «лежит»).
-        for (int layer = 0; layer < 3; layer++) {
-            double lr = r * (layer == 0 ? 1.0 : layer == 1 ? 0.72 : 0.45);
-            int sweeps = layer == 0 ? 8 : 5;
-            for (int i = 0; i < sweeps; i++) {
-                Vec3d rnd = new Vec3d(
-                        client.world.random.nextDouble() - 0.5,
-                        client.world.random.nextDouble() - 0.5,
-                        client.world.random.nextDouble() - 0.5);
-                Vec3d dir = rnd.crossProduct(new Vec3d(0.0, 1.0, 0.0));
-                if (dir.lengthSquared() < 1.0e-6) {
-                    dir = new Vec3d(1.0, 0.0, 0.0);
-                }
-                Vec3d oup = dir.crossProduct(rnd).normalize();
-                float start = (float) (client.world.random.nextDouble() * Math.PI * 2.0);
-                float span = 1.0f + client.world.random.nextFloat() * 1.2f;
-                spawnCrescent(arcPoints(center, dir.normalize(), oup, (float) lr, start, span, 10), 0.13f, 5);
+        // Орбиты-атомы: плотный шар из КОЛЕЦ-дуг (360°) в случайных плоскостях
+        // вокруг тела — граница вихря читается как светящаяся сфера из лезвий.
+        int orbits = (int) (2 + 2 * level);
+        for (int i = 0; i < orbits; i++) {
+            Vec3d rnd = new Vec3d(
+                    client.world.random.nextDouble() - 0.5,
+                    client.world.random.nextDouble() - 0.5,
+                    client.world.random.nextDouble() - 0.5);
+            if (rnd.lengthSquared() < 1.0e-6) {
+                rnd = new Vec3d(1.0, 0.0, 0.0);
             }
+            double rr = r * (0.72 + client.world.random.nextDouble() * 0.55);
+            spawnOrbitArc(client.world, TeyvatParticles.SLASH_360,
+                    center, rnd, (float) rr, 0x99FFFFFF);
         }
         // Полупрозрачная граница шара: плотный слой искр на сфере.
         for (int i = 0; i < 48; i++) {
@@ -885,6 +809,93 @@ public final class CombatController {
         }
     }
 
+    /** Тип дуги-частицы для обычного удара: разворот (3) — полное кольцо,
+     *  пятый — очень широкий, остальные — полукруг. */
+    private static ParticleType<TeyvatSlashEffect> slashArcType() {
+        return switch (comboStep) {
+            case 2 -> TeyvatParticles.SLASH_360;
+            case 4 -> TeyvatParticles.SLASH_270;
+            default -> TeyvatParticles.SLASH_180;
+        };
+    }
+
+    /** Размер квада дуги (радиус дуги на экране ≈ 0.36 от него): третий,
+     *  четвёртый и пятый удары шире первого (фидбек «увеличь ширину»). */
+    private static float slashArcScale() {
+        return switch (comboStep) {
+            case 2 -> 5.8f;
+            case 3 -> 5.4f;
+            case 4 -> 6.2f;
+            case 1 -> 5.0f;
+            default -> 4.8f;
+        };
+    }
+
+    /** Спавн дуги-частицы по плоскости фактического пути клинка (path):
+     *  строим ортонормированный базис (sweep, bow, normal), дуга выгибается
+     *  к камере — читается из любого ракурса, в 1-м и 3-м лице. */
+    private static void spawnSlashArc(ClientWorld world, ParticleType<TeyvatSlashEffect> type,
+                                      Vec3d[] path, float scale, int color) {
+        if (world == null || path.length < 2) {
+            return;
+        }
+        Vec3d p0 = path[0];
+        Vec3d pMid = path[path.length / 2];
+        Vec3d pEnd = path[path.length - 1];
+        Vec3d v1 = pMid.subtract(p0);
+        Vec3d v2 = pEnd.subtract(p0);
+        Vec3d n = v1.crossProduct(v2);
+        if (n.lengthSquared() < 1.0e-10) {
+            n = v2.normalize().crossProduct(new Vec3d(0.0, 1.0, 0.0));
+        }
+        n = n.normalize();
+        Vec3d sweep = v2.normalize();
+        Vec3d bow = n.crossProduct(sweep).normalize();
+        Vec3d cam = MinecraftClient.getInstance().gameRenderer.getCamera().getPos();
+        if (bow.dotProduct(cam.subtract(pMid)) < 0.0) {
+            bow = bow.multiply(-1.0);
+        }
+        Quaternionf q = basisQuat(sweep, bow, n);
+        world.addParticleClient(new TeyvatSlashEffect(type, q.x, q.y, q.z, q.w, scale, color, true),
+                pMid.x, pMid.y, pMid.z, 0.0, 0.0, 0.0);
+    }
+
+    /** Спавн КОЛЬЦА-дуги (360°) в плоскости с нормалью normal вокруг центра:
+     *  орбита «атома» — для заряженного спина и вихря. Радиус кольца
+     *  задаётся scale через spawnOrbitArc. */
+    private static void spawnOrbitArc(ClientWorld world, ParticleType<TeyvatSlashEffect> type,
+                                      Vec3d center, Vec3d normal, float radius, int color) {
+        if (world == null) {
+            return;
+        }
+        Vec3d n = normal.normalize();
+        Vec3d ref = Math.abs(n.y) < 0.9 ? new Vec3d(0.0, 1.0, 0.0) : new Vec3d(1.0, 0.0, 0.0);
+        Vec3d xAxis = n.crossProduct(ref).normalize();
+        Vec3d yAxis = n.crossProduct(xAxis).normalize();
+        Quaternionf q = basisQuat(xAxis, yAxis, n);
+        // Кольцо радиусом radius: квад 360° ставится по диаметру — размер
+        // квада = 2 * радиус / 0.72 (радиус дуги в текстуре ≈ 0.36 размера).
+        float scale = radius / 0.36f;
+        world.addParticleClient(new TeyvatSlashEffect(type, q.x, q.y, q.z, q.w, scale, color, true),
+                center.x, center.y, center.z, 0.0, 0.0, 0.0);
+    }
+
+    /** Кватернион поворота из ортонормированного базиса (x, y, z) — так
+     *  локальная ось X квада ложится вдоль x, ось Y — вдоль y. */
+    private static Quaternionf basisQuat(Vec3d x, Vec3d y, Vec3d z) {
+        Matrix4f m = new Matrix4f();
+        m.m00((float) x.x);
+        m.m01((float) x.y);
+        m.m02((float) x.z);
+        m.m10((float) y.x);
+        m.m11((float) y.y);
+        m.m12((float) y.z);
+        m.m20((float) z.x);
+        m.m21((float) z.y);
+        m.m22((float) z.z);
+        return new Quaternionf().setFromNormalized(m);
+    }
+
     /** Эффекты удара на тике урона: полумесяц-разрез, дуга искр по траектории
      *  меча и пыль из-под ног на «шагающих» ударах. Работают и по врагам,
      *  и по воздуху — свинг всегда анимируется. */
@@ -905,31 +916,30 @@ public final class CombatController {
         float rootYaw = currentRootYawRad();
         Vec3d slashPos = new Vec3d(player.getX(), player.getY(), player.getZ());
         if (charged) {
-            // Вспышка урона спина: короткие ТОЛСТЫЕ дуги-орбиты вокруг тела.
+            // Вспышка урона спина: плотный шар КОЛЕЦ-дуг вокруг тела (орбиты
+            // атомов) — «стена лезвий» по всей площади спина.
             Vec3d ctr = new Vec3d(player.getX(), player.getY() + 1.0, player.getZ());
             for (int i = 0; i < 6; i++) {
                 Vec3d rnd = new Vec3d(
                         world.random.nextDouble() - 0.5,
                         world.random.nextDouble() - 0.5,
                         world.random.nextDouble() - 0.5);
-                Vec3d odir = rnd.crossProduct(new Vec3d(0.0, 1.0, 0.0));
-                if (odir.lengthSquared() < 1.0e-6) {
-                    odir = new Vec3d(1.0, 0.0, 0.0);
+                if (rnd.lengthSquared() < 1.0e-6) {
+                    rnd = new Vec3d(1.0, 0.0, 0.0);
                 }
-                Vec3d oup = odir.crossProduct(rnd).normalize();
-                float start = (float) (world.random.nextDouble() * Math.PI * 2.0);
-                spawnCrescent(arcPoints(ctr, odir.normalize(), oup, 1.9f, start, 1.2f, 12), 0.16f, 4);
+                spawnOrbitArc(world, TeyvatParticles.SLASH_360, ctr, rnd, 1.9f, 0xAAFFFFFF);
             }
         } else {
-            // Один длинный ТОЛСТЫЙ серп: ломаная РОВНО по траектории клинка
-            // (замах 0.05 -> сопровождение 0.55) — визуал совпадает с мечом
-            // в каждой точке, а не полукругом «от балды».
+            // Одна ДЛИННАЯ яркая дуга-частица РОВНО по траектории клинка
+            // (замах 0.05 -> сопровождение 0.55): плоскость дуги строится по
+            // фактическому пути меча, поэтому визуал совпадает с движением
+            // клинка в каждой точке (техника Better Combat).
             Vec3d[] pts = new Vec3d[14];
             for (int i = 0; i < pts.length; i++) {
                 float t = 0.05f + 0.50f * (float) i / (pts.length - 1);
                 pts[i] = bladeTipWorld(computePose(t), rootYaw, player.getBodyYaw(), slashPos);
             }
-            spawnCrescent(pts, 0.20f, 6);
+            spawnSlashArc(world, slashArcType(), pts, slashArcScale(), 0xFFFFFFFF);
         }
         // Дуга размаха: плотные штрихи-искры вдоль траектории меча.
         // У заряженного спина — полный круг (орбита вокруг тела).
@@ -1028,14 +1038,35 @@ public final class CombatController {
                 continue;
             }
             Vec3d p = target.getBoundingBox().getCenter();
+            // Искры-брызги в сторону удара (направление текущего движения клинка).
+            Vec3d dir = hitDirection();
             for (int i = 0; i < 10; i++) {
-                double vx = (world.random.nextDouble() - 0.5) * 1.3;
-                double vy = world.random.nextDouble() * 1.5 + 0.2;
-                double vz = (world.random.nextDouble() - 0.5) * 1.3;
+                double vx = (world.random.nextDouble() - 0.5) * 0.9 + dir.x * 0.7;
+                double vy = world.random.nextDouble() * 1.5 + 0.2 + dir.y * 0.5;
+                double vz = (world.random.nextDouble() - 0.5) * 0.9 + dir.z * 0.7;
                 world.addParticleClient(ParticleTypes.CRIT, p.x, p.y, p.z, vx, vy, vz);
             }
             world.addParticleClient(ParticleTypes.END_ROD, p.x, p.y, p.z, 0, 0.5, 0);
+            // Маленькая дуга-вспышка в точке контакта — строго на хите.
+            Vec3d a = p.subtract(dir.multiply(0.6));
+            Vec3d b = p.add(dir.multiply(0.6));
+            spawnSlashArc(world, TeyvatParticles.SLASH_45, new Vec3d[]{a, p, b}, 2.4f, 0x88FFFFFF);
         }
+    }
+
+    /** Направление текущего удара в мире (для искр/вспышки на хите):
+     *  от начала замаха к сопровождению по bladeTipWorld. */
+    private static Vec3d hitDirection() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || comboStep < 0) {
+            return new Vec3d(0.0, 0.2, 1.0);
+        }
+        Vec3d slashPos = new Vec3d(client.player.getX(), client.player.getY(), client.player.getZ());
+        float rootYaw = currentRootYawRad();
+        Vec3d a = bladeTipWorld(computePose(0.06f), rootYaw, client.player.getBodyYaw(), slashPos);
+        Vec3d b = bladeTipWorld(computePose(0.5f), rootYaw, client.player.getBodyYaw(), slashPos);
+        Vec3d d = b.subtract(a);
+        return d.lengthSquared() < 1.0e-8 ? new Vec3d(0.0, 0.2, 1.0) : d.normalize();
     }
 
     /** Атака идёт прямо сейчас (включая хит-стоп и фазу восстановления). */
