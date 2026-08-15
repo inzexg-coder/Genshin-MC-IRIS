@@ -96,10 +96,10 @@ public final class FirstPersonBody {
         CombatController.sampleCurrentSlashTrail(player.getBodyYaw(), player.getLerpedPos(tickDelta));
     }
 
-    /** Серпы-дуги в 3D: лента-свет по дуге окружности в плоскости (dir, up).
-     *  Ориентация полностью 3D (в отличие от ванильного SWEEP_ATTACK,
-     *  который всегда «лежит» горизонтально) — серпы наклоняются по
-     *  направлению удара и оборачивают героя плотным шаром хитов. */
+    /** Серпы-дуги в 3D: ТОЛСТАЯ лента-свет по ломаной точек (обычный удар —
+     *  ровно по траектории клинка, вихрь — за кончиком меча и дуги орбит).
+     *  Ориентация полностью 3D; в отличие от ванильного SWEEP_ATTACK-билборда
+     *  серп наклоняется по направлению удара. */
     private static void renderCrescents(WorldRenderContext ctx, MinecraftClient client) {
         // Возраст серпов наращивает CombatController.tick (по тикам, а не по
         // кадрам), здесь только рисуем активные.
@@ -113,65 +113,38 @@ public final class FirstPersonBody {
             Vec3d cam = camera.pos;
             for (CombatController.Crescent c : crescents) {
                 float t = c.age / (float) c.maxAge;
-                float alpha = (1f - t) * 1.0f;
-                float w = 0.05f + 0.09f * (1f - t);
-                int steps = 8;
-                for (int i = 0; i < steps; i++) {
-                    float k0 = c.start + c.span * (float) i / steps;
-                    float k1 = c.start + c.span * (float) (i + 1) / steps;
-                    // Координаты относительно камеры (очередь рендера мира).
-                    Vec3d p0 = arcPoint(c, k0).subtract(cam);
-                    Vec3d p1 = arcPoint(c, k1).subtract(cam);
-                    Vec3d seg = p1.subtract(p0);
-                    double slen = seg.length();
-                    if (slen < 1.0e-5) {
-                        continue;
+                float alpha = (1f - t) * 0.95f;
+                Vec3d prev = null;
+                for (int i = 0; i < c.pts.length; i++) {
+                    Vec3d p = c.pts[i].subtract(cam);
+                    if (prev != null) {
+                        Vec3d seg = p.subtract(prev);
+                        double slen = seg.length();
+                        if (slen > 1.0e-5) {
+                            Vec3d sdir = seg.multiply(1.0 / slen);
+                            float u = (float) i / (c.pts.length - 1);
+                            ribbonQuad(entry, consumer, prev, p, ribbonRight(sdir, prev),
+                                    c.width, c.width, alpha, alpha, u - 0.05f, u + 0.05f);
+                        }
                     }
-                    Vec3d sdir = seg.multiply(1.0 / slen);
-                    Vec3d right = sdir.crossProduct(p0.negate());
-                    if (right.lengthSquared() < 1.0e-6) {
-                        right = new Vec3d(0.0, 1.0, 0.0);
-                    } else {
-                        right = right.normalize();
-                    }
-                    float u0 = (float) i / steps;
-                    float u1 = (float) (i + 1) / steps;
-                    ribbonQuad(entry, consumer, p0, p1, right, w, w, alpha, alpha, u0, u1);
+                    prev = p;
                 }
             }
         });
     }
 
-    /** Точка дуги серпа: center + radius*(cos(t)*dir + sin(t)*up). */
-    private static Vec3d arcPoint(CombatController.Crescent c, float t) {
-        return c.center.add(c.dir.multiply(c.radius * Math.cos(t)))
-                .add(c.up.multiply(c.radius * Math.sin(t)));
-    }
-
-    /** Сфера заряда (растёт в руке), сфера разлёта вокруг игрока (отпускание)
-     *  и «шерстяная дуга» по поверхности — яркие белые визуалы заряженной
-     *  атаки. Видны в любом ракурсе. */
+    /** Растущая светлая сфера В КИСТЯХ, где меч, во время накопления заряда.
+     *  Разлёт сферы и «шерстяная дуга» спина рисуются частицами (в tick) —
+     *  вокруг камеры ленты не строятся, чтобы ничего не уходило «за облака». */
     private static void renderChargeFx(WorldRenderContext ctx, MinecraftClient client) {
         RenderLayer layer = RenderLayer.getEntityTranslucentEmissive(TRAIL_GLOW);
         CameraRenderState camera = client.gameRenderer.getEntityRenderStates().cameraRenderState;
         ctx.commandQueue().submitCustom(ctx.matrices(), layer, (entry, consumer) -> {
             Vec3d cam = camera.pos;
-            // Растущая светлая сфера в руке (у клинка) во время накопления.
             CombatController.ChargeSphere cs = CombatController.chargeSphere();
             if (cs != null) {
-                drawSphereWireframe(entry, consumer, cam, cs.center().subtract(cam), cs.radius(), cs.alpha(), 10);
+                drawSphereWireframe(entry, consumer, cam, cs.center().subtract(cam), cs.radius(), cs.alpha(), 6);
             }
-            // Разлёт сферы вокруг игрока: резкое расширение, прозрачность
-            // по уровню заряда, гаснет за ~6 тиков.
-            CombatController.BurstSphere bs = CombatController.burstSphere();
-            if (bs != null && client.player != null) {
-                float fade = Math.max(0f, Math.min(1f, 1f - bs.ticks() / 6f));
-                float tickDelta = client.getRenderTickCounter().getTickProgress(false);
-                Vec3d center = client.player.getLerpedPos(tickDelta).add(0.0, 1.0, 0.0).subtract(cam);
-                drawSphereWireframe(entry, consumer, cam, center, bs.radius(), bs.alpha() * fade, 12);
-            }
-            // Шерстяная дуга: молниеносно пролетает по поверхности сферы.
-            drawWrapPath(entry, consumer, cam);
         });
     }
 
@@ -207,7 +180,7 @@ public final class FirstPersonBody {
                                     Vec3d cam, Vec3d center, Vec3d dir, Vec3d up,
                                     float radius, float alpha) {
         int steps = 16;
-        float w = 0.05f;
+        float w = 0.07f;
         for (int i = 0; i < steps; i++) {
             float t0 = (float) (Math.PI * 2.0 * i / steps);
             float t1 = (float) (Math.PI * 2.0 * (i + 1) / steps);
@@ -222,34 +195,6 @@ public final class FirstPersonBody {
             }
             Vec3d sdir = seg.multiply(1.0 / slen);
             ribbonQuad(entry, consumer, p0, p1, ribbonRight(sdir, p0), w, w, alpha, alpha, 0f, 1f);
-        }
-    }
-
-    /** Шерстяная дуга: яркая лента по нарисованному пути на поверхности
-     *  сферы; голова белая и толстая, хвост тает — «молниеносный пролёт». */
-    private static void drawWrapPath(MatrixStack.Entry entry, VertexConsumer consumer, Vec3d cam) {
-        Deque<Vec3d> path = CombatController.wrapPath();
-        if (path.size() < 2) {
-            return;
-        }
-        Vec3d[] pts = path.toArray(new Vec3d[0]);
-        int count = pts.length;
-        for (int i = 0; i < count - 1; i++) {
-            // Координаты относительно камеры.
-            Vec3d p0 = pts[i].subtract(cam);
-            Vec3d p1 = pts[i + 1].subtract(cam);
-            Vec3d seg = p1.subtract(p0);
-            double slen = seg.length();
-            if (slen < 1.0e-5) {
-                continue;
-            }
-            Vec3d sdir = seg.multiply(1.0 / slen);
-            // Яркость по расстоянию от головы дуги (последней точки пути).
-            float head = Math.max(0f, Math.min(1f, (count - 1 - i) / 30f));
-            float w = 0.035f + 0.075f * head;
-            float a = 0.10f + 0.90f * head;
-            float u = (float) i / Math.max(1, count - 1);
-            ribbonQuad(entry, consumer, p0, p1, ribbonRight(sdir, p0), w, w, a, a, u, u + 1f / Math.max(1, count - 1));
         }
     }
 
@@ -290,10 +235,10 @@ public final class FirstPersonBody {
                 // Сужение к хвосту и таяние по возрасту точки.
                 float age0 = 1f - pts[i].age() / (float) maxAge;
                 float age1 = 1f - pts[i + 1].age() / (float) maxAge;
-                float w0 = 0.03f + 0.38f * t0;
-                float w1 = 0.03f + 0.38f * t1;
-                float a0 = 0.15f + 0.80f * t0;
-                float a1 = 0.15f + 0.80f * t1;
+                float w0 = 0.06f + 0.34f * t0;
+                float w1 = 0.06f + 0.34f * t1;
+                float a0 = 0.25f + 0.70f * t0;
+                float a1 = 0.25f + 0.70f * t1;
                 a0 *= age0;
                 a1 *= age1;
                 ribbonQuad(entry, consumer, p0, p1, right, w0, w1, a0, a1, t0, t1);
