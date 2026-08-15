@@ -809,28 +809,6 @@ public final class CombatController {
         }
     }
 
-    /** Тип дуги-частицы для обычного удара: разворот (3) — полное кольцо,
-     *  пятый — очень широкий, остальные — полукруг. */
-    private static ParticleType<TeyvatSlashEffect> slashArcType() {
-        return switch (comboStep) {
-            case 2 -> TeyvatParticles.SLASH_360;
-            case 4 -> TeyvatParticles.SLASH_270;
-            default -> TeyvatParticles.SLASH_180;
-        };
-    }
-
-    /** Размер квада дуги (радиус дуги на экране ≈ 0.36 от него): третий,
-     *  четвёртый и пятый удары шире первого (фидбек «увеличь ширину»). */
-    private static float slashArcScale() {
-        return switch (comboStep) {
-            case 2 -> 5.8f;
-            case 3 -> 5.4f;
-            case 4 -> 6.2f;
-            case 1 -> 5.0f;
-            default -> 4.8f;
-        };
-    }
-
     /** Спавн дуги-частицы по плоскости фактического пути клинка (path):
      *  строим ортонормированный базис (sweep, bow, normal), дуга выгибается
      *  к камере — читается из любого ракурса, в 1-м и 3-м лице. */
@@ -858,6 +836,57 @@ public final class CombatController {
         Quaternionf q = basisQuat(sweep, bow, n);
         world.addParticleClient(new TeyvatSlashEffect(type, q.x, q.y, q.z, q.w, scale, color, true),
                 pMid.x, pMid.y, pMid.z, 0.0, 0.0, 0.0);
+    }
+
+    /** Параметры дуги-серпа обычного удара (техника Better Combat): угол серпа
+     *  (тип частицы), радиус кольца и наклоны в градусах (pitch/roll/localYaw)
+     *  — плоскость дуги подобрана под каждое движение клинка. */
+    private record SlashArcSpec(ParticleType<TeyvatSlashEffect> type, float radius,
+                                float pitchDeg, float rollDeg, float localYawDeg, double centerY) {}
+
+    /** Дуга-серп обычного удара: кольцо вокруг игрока радиусом ~дистанции
+     *  атаки, держится за поворот игрока (yaw), плоскость задаётся
+     *  pitch/roll/localYaw на каждый удар — серп «рассекает воздух» ровно
+     *  в сторону движения меча (как в Better Combat). */
+    private static SlashArcSpec slashArcSpec(int step) {
+        return switch (step) {
+            // 1: горизонтальный слева направо — полукруг через фронт.
+            case 0 -> new SlashArcSpec(TeyvatParticles.SLASH_180, 2.9f, 0f, 0f, 90f, 1.05);
+            // 2: апперкот — диагональ вверх-влево за плечо.
+            case 1 -> new SlashArcSpec(TeyvatParticles.SLASH_90, 2.6f, -45f, 0f, 60f, 1.15);
+            // 3: разворот на 360° — полное кольцо вокруг тела.
+            case 2 -> new SlashArcSpec(TeyvatParticles.SLASH_360, 2.4f, 0f, 0f, 0f, 1.0);
+            // 4: горизонтальный справа налево — полукруг через фронт (зеркало 1).
+            case 3 -> new SlashArcSpec(TeyvatParticles.SLASH_180, 3.0f, 0f, 180f, 90f, 1.05);
+            // 5: финальный очень широкий слева направо — 3/4 кольца.
+            case 4 -> new SlashArcSpec(TeyvatParticles.SLASH_270, 3.7f, 0f, 0f, 90f, 1.0);
+            default -> new SlashArcSpec(TeyvatParticles.SLASH_180, 2.9f, 0f, 0f, 90f, 1.05);
+        };
+    }
+
+    /** Спавн дуги-серпа вокруг игрока (Better Combat): квад ставится по
+     *  кватерниону Ry(-yaw)*Rx(pitch+90)*Ry(roll)*Rz(localYaw). */
+    private static void spawnPlayerArc(ClientWorld world, ClientPlayerEntity player, int step) {
+        if (world == null) {
+            return;
+        }
+        SlashArcSpec spec = slashArcSpec(step);
+        Quaternionf q = slashQuat(player.getYaw(), spec.pitchDeg(), spec.rollDeg(), spec.localYawDeg());
+        world.addParticleClient(new TeyvatSlashEffect(spec.type(), q.x, q.y, q.z, q.w,
+                        spec.radius() / 0.36f, 0xFFFFFFFF, true),
+                player.getX(), player.getY() + spec.centerY(), player.getZ(), 0.0, 0.0, 0.0);
+    }
+
+    /** Кватернион дуги-серпа (техника Better Combat):
+     *  Ry(-yaw) * Rx(pitch+90) * Ry(roll) * Rz(localYaw). */
+    private static Quaternionf slashQuat(float yawDeg, float pitchDeg, float rollDeg, float localYawDeg) {
+        Matrix4f m = new Matrix4f();
+        m.identity();
+        m.rotateY((float) Math.toRadians(-yawDeg));
+        m.rotateX((float) Math.toRadians(pitchDeg + 90.0f));
+        m.rotateY((float) Math.toRadians(rollDeg));
+        m.rotateZ((float) Math.toRadians(localYawDeg));
+        return new Quaternionf().setFromNormalized(m);
     }
 
     /** Спавн КОЛЬЦА-дуги (360°) в плоскости с нормалью normal вокруг центра:
@@ -930,16 +959,10 @@ public final class CombatController {
                 spawnOrbitArc(world, TeyvatParticles.SLASH_360, ctr, rnd, 1.9f, 0xAAFFFFFF);
             }
         } else {
-            // Одна ДЛИННАЯ яркая дуга-частица РОВНО по траектории клинка
-            // (замах 0.05 -> сопровождение 0.55): плоскость дуги строится по
-            // фактическому пути меча, поэтому визуал совпадает с движением
-            // клинка в каждой точке (техника Better Combat).
-            Vec3d[] pts = new Vec3d[14];
-            for (int i = 0; i < pts.length; i++) {
-                float t = 0.05f + 0.50f * (float) i / (pts.length - 1);
-                pts[i] = bladeTipWorld(computePose(t), rootYaw, player.getBodyYaw(), slashPos);
-            }
-            spawnSlashArc(world, slashArcType(), pts, slashArcScale(), 0xFFFFFFFF);
+            // Дуга-серп в стиле Better Combat: КОЛЬЦО вокруг игрока (радиус ~
+            // дистанции атаки), плоскость/наклон задаются на каждый удар —
+            // серп читается как аниме-разрез, а не кольцо у середины замаха.
+            spawnPlayerArc(world, player, comboStep);
         }
         // Дуга размаха: плотные штрихи-искры вдоль траектории меча.
         // У заряженного спина — полный круг (орбита вокруг тела).
