@@ -119,15 +119,16 @@ public final class FirstPersonBody {
                 for (int i = 0; i < steps; i++) {
                     float k0 = c.start + c.span * (float) i / steps;
                     float k1 = c.start + c.span * (float) (i + 1) / steps;
-                    Vec3d p0 = arcPoint(c, k0);
-                    Vec3d p1 = arcPoint(c, k1);
+                    // Координаты относительно камеры (очередь рендера мира).
+                    Vec3d p0 = arcPoint(c, k0).subtract(cam);
+                    Vec3d p1 = arcPoint(c, k1).subtract(cam);
                     Vec3d seg = p1.subtract(p0);
                     double slen = seg.length();
                     if (slen < 1.0e-5) {
                         continue;
                     }
                     Vec3d sdir = seg.multiply(1.0 / slen);
-                    Vec3d right = sdir.crossProduct(cam.subtract(p0));
+                    Vec3d right = sdir.crossProduct(p0.negate());
                     if (right.lengthSquared() < 1.0e-6) {
                         right = new Vec3d(0.0, 1.0, 0.0);
                     } else {
@@ -158,7 +159,7 @@ public final class FirstPersonBody {
             // Растущая светлая сфера в руке (у клинка) во время накопления.
             CombatController.ChargeSphere cs = CombatController.chargeSphere();
             if (cs != null) {
-                drawSphereWireframe(entry, consumer, cam, cs.center(), cs.radius(), cs.alpha(), 10);
+                drawSphereWireframe(entry, consumer, cam, cs.center().subtract(cam), cs.radius(), cs.alpha(), 10);
             }
             // Разлёт сферы вокруг игрока: резкое расширение, прозрачность
             // по уровню заряда, гаснет за ~6 тиков.
@@ -166,7 +167,7 @@ public final class FirstPersonBody {
             if (bs != null && client.player != null) {
                 float fade = Math.max(0f, Math.min(1f, 1f - bs.ticks() / 6f));
                 float tickDelta = client.getRenderTickCounter().getTickProgress(false);
-                Vec3d center = client.player.getLerpedPos(tickDelta).add(0.0, 1.0, 0.0);
+                Vec3d center = client.player.getLerpedPos(tickDelta).add(0.0, 1.0, 0.0).subtract(cam);
                 drawSphereWireframe(entry, consumer, cam, center, bs.radius(), bs.alpha() * fade, 12);
             }
             // Шерстяная дуга: молниеносно пролетает по поверхности сферы.
@@ -191,6 +192,16 @@ public final class FirstPersonBody {
         }
     }
 
+    /** Перпендикуляр к сегменту ленты, повёрнутый к камере (в camera-space
+     *  камера — в начале координат). */
+    private static Vec3d ribbonRight(Vec3d sdir, Vec3d p0) {
+        Vec3d right = sdir.crossProduct(p0.negate());
+        if (right.lengthSquared() < 1.0e-6) {
+            return new Vec3d(0.0, 1.0, 0.0);
+        }
+        return right.normalize();
+    }
+
     /** Кольцо-лента вокруг центра в плоскости (dir, up). */
     private static void drawRingArc(MatrixStack.Entry entry, VertexConsumer consumer,
                                     Vec3d cam, Vec3d center, Vec3d dir, Vec3d up,
@@ -210,13 +221,7 @@ public final class FirstPersonBody {
                 continue;
             }
             Vec3d sdir = seg.multiply(1.0 / slen);
-            Vec3d right = sdir.crossProduct(cam.subtract(p0));
-            if (right.lengthSquared() < 1.0e-6) {
-                right = new Vec3d(0.0, 1.0, 0.0);
-            } else {
-                right = right.normalize();
-            }
-            ribbonQuad(entry, consumer, p0, p1, right, w, w, alpha, alpha, 0f, 1f);
+            ribbonQuad(entry, consumer, p0, p1, ribbonRight(sdir, p0), w, w, alpha, alpha, 0f, 1f);
         }
     }
 
@@ -230,26 +235,21 @@ public final class FirstPersonBody {
         Vec3d[] pts = path.toArray(new Vec3d[0]);
         int count = pts.length;
         for (int i = 0; i < count - 1; i++) {
-            Vec3d p0 = pts[i];
-            Vec3d p1 = pts[i + 1];
+            // Координаты относительно камеры.
+            Vec3d p0 = pts[i].subtract(cam);
+            Vec3d p1 = pts[i + 1].subtract(cam);
             Vec3d seg = p1.subtract(p0);
             double slen = seg.length();
             if (slen < 1.0e-5) {
                 continue;
             }
             Vec3d sdir = seg.multiply(1.0 / slen);
-            Vec3d right = sdir.crossProduct(cam.subtract(p0));
-            if (right.lengthSquared() < 1.0e-6) {
-                right = new Vec3d(0.0, 1.0, 0.0);
-            } else {
-                right = right.normalize();
-            }
             // Яркость по расстоянию от головы дуги (последней точки пути).
             float head = Math.max(0f, Math.min(1f, (count - 1 - i) / 30f));
             float w = 0.035f + 0.075f * head;
             float a = 0.10f + 0.90f * head;
             float u = (float) i / Math.max(1, count - 1);
-            ribbonQuad(entry, consumer, p0, p1, right, w, w, a, a, u, u + 1f / Math.max(1, count - 1));
+            ribbonQuad(entry, consumer, p0, p1, ribbonRight(sdir, p0), w, w, a, a, u, u + 1f / Math.max(1, count - 1));
         }
     }
 
@@ -264,15 +264,16 @@ public final class FirstPersonBody {
         }
         int maxAge = CombatController.slashTrailAge();
         for (int i = 0; i < count - 1; i++) {
-            Vec3d a = pts[i].pos();
-            Vec3d b = pts[i + 1].pos();
+            // Координаты относительно камеры (как у сущностей в очереди рендера).
+            Vec3d a = pts[i].pos().subtract(camLocal);
+            Vec3d b = pts[i + 1].pos().subtract(camLocal);
             Vec3d seg = b.subtract(a);
             double len = seg.length();
             if (len < 1.0e-5) {
                 continue;
             }
             Vec3d dir = seg.multiply(1.0 / len);
-            Vec3d right = dir.crossProduct(camLocal.subtract(a));
+            Vec3d right = dir.crossProduct(a.negate());
             if (right.lengthSquared() < 1.0e-6) {
                 right = new Vec3d(0.0, 0.0, 1.0);
             } else {
