@@ -186,294 +186,80 @@ def bake(anchors, n=41):
 # Мгновенный старт из нейтрали, широкий замах вправо, свинг через фронт,
 # занос клинка влево и мягкая фиксация (сеam в апперкот). ---
 HIT1 = [
-    (0.00, E_LINEAR, P(
-        rYaw=-15.0, rPitch=-35.0, rRoll=-8.0,
-        lPitch=-10.0,
-        bYaw=3.0, bPitch=1.0,
-        rlPitch=-5.0, llPitch=5.0)),
-    (0.08, E_IN_CUBIC, P(
-        rYaw=-30.0, rPitch=-50.0, rRoll=-12.0,
-        lPitch=-25.0, lRoll=-8.0,
-        bYaw=6.0, bPitch=2.0,
-        rlPitch=-12.0, llPitch=10.0)),
-    (0.15, E_IN_CUBIC, P(
-        rYaw=-20.0, rPitch=-70.0, rRoll=-5.0,
-        lPitch=-45.0, lRoll=-15.0,
-        bYaw=8.0, bPitch=3.0,
-        rlPitch=-20.0, llPitch=15.0)),
-    (0.25, E_IN_CUBIC, P(
-        rYaw=15.0, rPitch=-65.0, rRoll=10.0,
-        lPitch=-55.0, lRoll=-10.0,
-        bYaw=5.0, bPitch=4.0,
-        rlPitch=15.0, llPitch=-10.0)),
-    (0.40, E_OUT_CUBIC, P(
-        rYaw=45.0, rPitch=-55.0, rRoll=15.0,
-        lPitch=-40.0, lRoll=5.0,
-        bYaw=-2.0, bPitch=3.0,
-        rlPitch=25.0, llPitch=-15.0)),
-    (0.55, E_OUT_CUBIC, P(
-        rYaw=55.0, rPitch=-48.0, rRoll=12.0,
-        lPitch=-25.0, lRoll=8.0,
-        bYaw=-5.0, bPitch=2.0,
-        rlPitch=30.0, llPitch=-18.0)),
-    (0.75, E_OUT_BACK, P(
-        rYaw=48.0, rPitch=-42.0, rRoll=8.0,
-        lPitch=-18.0, lRoll=5.0,
-        bYaw=-4.0, bPitch=1.5,
-        rlPitch=28.0, llPitch=-15.0)),
-    (1.00, E_IN_OUT_SINE, P(
-        rYaw=40.0, rPitch=-40.0, rRoll=5.0,
-        lPitch=-15.0,
-        bYaw=-3.0, bPitch=1.0,
-        rlPitch=25.0, llPitch=-12.0)),
+    # Forward-right slash (17° from center) — quick, light
+    # Blade sweeps from right to left at chest height
+    (0.00, E_LINEAR, P(rYaw=-20.0, rPitch=-30.0, rRoll=-5.0, lPitch=-10.0, bYaw=5.0, bPitch=1.0, rlPitch=-5.0, llPitch=5.0)),
+    (0.08, E_IN_CUBIC, P(rYaw=-35.0, rPitch=-40.0, rRoll=-10.0, lPitch=-20.0, lRoll=-8.0, bYaw=8.0, bPitch=2.0, rlPitch=-12.0, llPitch=10.0)),
+    (0.15, E_IN_CUBIC, P(rYaw=-15.0, rPitch=-50.0, rRoll=-5.0, lPitch=-35.0, lRoll=-12.0, bYaw=10.0, bPitch=3.0, rlPitch=-20.0, llPitch=15.0)),
+    (0.25, E_IN_CUBIC, P(rYaw=10.0, rPitch=-45.0, rRoll=5.0, lPitch=-40.0, lRoll=-8.0, bYaw=6.0, bPitch=4.0, rlPitch=10.0, llPitch=-8.0)),
+    (0.40, E_OUT_CUBIC, P(rYaw=30.0, rPitch=-35.0, rRoll=10.0, lPitch=-25.0, lRoll=5.0, bYaw=0.0, bPitch=3.0, rlPitch=20.0, llPitch=-15.0)),
+    (0.55, E_OUT_CUBIC, P(rYaw=40.0, rPitch=-30.0, rRoll=8.0, lPitch=-15.0, lRoll=5.0, bYaw=-3.0, bPitch=2.0, rlPitch=25.0, llPitch=-18.0)),
+    (0.75, E_OUT_BACK, P(rYaw=35.0, rPitch=-28.0, rRoll=5.0, lPitch=-12.0, lRoll=3.0, bYaw=-2.0, bPitch=1.0, rlPitch=22.0, llPitch=-15.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=30.0, rPitch=-30.0, rRoll=3.0, lPitch=-10.0, bYaw=-2.0, bPitch=1.0, rlPitch=20.0, llPitch=-12.0)),
 ]
-
-# HIT 2: Horizontal slash left-to-right (180° arc in front)
-# Anticipation: arm pulls back-left, body rotates left
-# Strike: fast swing through front, arm extends forward-right
-# Follow-through: arm continues right, body rotates back
 
 HIT2 = [
-    (0.00, E_LINEAR, P(
-        rYaw=40.0, rPitch=-40.0, rRoll=5.0,
-        lPitch=-15.0,
-        bYaw=-3.0, bPitch=1.0,
-        rlPitch=25.0, llPitch=-12.0)),
-    (0.08, E_IN_CUBIC, P(
-        rYaw=50.0, rPitch=-55.0, rRoll=8.0,
-        lPitch=-30.0, lRoll=-5.0,
-        bYaw=-5.0, bPitch=2.0,
-        rlPitch=18.0, llPitch=-8.0)),
-    (0.15, E_IN_CUBIC, P(
-        rYaw=35.0, rPitch=-75.0, rRoll=-5.0,
-        lPitch=-50.0, lRoll=-12.0,
-        bYaw=-7.0, bPitch=3.0,
-        rlPitch=8.0, llPitch=2.0)),
-    (0.25, E_IN_CUBIC, P(
-        rYaw=-15.0, rPitch=-70.0, rRoll=-15.0,
-        lPitch=-55.0, lRoll=-8.0,
-        bYaw=-5.0, bPitch=4.0,
-        rlPitch=-8.0, llPitch=12.0)),
-    (0.40, E_OUT_CUBIC, P(
-        rYaw=-55.0, rPitch=-55.0, rRoll=-12.0,
-        lPitch=-40.0, lRoll=5.0,
-        bYaw=2.0, bPitch=3.0,
-        rlPitch=-20.0, llPitch=18.0)),
-    (0.55, E_OUT_CUBIC, P(
-        rYaw=-65.0, rPitch=-45.0, rRoll=-8.0,
-        lPitch=-25.0, lRoll=8.0,
-        bYaw=5.0, bPitch=2.0,
-        rlPitch=-25.0, llPitch=20.0)),
-    (0.75, E_OUT_BACK, P(
-        rYaw=-60.0, rPitch=-40.0, rRoll=-5.0,
-        lPitch=-18.0, lRoll=5.0,
-        bYaw=4.0, bPitch=1.5,
-        rlPitch=-22.0, llPitch=18.0)),
-    (1.00, E_IN_OUT_SINE, P(
-        rYaw=-55.0, rPitch=-38.0, rRoll=-3.0,
-        lPitch=-15.0,
-        bYaw=3.0, bPitch=1.0,
-        rlPitch=-20.0, llPitch=15.0)),
+    # Wide left slash (-73°), 180° arc — wider, stronger
+    # Blade sweeps from right to left in a wide horizontal arc
+    (0.00, E_LINEAR, P(rYaw=30.0, rPitch=-30.0, rRoll=3.0, lPitch=-10.0, bYaw=-2.0, bPitch=1.0, rlPitch=20.0, llPitch=-12.0)),
+    (0.08, E_IN_CUBIC, P(rYaw=40.0, rPitch=-40.0, rRoll=5.0, lPitch=-25.0, lRoll=-8.0, bYaw=-5.0, bPitch=2.0, rlPitch=15.0, llPitch=-8.0)),
+    (0.15, E_IN_CUBIC, P(rYaw=25.0, rPitch=-55.0, rRoll=-5.0, lPitch=-40.0, lRoll=-12.0, bYaw=-8.0, bPitch=3.0, rlPitch=5.0, llPitch=2.0)),
+    (0.25, E_IN_CUBIC, P(rYaw=-10.0, rPitch=-50.0, rRoll=-10.0, lPitch=-45.0, lRoll=-8.0, bYaw=-5.0, bPitch=4.0, rlPitch=-5.0, llPitch=10.0)),
+    (0.40, E_OUT_CUBIC, P(rYaw=-40.0, rPitch=-35.0, rRoll=-12.0, lPitch=-30.0, lRoll=5.0, bYaw=2.0, bPitch=3.0, rlPitch=-18.0, llPitch=15.0)),
+    (0.55, E_OUT_CUBIC, P(rYaw=-55.0, rPitch=-30.0, rRoll=-8.0, lPitch=-20.0, lRoll=8.0, bYaw=5.0, bPitch=2.0, rlPitch=-22.0, llPitch=18.0)),
+    (0.75, E_OUT_BACK, P(rYaw=-50.0, rPitch=-28.0, rRoll=-5.0, lPitch=-15.0, lRoll=5.0, bYaw=4.0, bPitch=1.0, rlPitch=-20.0, llPitch=16.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=-45.0, rPitch=-30.0, rRoll=-3.0, lPitch=-12.0, bYaw=3.0, bPitch=1.0, rlPitch=-18.0, llPitch=14.0)),
 ]
-
-# HIT 3: Uppercut with 360° spin (body rotation via root.yaw)
-# Anticipation: arm pulls down-back, body leans forward
-# Strike: fast upward swing, arm extends up-forward
-# Follow-through: arm continues up, body rotates 360°
 
 HIT3 = [
-    (0.00, E_LINEAR, P(
-        rYaw=-55.0, rPitch=-38.0, rRoll=-3.0,
-        lPitch=-15.0,
-        bYaw=3.0, bPitch=1.0,
-        rlPitch=-20.0, llPitch=15.0)),
-    (0.08, E_IN_CUBIC, P(
-        rYaw=-45.0, rPitch=-60.0, rRoll=-8.0,
-        lPitch=-35.0, lRoll=-10.0,
-        bYaw=5.0, bPitch=-2.0,
-        rlPitch=-15.0, llPitch=10.0)),
-    (0.18, E_IN_CUBIC, P(
-        rYaw=-30.0, rPitch=-100.0, rRoll=-5.0,
-        lPitch=-55.0, lRoll=-15.0,
-        bYaw=6.0, bPitch=-4.0,
-        rlPitch=-5.0, llPitch=5.0)),
-    (0.30, E_IN_CUBIC, P(
-        rYaw=-15.0, rPitch=-140.0, rRoll=-3.0,
-        lPitch=-70.0, lRoll=-12.0,
-        bYaw=7.0, bPitch=-3.0,
-        rlPitch=5.0, llPitch=-5.0)),
-    (0.45, E_OUT_CUBIC, P(
-        rYaw=-20.0, rPitch=-120.0, rRoll=-8.0,
-        lPitch=-60.0, lRoll=-5.0,
-        bYaw=4.0, bPitch=2.0,
-        rlPitch=15.0, llPitch=-10.0)),
-    (0.60, E_OUT_CUBIC, P(
-        rYaw=-35.0, rPitch=-80.0, rRoll=-5.0,
-        lPitch=-40.0, lRoll=3.0,
-        bYaw=6.0, bPitch=3.0,
-        rlPitch=25.0, llPitch=-15.0)),
-    (0.80, E_OUT_BACK, P(
-        rYaw=-50.0, rPitch=-50.0, rRoll=-3.0,
-        lPitch=-25.0, lRoll=5.0,
-        bYaw=8.0, bPitch=2.0,
-        rlPitch=30.0, llPitch=-18.0)),
-    (1.00, E_IN_OUT_SINE, P(
-        rYaw=-45.0, rPitch=-45.0, rRoll=-2.0,
-        lPitch=-18.0,
-        bYaw=7.0, bPitch=1.5,
-        rlPitch=28.0, llPitch=-15.0)),
+    # Uppercut (-169° = upward) — arm goes from low to high
+    # Blade starts low, sweeps up through front
+    (0.00, E_LINEAR, P(rYaw=-45.0, rPitch=-30.0, rRoll=-3.0, lPitch=-12.0, bYaw=3.0, bPitch=1.0, rlPitch=-18.0, llPitch=14.0)),
+    (0.08, E_IN_CUBIC, P(rYaw=-35.0, rPitch=-20.0, rRoll=-5.0, lPitch=-15.0, lRoll=-5.0, bYaw=4.0, bPitch=-1.0, rlPitch=-12.0, llPitch=8.0)),
+    (0.18, E_IN_CUBIC, P(rYaw=-25.0, rPitch=-10.0, rRoll=-3.0, lPitch=-25.0, lRoll=-8.0, bYaw=5.0, bPitch=-3.0, rlPitch=-5.0, llPitch=5.0)),
+    (0.30, E_IN_CUBIC, P(rYaw=-15.0, rPitch=-40.0, rRoll=0.0, lPitch=-50.0, lRoll=-10.0, bYaw=6.0, bPitch=-2.0, rlPitch=5.0, llPitch=-5.0)),
+    (0.45, E_OUT_CUBIC, P(rYaw=-10.0, rPitch=-80.0, rRoll=3.0, lPitch=-65.0, lRoll=-5.0, bYaw=5.0, bPitch=1.0, rlPitch=10.0, llPitch=-10.0)),
+    (0.60, E_OUT_CUBIC, P(rYaw=-5.0, rPitch=-110.0, rRoll=5.0, lPitch=-55.0, lRoll=3.0, bYaw=4.0, bPitch=3.0, rlPitch=15.0, llPitch=-12.0)),
+    (0.80, E_OUT_BACK, P(rYaw=-8.0, rPitch=-90.0, rRoll=3.0, lPitch=-35.0, lRoll=5.0, bYaw=3.0, bPitch=2.0, rlPitch=18.0, llPitch=-10.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=-10.0, rPitch=-70.0, rRoll=2.0, lPitch=-25.0, bYaw=2.0, bPitch=1.0, rlPitch=15.0, llPitch=-8.0)),
 ]
-
-# HIT 4: Diagonal slash (360° circle hitbox)
-# Anticipation: arm pulls up-right, body rotates right
-# Strike: fast diagonal swing down-left, arm extends forward
-# Follow-through: arm continues left-down, body rotates back
 
 HIT4 = [
-    (0.00, E_LINEAR, P(
-        rYaw=-45.0, rPitch=-45.0, rRoll=-2.0,
-        lPitch=-18.0,
-        bYaw=7.0, bPitch=1.5,
-        rlPitch=28.0, llPitch=-15.0)),
-    (0.08, E_IN_CUBIC, P(
-        rYaw=-55.0, rPitch=-70.0, rRoll=-5.0,
-        lPitch=-35.0, lRoll=-10.0,
-        bYaw=9.0, bPitch=2.0,
-        rlPitch=20.0, llPitch=-10.0)),
-    (0.15, E_IN_CUBIC, P(
-        rYaw=-40.0, rPitch=-110.0, rRoll=-3.0,
-        lPitch=-55.0, lRoll=-15.0,
-        bYaw=11.0, bPitch=3.0,
-        rlPitch=10.0, llPitch=0.0)),
-    (0.25, E_IN_CUBIC, P(
-        rYaw=10.0, rPitch=-130.0, rRoll=5.0,
-        lPitch=-65.0, lRoll=-10.0,
-        bYaw=8.0, bPitch=4.0,
-        rlPitch=-5.0, llPitch=10.0)),
-    (0.40, E_OUT_CUBIC, P(
-        rYaw=50.0, rPitch=-80.0, rRoll=12.0,
-        lPitch=-45.0, lRoll=5.0,
-        bYaw=-2.0, bPitch=3.0,
-        rlPitch=10.0, llPitch=-5.0)),
-    (0.55, E_OUT_CUBIC, P(
-        rYaw=60.0, rPitch=-60.0, rRoll=10.0,
-        lPitch=-30.0, lRoll=8.0,
-        bYaw=-6.0, bPitch=2.0,
-        rlPitch=20.0, llPitch=-12.0)),
-    (0.75, E_OUT_BACK, P(
-        rYaw=55.0, rPitch=-50.0, rRoll=6.0,
-        lPitch=-20.0, lRoll=5.0,
-        bYaw=-5.0, bPitch=1.5,
-        rlPitch=25.0, llPitch=-15.0)),
-    (1.00, E_IN_OUT_SINE, P(
-        rYaw=50.0, rPitch=-45.0, rRoll=4.0,
-        lPitch=-15.0,
-        bYaw=-4.0, bPitch=1.0,
-        rlPitch=22.0, llPitch=-12.0)),
+    # Diagonal spin (135°), 360° circle — body rotates via root.yaw
+    # Blade sweeps diagonally from upper-left to lower-right with body spin
+    (0.00, E_LINEAR, P(rYaw=-10.0, rPitch=-70.0, rRoll=2.0, lPitch=-25.0, bYaw=2.0, bPitch=1.0, rlPitch=15.0, llPitch=-8.0)),
+    (0.08, E_IN_CUBIC, P(rYaw=-20.0, rPitch=-80.0, rRoll=-3.0, lPitch=-35.0, lRoll=-5.0, bYaw=4.0, bPitch=2.0, rlPitch=10.0, llPitch=-5.0)),
+    (0.15, E_IN_CUBIC, P(rYaw=-15.0, rPitch=-100.0, rRoll=-5.0, lPitch=-50.0, lRoll=-8.0, bYaw=6.0, bPitch=3.0, rlPitch=5.0, llPitch=0.0)),
+    (0.25, E_IN_CUBIC, P(rYaw=5.0, rPitch=-80.0, rRoll=5.0, lPitch=-45.0, lRoll=-5.0, bYaw=8.0, bPitch=4.0, rlPitch=-5.0, llPitch=5.0)),
+    (0.40, E_OUT_CUBIC, P(rYaw=35.0, rPitch=-50.0, rRoll=12.0, lPitch=-30.0, lRoll=5.0, bYaw=5.0, bPitch=3.0, rlPitch=-10.0, llPitch=10.0)),
+    (0.55, E_OUT_CUBIC, P(rYaw=55.0, rPitch=-35.0, rRoll=10.0, lPitch=-20.0, lRoll=8.0, bYaw=0.0, bPitch=2.0, rlPitch=5.0, llPitch=-5.0)),
+    (0.75, E_OUT_BACK, P(rYaw=50.0, rPitch=-30.0, rRoll=6.0, lPitch=-15.0, lRoll=5.0, bYaw=-3.0, bPitch=1.0, rlPitch=15.0, llPitch=-10.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=45.0, rPitch=-32.0, rRoll=4.0, lPitch=-12.0, bYaw=-2.0, bPitch=1.0, rlPitch=18.0, llPitch=-10.0)),
 ]
-
-# HIT 5: Wide slash (240° arc, strongest hit)
-# Anticipation: arm pulls far back-right, body rotates right, lean forward
-# Strike: massive swing through front, arm extends far left
-# Follow-through: arm continues left behind back, body rotates back with pause
 
 HIT5 = [
-    (0.00, E_LINEAR, P(
-        rYaw=50.0, rPitch=-45.0, rRoll=4.0,
-        lPitch=-15.0,
-        bYaw=-4.0, bPitch=1.0,
-        rlPitch=22.0, llPitch=-12.0)),
-    (0.08, E_IN_CUBIC, P(
-        rYaw=60.0, rPitch=-70.0, rRoll=6.0,
-        lPitch=-35.0, lRoll=-10.0,
-        bYaw=-6.0, bPitch=2.0,
-        rlPitch=15.0, llPitch=-8.0)),
-    (0.18, E_IN_CUBIC, P(
-        rYaw=55.0, rPitch=-120.0, rRoll=0.0,
-        lPitch=-65.0, lRoll=-20.0,
-        bYaw=-8.0, bPitch=4.0,
-        rlPitch=5.0, llPitch=5.0)),
-    (0.30, E_IN_CUBIC, P(
-        rYaw=25.0, rPitch=-150.0, rRoll=8.0,
-        lPitch=-80.0, lRoll=-15.0,
-        bYaw=-5.0, bPitch=6.0,
-        rlPitch=-10.0, llPitch=15.0)),
-    (0.45, E_OUT_CUBIC, P(
-        rYaw=-10.0, rPitch=-80.0, rRoll=15.0,
-        lPitch=-55.0, lRoll=5.0,
-        bYaw=2.0, bPitch=5.0,
-        rlPitch=10.0, llPitch=5.0)),
-    (0.60, E_OUT_CUBIC, P(
-        rYaw=-40.0, rPitch=-55.0, rRoll=12.0,
-        lPitch=-35.0, lRoll=10.0,
-        bYaw=6.0, bPitch=4.0,
-        rlPitch=25.0, llPitch=-12.0)),
-    (0.80, E_OUT_BACK, P(
-        rYaw=-65.0, rPitch=-38.0, rRoll=5.0,
-        lPitch=-20.0, lRoll=5.0,
-        bYaw=9.0, bPitch=3.0,
-        rlPitch=35.0, llPitch=-18.0)),
-    (1.00, E_IN_OUT_SINE, P(
-        rYaw=-70.0, rPitch=-32.0, rRoll=2.0,
-        lPitch=-15.0,
-        bYaw=10.0, bPitch=2.0,
-        rlPitch=32.0, llPitch=-16.0)),
+    # Wide horizontal left (-90°), 240° arc — strongest hit
+    # Blade makes a massive horizontal sweep from far right to far left
+    (0.00, E_LINEAR, P(rYaw=45.0, rPitch=-32.0, rRoll=4.0, lPitch=-12.0, bYaw=-2.0, bPitch=1.0, rlPitch=18.0, llPitch=-10.0)),
+    (0.08, E_IN_CUBIC, P(rYaw=55.0, rPitch=-40.0, rRoll=6.0, lPitch=-25.0, lRoll=-8.0, bYaw=-5.0, bPitch=2.0, rlPitch=12.0, llPitch=-8.0)),
+    (0.18, E_IN_CUBIC, P(rYaw=50.0, rPitch=-55.0, rRoll=3.0, lPitch=-45.0, lRoll=-12.0, bYaw=-8.0, bPitch=4.0, rlPitch=5.0, llPitch=2.0)),
+    (0.30, E_IN_CUBIC, P(rYaw=25.0, rPitch=-45.0, rRoll=8.0, lPitch=-50.0, lRoll=-8.0, bYaw=-5.0, bPitch=5.0, rlPitch=-5.0, llPitch=8.0)),
+    (0.45, E_OUT_CUBIC, P(rYaw=-10.0, rPitch=-35.0, rRoll=12.0, lPitch=-40.0, lRoll=5.0, bYaw=2.0, bPitch=4.0, rlPitch=-15.0, llPitch=12.0)),
+    (0.60, E_OUT_CUBIC, P(rYaw=-40.0, rPitch=-30.0, rRoll=10.0, lPitch=-25.0, lRoll=8.0, bYaw=6.0, bPitch=3.0, rlPitch=-20.0, llPitch=15.0)),
+    (0.80, E_OUT_BACK, P(rYaw=-60.0, rPitch=-28.0, rRoll=6.0, lPitch=-15.0, lRoll=5.0, bYaw=8.0, bPitch=2.0, rlPitch=-18.0, llPitch=14.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=-65.0, rPitch=-30.0, rRoll=3.0, lPitch=-12.0, bYaw=10.0, bPitch=1.0, rlPitch=-15.0, llPitch=12.0)),
 ]
-
-# CHARGED: Spin attack (360° around body)
-# Anticipation: arm pulls up-back, body leans forward
-# Strike: fast spin with arm extended, full rotation
-# Follow-through: arm returns to ready position
 
 CHARGED = [
-    (0.00, E_LINEAR, P(
-        rPitch=-20.0, lPitch=-10.0)),
-    (0.10, E_IN_CUBIC, P(
-        rYaw=-40.0, rPitch=-100.0, rRoll=-8.0,
-        lPitch=-50.0, lRoll=-10.0,
-        bYaw=-6.0, bPitch=2.0,
-        rlPitch=-10.0, llPitch=8.0)),
-    (0.25, E_IN_CUBIC, P(
-        rYaw=-25.0, rPitch=-150.0, rRoll=-5.0,
-        lPitch=-70.0, lRoll=-15.0,
-        bYaw=-8.0, bPitch=3.0,
-        rlPitch=-15.0, llPitch=12.0)),
-    (0.45, E_IN_CUBIC, P(
-        rYaw=20.0, rPitch=-70.0, rRoll=10.0,
-        lPitch=-45.0, lRoll=10.0,
-        bYaw=3.0, bPitch=4.0,
-        rlPitch=15.0, llPitch=-5.0)),
-    (0.65, E_OUT_CUBIC, P(
-        rYaw=40.0, rPitch=-60.0, rRoll=8.0,
-        lPitch=-30.0, lRoll=5.0,
-        bYaw=6.0, bPitch=3.0,
-        rlPitch=25.0, llPitch=-10.0)),
-    (0.85, E_OUT_BACK, P(
-        rYaw=30.0, rPitch=-50.0, rRoll=5.0,
-        lPitch=-20.0,
-        bYaw=5.0, bPitch=2.0,
-        rlPitch=20.0, llPitch=-8.0)),
-    (1.00, E_IN_OUT_SINE, P(
-        rYaw=20.0, rPitch=-45.0, rRoll=3.0,
-        lPitch=-15.0,
-        bYaw=4.0, bPitch=1.5,
-        rlPitch=18.0, llPitch=-6.0)),
+    # Charged spin: full 360° around body
+    (0.00, E_LINEAR, P(rPitch=-20.0, lPitch=-10.0)),
+    (0.10, E_IN_CUBIC, P(rYaw=-40.0, rPitch=-80.0, rRoll=-5.0, lPitch=-50.0, lRoll=-10.0, bYaw=-5.0, bPitch=2.0, rlPitch=-10.0, llPitch=8.0)),
+    (0.25, E_IN_CUBIC, P(rYaw=-25.0, rPitch=-100.0, rRoll=-3.0, lPitch=-65.0, lRoll=-12.0, bYaw=-7.0, bPitch=3.0, rlPitch=-12.0, llPitch=10.0)),
+    (0.45, E_IN_CUBIC, P(rYaw=20.0, rPitch=-50.0, rRoll=8.0, lPitch=-40.0, lRoll=8.0, bYaw=3.0, bPitch=3.0, rlPitch=10.0, llPitch=-5.0)),
+    (0.65, E_OUT_CUBIC, P(rYaw=40.0, rPitch=-35.0, rRoll=6.0, lPitch=-25.0, lRoll=5.0, bYaw=5.0, bPitch=2.0, rlPitch=18.0, llPitch=-8.0)),
+    (0.85, E_OUT_BACK, P(rYaw=30.0, rPitch=-30.0, rRoll=4.0, lPitch=-18.0, bYaw=4.0, bPitch=1.5, rlPitch=15.0, llPitch=-6.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=20.0, rPitch=-30.0, rRoll=2.0, lPitch=-12.0, bYaw=3.0, bPitch=1.0, rlPitch=12.0, llPitch=-5.0)),
 ]
-
-# Print the improved hits
-for name, hits in [("HIT1", HIT1), ("HIT2", HIT2), ("HIT3", HIT3), 
-                   ("HIT4", HIT4), ("HIT5", HIT5), ("CHARGED", CHARGED)]:
-    print(f"\n{name} = [")
-    for t, easing, pose in hits:
-        fields = []
-        for ch in CH:
-            v = pose.get(ch, 0.0)
-            if abs(v) > 0.5:
-                fields.append(f"{ch}={v:.1f}")
-        print(f"    ({t:.2f}, {easing}, P({', '.join(fields)})),")
-    print("]")
-
-
 CLIPS = [bake(HIT1), bake(HIT2), bake(HIT3), bake(HIT4), bake(HIT5), bake(CHARGED)]
 
 
