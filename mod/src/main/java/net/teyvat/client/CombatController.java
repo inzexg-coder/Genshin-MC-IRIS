@@ -389,6 +389,8 @@ public final class CombatController {
                 }
             } else {
                 hitTicks++;
+                // След-серп каждый тик: квад у текущей позиции клинка.
+                spawnTickSlash(client, client.player);
                 // Кинокамера-орбита (/cinema orbit): герой доворачивается к ближайшему
                 // врагу, чтобы каждый удар шёл в его сторону — для съёмки боя со стороны.
                 faceNearestEnemyDuringCinema(client);
@@ -959,9 +961,7 @@ public final class CombatController {
                 spawnOrbitArc(world, TeyvatParticles.SLASH_360, ctr, rnd, 1.9f, 0xAAFFFFFF);
             }
         } else {
-            // Дуга-серп в стиле Better Combat: КОЛЬЦО вокруг игрока (радиус ~
-            // дистанции атаки), плоскость/наклон задаются на каждый удар —
-            // серп читается как аниме-разрез, а не кольцо у середины замаха.
+            // Вспышка-серп на тике урона: крупный яркий серп по траектории клинка.
             spawnPlayerArc(world, player, comboStep);
         }
         // Дуга размаха: плотные штрихи-искры вдоль траектории меча.
@@ -1006,6 +1006,52 @@ public final class CombatController {
                         0, 0, 0);
             }
         }
+    }
+
+    /** Спавн кусочка следа-серпа КАЖДЫЙ тик во время свинга.
+     *  Квад ставится по当前位置 клинка (bladeTipWorld), ориентирован
+     *  по направлению движения лезвия — получается непрерывный след. */
+    private static void spawnTickSlash(MinecraftClient client, ClientPlayerEntity player) {
+        ClientWorld world = client.world;
+        if (world == null || comboStep < 0 || comboStep == SwordCombo.CHARGE_INDEX) {
+            return;
+        }
+        int duration = SwordCombo.DURATION_TICKS[comboStep];
+        float progress = (float) hitTicks / duration;
+        // Позиция клинка в текущий тик
+        float rootYaw = currentRootYawRad();
+        Vec3d playerPos = new Vec3d(player.getX(), player.getY(), player.getZ());
+        Vec3d tipCurrent = bladeTipWorld(computePose(progress), rootYaw, player.getBodyYaw(), playerPos);
+        // Позиция клинка чуть раньше (для направления)
+        float prevProgress = Math.max(0f, progress - 0.08f);
+        Vec3d tipPrev = bladeTipWorld(computePose(prevProgress), rootYaw, player.getBodyYaw(), playerPos);
+        Vec3d delta = tipCurrent.subtract(tipPrev);
+        double len = delta.length();
+        if (len < 1.0e-4) {
+            return;
+        }
+        Vec3d dir = delta.normalize();
+        // Ориентация квада: нормаль плоскости = cross(dir, cameraDir)
+        Vec3d cam = client.gameRenderer.getCamera().getPos();
+        Vec3d toCam = cam.subtract(tipCurrent).normalize();
+        Vec3d normal = dir.crossProduct(toCam);
+        if (normal.lengthSquared() < 1.0e-6) {
+            normal = dir.crossProduct(new Vec3d(0, 1, 0));
+        }
+        normal = normal.normalize();
+        Vec3d up = normal.crossProduct(dir).normalize();
+        Quaternionf q = basisQuat(dir, up, normal);
+        // Масштаб: мелкий в начале/конце, нормальный в середине
+        float scaleMult = (progress < 0.2f) ? progress / 0.2f
+                        : (progress > 0.8f) ? (1.0f - progress) / 0.2f
+                        : 1.0f;
+        float scale = 2.0f * scaleMult;
+        // Спавним серп
+        world.addParticleClient(
+                new TeyvatSlashEffect(TeyvatParticles.SLASH_90, q.x, q.y, q.z, q.w,
+                        scale, 0xCCFFFFFF, true),
+                tipCurrent.x, tipCurrent.y, tipCurrent.z,
+                0.0, 0.0, 0.0);
     }
 
     /** Шаг героя вперёд в начале удара: часть LUNGE_STRENGTH, чтобы серия
