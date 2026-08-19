@@ -60,6 +60,8 @@ public class HydroSlimeEntity extends HostileEntity {
     private int hopCooldown = 20;
     /** Тики до следующего выстрела водяным шаром. */
     private int shootCooldown = 30;
+    /** Кулдаун bump-атаки (столкновение с игроком). */
+    private int bumpCooldown = 0;
     /** Владелец тренировочного слайма (null — обычный слайм мира). */
     private UUID ownerUuid;
     /** Бой включён: до объявления задания слайм неуязвим даже для владельца. */
@@ -146,6 +148,14 @@ public class HydroSlimeEntity extends HostileEntity {
                         this.shootAt(target);
                     }
                     this.shootCooldown = 30 + this.random.nextInt(20);
+                }
+                // Bump damage: столкновение с игроком (100% ATK = 15 урона).
+                if (this.bumpCooldown > 0) this.bumpCooldown--;
+                if (this.bumpCooldown <= 0 && this.getBoundingBox().intersects(target.getBoundingBox())) {
+                    target.damage(serverWorld,
+                            serverWorld.getDamageSources().mobAttack(this),
+                            (float) this.getAttributeValue(EntityAttributes.ATTACK_DAMAGE));
+                    this.bumpCooldown = 20; // 1 сек между bump-ами
                 }
             }
         }
