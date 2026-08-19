@@ -926,13 +926,10 @@ public final class CombatController {
         }
         // Отдача камеры (FOV/наклон) — только при попадании.
         impactKick = 1.6f;
-        // Искры в точке контакта каждой задетой цели.
-        for (int id : entityIds) {
-            Entity target = world.getEntityById(id);
-            if (target == null) {
-                continue;
-            }
-            Vec3d p = target.getBoundingBox().getCenter();
+        // Искры — одна точка контакта (первая цель), количество не зависит от числа врагов.
+        Entity firstTarget = world.getEntityById(entityIds[0]);
+        if (firstTarget != null) {
+            Vec3d p = firstTarget.getBoundingBox().getCenter();
             for (int i = 0; i < 10; i++) {
                 double vx = (world.random.nextDouble() - 0.5) * 1.3;
                 double vy = world.random.nextDouble() * 1.5 + 0.2;
