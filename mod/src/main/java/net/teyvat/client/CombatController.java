@@ -320,7 +320,10 @@ public final class CombatController {
                 hitTicks++;
                 // Кинокамера-орбита (/cinema orbit): герой доворачивается к ближайшему
                 // врагу, чтобы каждый удар шёл в его сторону — для съёмки боя со стороны.
-                faceNearestEnemyDuringCinema(client);
+                // Во время spin turn (hit3, charged) аим отключён — иначе дёргания.
+                if (comboStep != 2 && comboStep != SwordCombo.CHARGE_INDEX) {
+                    faceNearestEnemyDuringCinema(client);
+                }
                 if (hitTicks == 1) {
                     // Шаг вперёд с началом удара (часть LUNGE_STRENGTH): серия
                     // продвигает героя с каждым ударом, как в Genshin.
