@@ -116,7 +116,7 @@ public final class CombatController {
 
     /** Тиков удержания ЛКМ после удара, после которых начинается заряд
      *  (~0.5 сек). Быстрый тап (отпустили раньше) — обычный удар комбо. */
-    private static final int CHARGE_START_TICKS = 10;
+    private static final int CHARGE_START_TICKS = 6;
 
     /** Тиков восстановления после одиночного удара: поза плавно уходит в
      *  боевую стойку READY_POSE (клинок остаётся горизонтальным — никакого
@@ -583,7 +583,7 @@ public final class CombatController {
     /** Вихрь заряженного спина: серпы-удары по компактной сфере вокруг героя.
      *  Радиус уменьшен (1.5..2.5 вместо 3.0..5.6), плотность увеличена
      *  (больше частиц на тик) для визуально насыщенного вихря. */
-    /** Заряженная атака: один широкий косой удар серпом. */
+    /** Заряженная атака: один ОГРОМНЫЙ косой удар серпом + искры. */
     private static void spawnWhirlwindEffects(MinecraftClient client, ClientPlayerEntity player) {
         if (client.world == null) {
             return;
@@ -593,36 +593,44 @@ public final class CombatController {
         double forwardZ = Math.cos(yaw);
         double rightX = Math.cos(yaw);
         double rightZ = Math.sin(yaw);
-        // Один широкий диагональный серп на 3-м тике удара.
-        if (hitTicks == 3) {
-            // Широкий косой удар: начинается от меча (справа-сверху у тела)
-            // и идёт диагонально вперёд-влево-вниз. Длинный серп (7 блоков).
-            for (int i = 0; i < 3; i++) {
-                float t = i / 2.0f;
-                double sx = player.getX() + rightX * 1.2 - forwardX * 0.5 + forwardX * t * 6.0;
-                double sy = player.getY() + 2.0 - t * 1.5;
-                double sz = player.getZ() + rightZ * 1.2 - forwardZ * 0.5 + forwardZ * t * 6.0;
-                client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
-                        sx, sy, sz,
-                        forwardX * 2.0, -0.8, forwardZ * 2.0);
+        // Один ОГРОМНЫЙ диагональный серп на 2-м тике удара.
+        if (hitTicks == 2) {
+            // Три ряда серпов: верхний, средний, нижний — эпичный широкий удар.
+            for (int row = 0; row < 3; row++) {
+                double rowOffsetX = forwardX * 1.5; // вперёд
+                double rowOffsetZ = forwardZ * 1.5;
+                double rowY = player.getY() + 2.2 - row * 0.6;
+                double rowStartX = player.getX() + rightX * 1.5 - rowOffsetX * 0.3;
+                double rowStartZ = player.getZ() + rightZ * 1.5 - rowOffsetZ * 0.3;
+                for (int i = 0; i < 3; i++) {
+                    float t = i / 2.0f;
+                    double sx = rowStartX + forwardX * t * 8.0 - rightX * t * 1.5;
+                    double sy = rowY - t * 0.8;
+                    double sz = rowStartZ + forwardZ * t * 8.0 - rightZ * t * 1.5;
+                    client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
+                            sx, sy, sz,
+                            forwardX * 2.5, -0.6, forwardZ * 2.5);
+                }
             }
-            // Яркая вспышка искр у меча.
-            for (int i = 0; i < 20; i++) {
-                double spread = 1.5;
+            // Взрыв искр — плотное облако у меча.
+            for (int i = 0; i < 30; i++) {
+                double spread = 2.0;
+                double a = client.world.random.nextDouble() * Math.PI * 2.0;
+                double r = client.world.random.nextDouble() * spread;
                 client.world.addParticleClient(ParticleTypes.CRIT,
-                        player.getX() + rightX * 0.8 + (client.world.random.nextDouble() - 0.5) * spread,
-                        player.getY() + 1.5 + client.world.random.nextDouble() * 1.0,
-                        player.getZ() + rightZ * 0.8 + (client.world.random.nextDouble() - 0.5) * spread,
-                        forwardX * 0.5, 0.3, forwardZ * 0.5);
+                        player.getX() + rightX * 0.6 + Math.cos(a) * r + forwardX * client.world.random.nextDouble() * 2.0,
+                        player.getY() + 1.2 + client.world.random.nextDouble() * 1.5,
+                        player.getZ() + rightZ * 0.6 + Math.sin(a) * r + forwardZ * client.world.random.nextDouble() * 2.0,
+                        forwardX * 0.8, 0.4, forwardZ * 0.8);
             }
             // Кольцо взрыва по земле.
-            for (int i = 0; i < 16; i++) {
-                double a = i / 16.0 * Math.PI * 2.0;
+            for (int i = 0; i < 20; i++) {
+                double a = i / 20.0 * Math.PI * 2.0;
                 client.world.addParticleClient(ParticleTypes.END_ROD,
-                        player.getX() + Math.cos(a) * 2.5,
+                        player.getX() + Math.cos(a) * 3.0,
                         player.getY() + 0.2,
-                        player.getZ() + Math.sin(a) * 2.5,
-                        Math.cos(a) * 0.8, 0.5, Math.sin(a) * 0.8);
+                        player.getZ() + Math.sin(a) * 3.0,
+                        Math.cos(a) * 1.0, 0.6, Math.sin(a) * 1.0);
             }
         }
     }
@@ -665,7 +673,7 @@ public final class CombatController {
                 && tickCount - holdStartTick >= CHARGE_START_TICKS);
     }
 
-    /** Визуал заряда: яркие искры у меча + энергия вокруг тела. Без серпов. */
+    /** Визуал заряда: МНОГО ярких искр у меча + энергия вокруг тела. Без серпов. */
     private static void spawnChargeWhirlwind(MinecraftClient client, ClientPlayerEntity player) {
         if (client.world == null) {
             return;
@@ -674,31 +682,45 @@ public final class CombatController {
         float yaw = (float) Math.toRadians(player.getYaw());
         double rightX = Math.cos(yaw);
         double rightZ = Math.sin(yaw);
-        // Энергия у меча: спираль искр, стекающихся к клинку.
-        double swordX = player.getX() + rightX * 0.8;
+        double forwardX = -Math.sin(yaw);
+        double forwardZ = Math.cos(yaw);
+        // Энергия у меча: густая спираль искр, стекающихся к клинку.
+        double swordX = player.getX() + rightX * 0.8 + forwardX * 0.3;
         double swordY = player.getY() + 1.4;
-        double swordZ = player.getZ() + rightZ * 0.8;
-        int sparkCount = 4 + (int)(level * 4);
+        double swordZ = player.getZ() + rightZ * 0.8 + forwardZ * 0.3;
+        int sparkCount = 6 + (int)(level * 6);
         for (int i = 0; i < sparkCount; i++) {
-            double a = chargeWindupTicks * 0.8 + i * (Math.PI * 2.0 / sparkCount);
-            double spiral = 0.3 + level * 0.7;
+            double a = chargeWindupTicks * 1.0 + i * (Math.PI * 2.0 / sparkCount);
+            double spiral = 0.2 + level * 0.6;
             client.world.addParticleClient(ParticleTypes.END_ROD,
                     swordX + Math.cos(a) * spiral,
-                    swordY + Math.sin(a * 2.0) * 0.3,
+                    swordY + Math.sin(a * 2.0) * 0.4,
                     swordZ + Math.sin(a) * spiral,
-                    -Math.cos(a) * 0.15, 0.15, -Math.sin(a) * 0.15);
+                    -Math.cos(a) * 0.2, 0.2, -Math.sin(a) * 0.2);
         }
-        // Яркие CRIT искры вокруг тела — каждые 2 тика вместо 4.
-        if (chargeWindupTicks % 2 == 0) {
-            int critCount = 3 + (int)(level * 4);
+        // Густые CRIT искры вокруг тела — каждые тик.
+        {
+            int critCount = 4 + (int)(level * 5);
             for (int i = 0; i < critCount; i++) {
-                double a = chargeWindupTicks * 0.3 + i * (Math.PI * 2.0 / critCount);
-                double r = 0.5 + level * 0.8;
+                double a = chargeWindupTicks * 0.4 + i * (Math.PI * 2.0 / critCount);
+                double r = 0.4 + level * 1.0;
                 client.world.addParticleClient(ParticleTypes.CRIT,
                         player.getX() + Math.cos(a) * r,
-                        player.getY() + 0.8 + Math.sin(a * 1.5) * 0.5,
+                        player.getY() + 0.7 + Math.sin(a * 1.5) * 0.6,
                         player.getZ() + Math.sin(a) * r,
-                        -Math.cos(a) * 0.3, 0.2, -Math.sin(a) * 0.3);
+                        -Math.cos(a) * 0.4, 0.25, -Math.sin(a) * 0.4);
+            }
+        }
+        // Дополнительные END_ROД искры вокруг тела для насыщенности.
+        if (chargeWindupTicks % 2 == 0) {
+            for (int i = 0; i < 3; i++) {
+                double a = chargeWindupTicks * 0.6 + i * (Math.PI * 2.0 / 3.0);
+                double r = 0.8 + level * 1.2;
+                client.world.addParticleClient(ParticleTypes.END_ROD,
+                        player.getX() + Math.cos(a) * r,
+                        player.getY() + 1.0 + client.world.random.nextDouble() * 0.8,
+                        player.getZ() + Math.sin(a) * r,
+                        -Math.cos(a) * 0.2, 0.3, -Math.sin(a) * 0.2);
             }
         }
     }
