@@ -58,7 +58,9 @@ public final class TeyvatWiki {
     public static final String ID_CELESTIA = "celestia";
     public static final String ID_HYDRO_SLIME = "hydro_slime";
     public static final String ID_HYDRO_PROJECTILE = "hydro_slime_projectile";
-    public static final String ID_COMBAT = "combat";
+    public static final String ID_COMBAT_HITS = "combat_hits";
+    public static final String ID_COMBAT_COMBO = "combat_combo";
+    public static final String ID_COMBAT_CHARGED = "combat_charged";
     public static final String ID_DULL_BLADE = "dull_blade";
     public static final String ID_DASH = "dash";
     public static final String ID_FALL_DAMAGE = "fall_damage";
@@ -175,7 +177,7 @@ public final class TeyvatWiki {
             return ID_DASH;
         }
         if (Quests.TRY_ATTACK.equals(questId)) {
-            return ID_COMBAT;
+            return ID_COMBAT_HITS;
         }
         if (Quests.TRY_PICKUP.equals(questId)) {
             return ID_PICKUP;
