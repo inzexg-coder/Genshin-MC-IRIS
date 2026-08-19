@@ -242,6 +242,16 @@ public final class CombatController {
         if (charging) {
             chargeTicks++;
             spawnChargeParticles(client, client.player);
+            // Компактный вихрь со 2-й секунды: визуал + дамажит врагов.
+            if (chargeTicks >= CHARGE_START_TICKS) {
+                chargeWindupTicks++;
+                spawnChargeWhirlwind(client, client.player);
+                // Периодический дамаг врагам в радиусе.
+                if (chargeWindupTicks % CHARGE_HIT_INTERVAL == 0 && !sentHit) {
+                    sendHit(SwordCombo.CHARGE_INDEX, chargeProgress());
+                    sentHit = true;
+                }
+            }
             if (!lmbHeld) {
                 // Отпустили: спин с текущим уровнем заряда (ранний отпуск = слабее).
                 fireCharged();
@@ -455,7 +465,9 @@ public final class CombatController {
         cancelAttack();
         charging = true;
         chargeTicks = 0;
+        chargeWindupTicks = 0;
         exitBlendTicks = 0;
+        sentHit = false;
         // Серия сбрасывается: после заряженного удара обычный клик начнёт
         // комбо с первого удара (как в Genshin).
         lastStep = -1;
@@ -629,6 +641,59 @@ public final class CombatController {
         }
         tt = MathHelper.clamp(tt, 0f, 1f);
         return ((ay * tt + by) * tt + cy) * tt;
+    }
+
+    /** Тики вихря заряда (компактный, дамажит врагов со 2-й сек). */
+    private static int chargeWindupTicks;
+    /** Интервал тиков между дамажащими хитами во время заряда. */
+    private static final int CHARGE_HIT_INTERVAL = 8;
+    /** Радиус компактного вихря во время заряда (близко к телу). */
+    private static final float CHARGE_WINDUP_RADIUS = 2.0f;
+
+    /** Игрок держит ЛКМ достаточно долго для заряда (для стамины). */
+    public static boolean isHoldingForCharge() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null) return false;
+        return charging || (client.options.attackKey.isPressed()
+                && holdStartTick >= 0
+                && tickCount - holdStartTick >= CHARGE_START_TICKS);
+    }
+
+    /** Компактный вихрь во время заряда (близко к телу, плотный). */
+    private static void spawnChargeWhirlwind(MinecraftClient client, ClientPlayerEntity player) {
+        if (client.world == null) {
+            return;
+        }
+        float level = chargeProgress();
+        double r = CHARGE_WINDUP_RADIUS * (0.6 + 0.4 * level);
+        for (int i = 0; i < 6; i++) {
+            double a = client.world.random.nextDouble() * Math.PI * 2.0;
+            double h = 0.3 + client.world.random.nextDouble() * 1.2;
+            client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
+                    player.getX() + Math.cos(a) * r,
+                    player.getY() + h,
+                    player.getZ() + Math.sin(a) * r,
+                    Math.cos(a + Math.PI / 2.0), 0, Math.sin(a + Math.PI / 2.0));
+        }
+        for (int i = 0; i < 8; i++) {
+            double theta = client.world.random.nextDouble() * Math.PI * 2.0;
+            double phi = Math.acos(2.0 * client.world.random.nextDouble() - 1.0);
+            client.world.addParticleClient(ParticleTypes.CRIT,
+                    player.getX() + r * Math.sin(phi) * Math.cos(theta),
+                    player.getY() + 0.8 + r * Math.cos(phi) * 0.4,
+                    player.getZ() + r * Math.sin(phi) * Math.sin(theta),
+                    0, 0, 0);
+        }
+        if (chargeWindupTicks % 3 == 0) {
+            for (int i = 0; i < 6; i++) {
+                double a = i / 6.0 * Math.PI * 2.0;
+                client.world.addParticleClient(ParticleTypes.END_ROD,
+                        player.getX() + Math.cos(a) * r,
+                        player.getY() + 0.1,
+                        player.getZ() + Math.sin(a) * r,
+                        Math.cos(a) * 0.3, 0.25, Math.sin(a) * 0.3);
+            }
+        }
     }
 
     /** Прогресс заряда 0..1 с cubic bezier (медленный старт, быстрый финал). */
