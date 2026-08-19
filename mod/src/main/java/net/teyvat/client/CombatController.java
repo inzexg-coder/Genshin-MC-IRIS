@@ -2,7 +2,6 @@ package net.teyvat.client;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
-import net.teyvat.client.PlayerCombatAnimations;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
@@ -12,10 +11,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.decoration.ArmorStandEntity;
 import net.minecraft.entity.passive.FishEntity;
 import net.minecraft.entity.passive.PassiveEntity;
-import net.minecraft.particle.ParticleType;
 import net.minecraft.particle.ParticleTypes;
-import net.teyvat.particle.TeyvatSlashEffect;
-import net.teyvat.particle.TeyvatParticles;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.TypeFilter;
@@ -84,10 +80,6 @@ import java.util.List;
 public final class CombatController {
     /** Текущий удар комбо: 0..HIT_COUNT-1, -1 = атака не идёт. */
     private static int comboStep = -1;
-    /** Предыдущий шаг комбо для отслеживания изменений (PAL анимации). */
-    private static int prevComboStep = -1;
-    /** PAL активен: не применять процедурные позы (PAL рисует кости сам). */
-    private static boolean palActive = false;
     /** Тики с начала текущего удара. */
     private static int hitTicks;
     /** Счётчик клиентских тиков (для окна комбо от последнего клика). */
@@ -214,41 +206,6 @@ public final class CombatController {
     private static final Deque<SlashPoint> slashTrail = new ArrayDeque<>();
     private static final int SLASH_TRAIL_AGE = 7;
 
-    // --- Визуал заряженной атаки: растущая сфера в руке, разлёт сферы на
-    // отпускании и «шерстяная дуга» по поверхности (1..6 оборотов). ---
-
-    /** Сфера заряда в руке (у клинка): центр, радиус, альфа. */
-    public record ChargeSphere(Vec3d center, float radius, float alpha) {}
-    private static Vec3d chargeSphereCenter = Vec3d.ZERO;
-    private static float chargeSphereRadius = 0f;
-    private static float chargeSphereAlpha = 0f;
-
-    /** Разлёт сферы вокруг игрока на отпускании (частицы): сколько тиков
-     *  идёт разлёт, текущий радиус, альфа по уровню заряда. */
-    private static int burstTicks = -1;
-    private static float burstRadius = 0f;
-    private static float burstAlpha = 0f;
-
-    /** Шерстяная дуга (частицы по поверхности сферы): 1..6 оборотов. */
-    private static Vec3d wrapCenter = Vec3d.ZERO;
-    private static float wrapRadius = 0f;
-    private static float wrapTurns = 1f;
-    private static float wrapTiltYaw = 0f;
-    private static float wrapTiltPitch = 0f;
-    private static int wrapDrawn = 0;
-    private static int wrapTotal = 0;
-
-    /** Предыдущая точка кончика клинка (для цепочки дуг за мечом в вихре). */
-    private static Vec3d lastWhirlBlade = null;
-
-    /** Активная сфера заряда (пустая, если заряда нет). */
-    public static ChargeSphere chargeSphere() {
-        if (chargeSphereRadius <= 0f) {
-            return null;
-        }
-        return new ChargeSphere(chargeSphereCenter, chargeSphereRadius, chargeSphereAlpha);
-    }
-
     private CombatController() {}
 
     /** Вызывается каждый клиентский тик (END_CLIENT_TICK). */
@@ -301,10 +258,6 @@ public final class CombatController {
         if (!lmbHeld) {
             holdStartTick = -1;
         }
-        if (!charging) {
-            // Сфера заряда живёт только пока копим; на спине её сменяет разлёт.
-            chargeSphereRadius = 0f;
-        }
         if (hitlagTicks > 0) {
             // Хит-стоп: всё замерло — поза удара, тайминги комбо и пауза после
             // 5-го удара. Отдача камеры держится на месте и гаснет после.
@@ -318,68 +271,34 @@ public final class CombatController {
             if (comboStep == SwordCombo.CHARGE_INDEX) {
                 // Заряженный спин: клинок ведёт орбиту вокруг тела, урон
                 // на тике DAMAGE_TICKS по полному кругу (сервер, «орбиты
-                // атомов»). Длится ровно 1 секунду (DURATION_TICKS[5] = 20),
-                // в течение которой любые действия запрещены; после — серия
-                // сброшена и плавный выход.
-                hitTicks++;
-                if (hitTicks == 1) {
-                    applyStep(client.player);
-                }
-                // Вихрь: серпы и граница шара — «удары лезвием в секунду».
-                spawnWhirlwindEffects(client, client.player);
-                // Разлёт сферы (частицы): первые тики — расширяющаяся оболочка
-                // искр вокруг игрока; плотность зависит от уровня заряда.
-                if (burstTicks >= 0) {
-                    burstTicks++;
-                    burstRadius = 0.8f + (wrapRadius - 0.8f) * Math.min(1f, burstTicks / 4f);
-                    int shell = (int) (10 + 18 * burstAlpha);
-                    for (int i = 0; i < shell; i++) {
-                        double theta = client.world.random.nextDouble() * Math.PI * 2.0;
-                        double phi = Math.acos(2.0 * client.world.random.nextDouble() - 1.0);
-                        client.world.addParticleClient(ParticleTypes.CRIT,
-                                client.player.getX() + burstRadius * Math.sin(phi) * Math.cos(theta),
-                                client.player.getY() + 1.0 + burstRadius * Math.cos(phi),
-                                client.player.getZ() + burstRadius * Math.sin(phi) * Math.sin(theta),
-                                0, 0, 0);
+                // атомов»). После спина серия сброшена.
+                if (recoveryTicks > 0) {
+                    recoveryTicks--;
+                    if (recoveryTicks == 0) {
+                        comboStep = -1;
+                        exitBlendTicks = EXIT_BLEND_TICKS;
                     }
-                    if (burstTicks > 5) {
-                        burstTicks = -1;
+                } else {
+                    hitTicks++;
+                    if (hitTicks == 1) {
+                        applyStep(client.player);
                     }
-                }
-                // Шерстяная дуга (частицы): молниеносно летит по поверхности
-                // сферы (1..6 оборотов), лёгкий снос наружу — нити клубка.
-                wrapCenter = new Vec3d(client.player.getX(), client.player.getY() + 1.0, client.player.getZ());
-                int perTick = Math.max(1, (wrapTotal + 19) / 20);
-                int target = Math.min(wrapTotal, wrapDrawn + perTick);
-                while (wrapDrawn < target) {
-                    Vec3d wp = wrapPoint(wrapDrawn);
-                    Vec3d out = wp.subtract(wrapCenter).normalize().multiply(0.03);
-                    client.world.addParticleClient(ParticleTypes.END_ROD,
-                            wp.x, wp.y, wp.z, out.x, out.y + 0.02, out.z);
-                    if (wrapDrawn % 3 == 0) {
-                        client.world.addParticleClient(ParticleTypes.CRIT,
-                                wp.x, wp.y, wp.z, out.x, out.y + 0.02, out.z);
+                    // Вихрь: серпы и граница шара — «удары лезвием в секунду».
+                    spawnWhirlwindEffects(client, client.player);
+                    if (hitTicks == SwordCombo.DAMAGE_TICKS[SwordCombo.CHARGE_INDEX] && !sentHit) {
+                        sentHit = true;
+                        sendHit(SwordCombo.CHARGE_INDEX, chargeLevel);
+                        CinematicShots.onDamageTick();
+                        spawnSlashEffects(client, client.player);
+                        applyLunge(client.player);
                     }
-                    wrapDrawn++;
-                }
-                if (hitTicks == SwordCombo.DAMAGE_TICKS[SwordCombo.CHARGE_INDEX] && !sentHit) {
-                    sentHit = true;
-                    sendHit(SwordCombo.CHARGE_INDEX, chargeLevel);
-                    CinematicShots.onDamageTick();
-                    spawnSlashEffects(client, client.player);
-                    applyLunge(client.player);
-                }
-                if (hitTicks >= SwordCombo.DURATION_TICKS[SwordCombo.CHARGE_INDEX]) {
-                    lastStep = -1;
-                    lastClickTick = -1;
-                    sentHit = false;
-                    bufferedNext = false;
-                    comboStep = -1;
-                    exitBlendTicks = EXIT_BLEND_TICKS;
-                    wrapDrawn = 0;
-                    wrapTotal = 0;
-                    burstTicks = -1;
-                    lastWhirlBlade = null;
+                    if (hitTicks >= SwordCombo.DURATION_TICKS[SwordCombo.CHARGE_INDEX]) {
+                        lastStep = -1;
+                        lastClickTick = -1;
+                        recoveryTicks = RECOVERY_TICKS;
+                        sentHit = false;
+                        bufferedNext = false;
+                    }
                 }
                 impactKick *= 0.84f;
                 return;
@@ -394,8 +313,6 @@ public final class CombatController {
                 }
             } else {
                 hitTicks++;
-                // След-серп каждый тик: квад у текущей позиции клинка.
-                spawnTickSlash(client, client.player);
                 // Кинокамера-орбита (/cinema orbit): герой доворачивается к ближайшему
                 // врагу, чтобы каждый удар шёл в его сторону — для съёмки боя со стороны.
                 faceNearestEnemyDuringCinema(client);
@@ -452,17 +369,6 @@ public final class CombatController {
             lastClickTick = -1;
         }
         // Отдача затухает сама: пульс виден пару кадров, затем камера успокаивается.
-        // Player Animation Library: триггер анимации при смене шага комбо.
-        if (comboStep != prevComboStep) {
-            if (comboStep >= 0) {
-                PlayerCombatAnimations.playComboHit(comboStep);
-                palActive = true;
-            } else {
-                PlayerCombatAnimations.stop();
-                palActive = false;
-            }
-            prevComboStep = comboStep;
-        }
         impactKick *= 0.84f;
     }
 
@@ -492,10 +398,6 @@ public final class CombatController {
     public static boolean onAttackClick() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.world == null || client.isPaused()) {
-            return false;
-        }
-        if (isChargedAttackActive()) {
-            // Спин заряженной атаки: клики глотаются — ни удар, ни буфер, ни заряд.
             return false;
         }
         if (!client.player.isOnGround()) {
@@ -600,21 +502,6 @@ public final class CombatController {
         exitBlendTicks = 0;
         lastStep = -1;
         lastClickTick = -1;
-        // Разлёт сферы вокруг игрока: резкое расширение в первые тики спина,
-        // прозрачность зависит от длины удержания (уровня заряда).
-        burstTicks = 0;
-        burstAlpha = 0.25f + 0.65f * level;
-        burstRadius = 0.8f;
-        // Шерстяная дуга по поверхности сферы: 1..6 оборотов (от удержания),
-        // «плетение» по широте и случайный наклон — витки не наслаиваются.
-        wrapCenter = new Vec3d(client.player.getX(), client.player.getY() + 1.0, client.player.getZ());
-        wrapRadius = (float) (1.6 + 0.8 * level);
-        wrapTurns = 1f + 5f * level;
-        wrapTiltYaw = client.world.random.nextFloat() * (float) Math.PI * 2.0f;
-        wrapTiltPitch = (client.world.random.nextFloat() - 0.5f) * 1.1f;
-        wrapTotal = (int) (wrapTurns * 48f);
-        wrapDrawn = 0;
-        lastWhirlBlade = null;
         client.world.playSound(null, client.player.getX(), client.player.getY(), client.player.getZ(),
                 SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 0.4f + 0.5f * level, 0.7f,
                 client.world.random.nextLong());
@@ -639,13 +526,6 @@ public final class CombatController {
             return;
         }
         float level = chargeProgress();
-        // Растущая светлая сфера В КИСТЯХ, где меч (не на кончике клинка):
-        // центр — origin предмета в руке, радиус компактный, яркость растёт
-        // с зарядом.
-        chargeSphereRadius = 0.10f + 0.34f * level;
-        chargeSphereAlpha = 0.55f + 0.45f * level;
-        chargeSphereCenter = bladeHandWorld(CHARGE_POSE, currentRootYawRad(),
-                player.getBodyYaw(), new Vec3d(player.getX(), player.getY(), player.getZ()));
         int step = chargeTicks % 2 == 0 ? 1 : 2;
         double baseR = 1.2 + 3.2 * level;
         // Спираль искр, закрученная вокруг героя (радиус растёт с зарядом).
@@ -689,65 +569,43 @@ public final class CombatController {
         }
     }
 
-    /** Вихрь заряженного спина: компактный ПЛОТНЫЙ шар «ударов лезвием»
-     *  вокруг героя — меньший радиус, но десятки серпов и искр на каждый
-     *  кадр (граница шара + концентрические слои). Радиус зависит от
-     *  уровня заряда, но всегда заметно меньше исходной сферы. */
+    /** Вихрь заряженного спина: серпы-удары по всей сфере вокруг героя и
+     *  полупрозрачная «граница шара» из искр — десятки ударов лезвием
+     *  в секунду. Радиус зависит от уровня заряда. */
     private static void spawnWhirlwindEffects(MinecraftClient client, ClientPlayerEntity player) {
         if (client.world == null) {
             return;
         }
         float level = chargeLevel;
-        double r = 1.6 + 0.8 * level;
-        Vec3d center = new Vec3d(player.getX(), player.getY() + 1.0, player.getZ());
-        // Серп-«хвост за клинком»: маленькая дуга-частица РОВНО по траектории
-        // кончика меча (удары совпадают с мечом — техника Better Combat).
-        float p = Math.min(1f, hitTicks / (float) SwordCombo.DURATION_TICKS[SwordCombo.CHARGE_INDEX]);
-        Vec3d slashPos = new Vec3d(player.getX(), player.getY(), player.getZ());
-        Vec3d tip = bladeTipWorld(computePose(p), chargedSpinTurn(p), player.getBodyYaw(), slashPos);
-        if (lastWhirlBlade != null && lastWhirlBlade.squaredDistanceTo(tip) > 1.0e-6) {
-            spawnSlashArc(client.world, TeyvatParticles.SLASH_90,
-                    new Vec3d[]{lastWhirlBlade, tip}, 2.6f, 0x88FFFFFF);
-        }
-        lastWhirlBlade = tip;
-        // Орбиты-атомы: плотный шар из КОЛЕЦ-дуг (360°) в случайных плоскостях
-        // вокруг тела — граница вихря читается как светящаяся сфера из лезвий.
-        int orbits = (int) (2 + 2 * level);
-        for (int i = 0; i < orbits; i++) {
-            Vec3d rnd = new Vec3d(
-                    client.world.random.nextDouble() - 0.5,
-                    client.world.random.nextDouble() - 0.5,
-                    client.world.random.nextDouble() - 0.5);
-            if (rnd.lengthSquared() < 1.0e-6) {
-                rnd = new Vec3d(1.0, 0.0, 0.0);
-            }
-            double rr = r * (0.72 + client.world.random.nextDouble() * 0.55);
-            spawnOrbitArc(client.world, TeyvatParticles.SLASH_360,
-                    center, rnd, (float) rr, 0x99FFFFFF);
+        double r = 3.0 + 2.6 * level;
+        // Серпы-удары: лезвия режут сферу по касательной на разной высоте.
+        for (int i = 0; i < 5; i++) {
+            double a = client.world.random.nextDouble() * Math.PI * 2.0;
+            double h = 0.5 + client.world.random.nextDouble() * 1.7;
+            client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
+                    player.getX() + Math.cos(a) * r,
+                    player.getY() + h,
+                    player.getZ() + Math.sin(a) * r,
+                    Math.cos(a + Math.PI / 2.0), 0, Math.sin(a + Math.PI / 2.0));
         }
         // Полупрозрачная граница шара: плотный слой искр на сфере.
-        for (int i = 0; i < 48; i++) {
+        for (int i = 0; i < 8; i++) {
             double theta = client.world.random.nextDouble() * Math.PI * 2.0;
             double phi = Math.acos(2.0 * client.world.random.nextDouble() - 1.0);
             client.world.addParticleClient(ParticleTypes.CRIT,
                     player.getX() + r * Math.sin(phi) * Math.cos(theta),
-                    player.getY() + 1.0 + r * Math.cos(phi) * 0.75,
+                    player.getY() + 1.0 + r * Math.cos(phi) * 0.55,
                     player.getZ() + r * Math.sin(phi) * Math.sin(theta),
                     0, 0, 0);
         }
-        // Кольца по земле: две орбиты искр (внешняя и внутренняя).
-        for (int i = 0; i < 24; i++) {
-            double a = i / 24.0 * Math.PI * 2.0;
+        // Кольцо по земле.
+        for (int i = 0; i < 5; i++) {
+            double a = client.world.random.nextDouble() * Math.PI * 2.0;
             client.world.addParticleClient(ParticleTypes.END_ROD,
                     player.getX() + Math.cos(a) * r,
                     player.getY() + 0.1,
                     player.getZ() + Math.sin(a) * r,
-                    Math.cos(a) * 0.5, 0.4, Math.sin(a) * 0.5);
-            client.world.addParticleClient(ParticleTypes.END_ROD,
-                    player.getX() + Math.cos(a + 0.4) * r * 0.6,
-                    player.getY() + 0.35,
-                    player.getZ() + Math.sin(a + 0.4) * r * 0.6,
-                    Math.cos(a + 0.4) * 0.35, 0.5, Math.sin(a + 0.4) * 0.35);
+                    Math.cos(a) * 0.4, 0.3, Math.sin(a) * 0.4);
         }
     }
 
@@ -827,122 +685,6 @@ public final class CombatController {
         }
     }
 
-    /** Спавн дуги-частицы по плоскости фактического пути клинка (path):
-     *  строим ортонормированный базис (sweep, bow, normal), дуга выгибается
-     *  к камере — читается из любого ракурса, в 1-м и 3-м лице. */
-    private static void spawnSlashArc(ClientWorld world, ParticleType<TeyvatSlashEffect> type,
-                                      Vec3d[] path, float scale, int color) {
-        if (world == null || path.length < 2) {
-            return;
-        }
-        Vec3d p0 = path[0];
-        Vec3d pMid = path[path.length / 2];
-        Vec3d pEnd = path[path.length - 1];
-        Vec3d v1 = pMid.subtract(p0);
-        Vec3d v2 = pEnd.subtract(p0);
-        Vec3d n = v1.crossProduct(v2);
-        if (n.lengthSquared() < 1.0e-10) {
-            n = v2.normalize().crossProduct(new Vec3d(0.0, 1.0, 0.0));
-        }
-        n = n.normalize();
-        Vec3d sweep = v2.normalize();
-        Vec3d bow = n.crossProduct(sweep).normalize();
-        Vec3d cam = MinecraftClient.getInstance().gameRenderer.getCamera().getPos();
-        if (bow.dotProduct(cam.subtract(pMid)) < 0.0) {
-            bow = bow.multiply(-1.0);
-        }
-        Quaternionf q = basisQuat(sweep, bow, n);
-        world.addParticleClient(new TeyvatSlashEffect(type, q.x, q.y, q.z, q.w, scale, color, true),
-                pMid.x, pMid.y, pMid.z, 0.0, 0.0, 0.0);
-    }
-
-    /** Параметры дуги-серпа обычного удара (техника Better Combat): угол серпа
-     *  (тип частицы), радиус кольца и наклоны в градусах (pitch/roll/localYaw)
-     *  — плоскость дуги подобрана под каждое движение клинка. */
-    private record SlashArcSpec(ParticleType<TeyvatSlashEffect> type, float radius,
-                                float pitchDeg, float rollDeg, float localYawDeg, double centerY) {}
-
-    /** Дуга-серп обычного удара: кольцо вокруг игрока радиусом ~дистанции
-     *  атаки, держится за поворот игрока (yaw), плоскость задаётся
-     *  pitch/roll/localYaw на каждый удар — серп «рассекает воздух» ровно
-     *  в сторону движения меча (как в Better Combat). */
-    private static SlashArcSpec slashArcSpec(int step) {
-        return switch (step) {
-            // 1: горизонтальный слева направо — полукруг через фронт.
-            case 0 -> new SlashArcSpec(TeyvatParticles.SLASH_180, 2.9f, 0f, 0f, 90f, 1.05);
-            // 2: апперкот — диагональ вверх-влево за плечо.
-            case 1 -> new SlashArcSpec(TeyvatParticles.SLASH_90, 2.6f, -45f, 0f, 60f, 1.15);
-            // 3: разворот на 360° — полное кольцо вокруг тела.
-            case 2 -> new SlashArcSpec(TeyvatParticles.SLASH_360, 2.4f, 0f, 0f, 0f, 1.0);
-            // 4: горизонтальный справа налево — полукруг через фронт (зеркало 1).
-            case 3 -> new SlashArcSpec(TeyvatParticles.SLASH_180, 3.0f, 0f, 180f, 90f, 1.05);
-            // 5: финальный очень широкий слева направо — 3/4 кольца.
-            case 4 -> new SlashArcSpec(TeyvatParticles.SLASH_270, 3.7f, 0f, 0f, 90f, 1.0);
-            default -> new SlashArcSpec(TeyvatParticles.SLASH_180, 2.9f, 0f, 0f, 90f, 1.05);
-        };
-    }
-
-    /** Спавн дуги-серпа вокруг игрока (Better Combat): квад ставится по
-     *  кватерниону Ry(-yaw)*Rx(pitch+90)*Ry(roll)*Rz(localYaw). */
-    private static void spawnPlayerArc(ClientWorld world, ClientPlayerEntity player, int step) {
-        if (world == null) {
-            return;
-        }
-        SlashArcSpec spec = slashArcSpec(step);
-        Quaternionf q = slashQuat(player.getYaw(), spec.pitchDeg(), spec.rollDeg(), spec.localYawDeg());
-        world.addParticleClient(new TeyvatSlashEffect(spec.type(), q.x, q.y, q.z, q.w,
-                        spec.radius() / 0.36f, 0xFFFFFFFF, true),
-                player.getX(), player.getY() + spec.centerY(), player.getZ(), 0.0, 0.0, 0.0);
-    }
-
-    /** Кватернион дуги-серпа (техника Better Combat):
-     *  Ry(-yaw) * Rx(pitch+90) * Ry(roll) * Rz(localYaw). */
-    private static Quaternionf slashQuat(float yawDeg, float pitchDeg, float rollDeg, float localYawDeg) {
-        Matrix4f m = new Matrix4f();
-        m.identity();
-        m.rotateY((float) Math.toRadians(-yawDeg));
-        m.rotateX((float) Math.toRadians(pitchDeg + 90.0f));
-        m.rotateY((float) Math.toRadians(rollDeg));
-        m.rotateZ((float) Math.toRadians(localYawDeg));
-        return new Quaternionf().setFromNormalized(m);
-    }
-
-    /** Спавн КОЛЬЦА-дуги (360°) в плоскости с нормалью normal вокруг центра:
-     *  орбита «атома» — для заряженного спина и вихря. Радиус кольца
-     *  задаётся scale через spawnOrbitArc. */
-    private static void spawnOrbitArc(ClientWorld world, ParticleType<TeyvatSlashEffect> type,
-                                      Vec3d center, Vec3d normal, float radius, int color) {
-        if (world == null) {
-            return;
-        }
-        Vec3d n = normal.normalize();
-        Vec3d ref = Math.abs(n.y) < 0.9 ? new Vec3d(0.0, 1.0, 0.0) : new Vec3d(1.0, 0.0, 0.0);
-        Vec3d xAxis = n.crossProduct(ref).normalize();
-        Vec3d yAxis = n.crossProduct(xAxis).normalize();
-        Quaternionf q = basisQuat(xAxis, yAxis, n);
-        // Кольцо радиусом radius: квад 360° ставится по диаметру — размер
-        // квада = 2 * радиус / 0.72 (радиус дуги в текстуре ≈ 0.36 размера).
-        float scale = radius / 0.36f;
-        world.addParticleClient(new TeyvatSlashEffect(type, q.x, q.y, q.z, q.w, scale, color, true),
-                center.x, center.y, center.z, 0.0, 0.0, 0.0);
-    }
-
-    /** Кватернион поворота из ортонормированного базиса (x, y, z) — так
-     *  локальная ось X квада ложится вдоль x, ось Y — вдоль y. */
-    private static Quaternionf basisQuat(Vec3d x, Vec3d y, Vec3d z) {
-        Matrix4f m = new Matrix4f();
-        m.m00((float) x.x);
-        m.m01((float) x.y);
-        m.m02((float) x.z);
-        m.m10((float) y.x);
-        m.m11((float) y.y);
-        m.m12((float) y.z);
-        m.m20((float) z.x);
-        m.m21((float) z.y);
-        m.m22((float) z.z);
-        return new Quaternionf().setFromNormalized(m);
-    }
-
     /** Эффекты удара на тике урона: полумесяц-разрез, дуга искр по траектории
      *  меча и пыль из-под ног на «шагающих» ударах. Работают и по врагам,
      *  и по воздуху — свинг всегда анимируется. */
@@ -958,32 +700,30 @@ public final class CombatController {
         // цепочка, что у трейла — bladeTipWorld), поэтому дуга визуала удара
         // совпадает с направлением движения меча (с поворотом лезвия).
         boolean charged = comboStep == SwordCombo.CHARGE_INDEX;
-        // Обычный удар — ОДИН длинный толстый серп по траектории клинка;
-        // заряженный спин — короткие толстые дуги-орбиты (стена лезвий).
+        int crescents = charged ? 6 : 3;
         float rootYaw = currentRootYawRad();
         Vec3d slashPos = new Vec3d(player.getX(), player.getY(), player.getZ());
-        if (charged) {
-            // Вспышка урона спина: плотный шар КОЛЕЦ-дуг вокруг тела (орбиты
-            // атомов) — «стена лезвий» по всей площади спина.
-            Vec3d ctr = new Vec3d(player.getX(), player.getY() + 1.0, player.getZ());
-            for (int i = 0; i < 6; i++) {
-                Vec3d rnd = new Vec3d(
-                        world.random.nextDouble() - 0.5,
-                        world.random.nextDouble() - 0.5,
-                        world.random.nextDouble() - 0.5);
-                if (rnd.lengthSquared() < 1.0e-6) {
-                    rnd = new Vec3d(1.0, 0.0, 0.0);
-                }
-                spawnOrbitArc(world, TeyvatParticles.SLASH_360, ctr, rnd, 1.9f, 0xAAFFFFFF);
+        // Серп идёт по новой траектории: сжатый замах + удар (0.04) и
+        // широкое сопровождение (до 0.55) — дуга совпадает с мечом.
+        for (int i = 0; i < crescents; i++) {
+            float t0 = 0.04f + 0.51f * (float) i / crescents;
+            float t1 = 0.04f + 0.51f * (float) (i + 1) / crescents;
+            Vec3d a = bladeTipWorld(computePose(t0), rootYaw, player.getBodyYaw(), slashPos);
+            Vec3d b = bladeTipWorld(computePose(t1), rootYaw, player.getBodyYaw(), slashPos);
+            Vec3d delta = b.subtract(a);
+            double len = delta.length();
+            if (len < 1.0e-4) {
+                continue;
             }
-        } else {
-            // Вспышка-серп на тике урона: крупный яркий серп по траектории клинка.
-            spawnPlayerArc(world, player, comboStep);
+            Vec3d dir = delta.multiply(1.0 / len);
+            world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
+                    a.x, a.y, a.z,
+                    dir.x, dir.y, dir.z);
         }
         // Дуга размаха: плотные штрихи-искры вдоль траектории меча.
         // У заряженного спина — полный круг (орбита вокруг тела).
         int count = 16;
-        double radius = charged ? 1.9 : 2.4;
+        double radius = 2.4;
         double height = 1.0 + comboStep * 0.09;
         float span = charged ? 6.2f : 1.55f + comboStep * 0.12f;
         for (int i = 0; i < count; i++) {
@@ -1000,15 +740,14 @@ public final class CombatController {
         world.playSound(null, player.getX(), player.getY(), player.getZ(),
                 SoundEvents.ENTITY_PLAYER_ATTACK_SWEEP, SoundCategory.PLAYERS, 0.5f, 1.0f,
                 world.random.nextLong());
-        // Кольцо «орбит» заряженного спина: искры по кругу вокруг героя
-        // (радиус под компактную плотную сферу вихря).
+        // Кольцо «орбит» заряженного спина: искры по кругу вокруг героя.
         if (charged) {
             for (int i = 0; i < 24; i++) {
                 double a = i / 24.0 * Math.PI * 2.0;
                 world.addParticleClient(ParticleTypes.END_ROD,
-                        player.getX() + Math.cos(a) * 2.2,
+                        player.getX() + Math.cos(a) * 3.0,
                         player.getY() + 0.2,
-                        player.getZ() + Math.sin(a) * 2.2,
+                        player.getZ() + Math.sin(a) * 3.0,
                         Math.cos(a) * 1.2, 0.1, Math.sin(a) * 1.2);
             }
         }
@@ -1022,52 +761,6 @@ public final class CombatController {
                         0, 0, 0);
             }
         }
-    }
-
-    /** Спавн кусочка следа-серпа КАЖДЫЙ тик во время свинга.
-     *  Квад ставится по当前位置 клинка (bladeTipWorld), ориентирован
-     *  по направлению движения лезвия — получается непрерывный след. */
-    private static void spawnTickSlash(MinecraftClient client, ClientPlayerEntity player) {
-        ClientWorld world = client.world;
-        if (world == null || comboStep < 0 || comboStep == SwordCombo.CHARGE_INDEX) {
-            return;
-        }
-        int duration = SwordCombo.DURATION_TICKS[comboStep];
-        float progress = (float) hitTicks / duration;
-        // Позиция клинка в текущий тик
-        float rootYaw = currentRootYawRad();
-        Vec3d playerPos = new Vec3d(player.getX(), player.getY(), player.getZ());
-        Vec3d tipCurrent = bladeTipWorld(computePose(progress), rootYaw, player.getBodyYaw(), playerPos);
-        // Позиция клинка чуть раньше (для направления)
-        float prevProgress = Math.max(0f, progress - 0.08f);
-        Vec3d tipPrev = bladeTipWorld(computePose(prevProgress), rootYaw, player.getBodyYaw(), playerPos);
-        Vec3d delta = tipCurrent.subtract(tipPrev);
-        double len = delta.length();
-        if (len < 1.0e-4) {
-            return;
-        }
-        Vec3d dir = delta.normalize();
-        // Ориентация квада: нормаль плоскости = cross(dir, cameraDir)
-        Vec3d cam = client.gameRenderer.getCamera().getPos();
-        Vec3d toCam = cam.subtract(tipCurrent).normalize();
-        Vec3d normal = dir.crossProduct(toCam);
-        if (normal.lengthSquared() < 1.0e-6) {
-            normal = dir.crossProduct(new Vec3d(0, 1, 0));
-        }
-        normal = normal.normalize();
-        Vec3d up = normal.crossProduct(dir).normalize();
-        Quaternionf q = basisQuat(dir, up, normal);
-        // Масштаб: мелкий в начале/конце, нормальный в середине
-        float scaleMult = (progress < 0.2f) ? progress / 0.2f
-                        : (progress > 0.8f) ? (1.0f - progress) / 0.2f
-                        : 1.0f;
-        float scale = 2.0f * scaleMult;
-        // Спавним серп
-        world.addParticleClient(
-                new TeyvatSlashEffect(TeyvatParticles.SLASH_90, q.x, q.y, q.z, q.w,
-                        scale, 0xCCFFFFFF, true),
-                tipCurrent.x, tipCurrent.y, tipCurrent.z,
-                0.0, 0.0, 0.0);
     }
 
     /** Шаг героя вперёд в начале удара: часть LUNGE_STRENGTH, чтобы серия
@@ -1123,35 +816,14 @@ public final class CombatController {
                 continue;
             }
             Vec3d p = target.getBoundingBox().getCenter();
-            // Искры-брызги в сторону удара (направление текущего движения клинка).
-            Vec3d dir = hitDirection();
             for (int i = 0; i < 10; i++) {
-                double vx = (world.random.nextDouble() - 0.5) * 0.9 + dir.x * 0.7;
-                double vy = world.random.nextDouble() * 1.5 + 0.2 + dir.y * 0.5;
-                double vz = (world.random.nextDouble() - 0.5) * 0.9 + dir.z * 0.7;
+                double vx = (world.random.nextDouble() - 0.5) * 1.3;
+                double vy = world.random.nextDouble() * 1.5 + 0.2;
+                double vz = (world.random.nextDouble() - 0.5) * 1.3;
                 world.addParticleClient(ParticleTypes.CRIT, p.x, p.y, p.z, vx, vy, vz);
             }
             world.addParticleClient(ParticleTypes.END_ROD, p.x, p.y, p.z, 0, 0.5, 0);
-            // Маленькая дуга-вспышка в точке контакта — строго на хите.
-            Vec3d a = p.subtract(dir.multiply(0.6));
-            Vec3d b = p.add(dir.multiply(0.6));
-            spawnSlashArc(world, TeyvatParticles.SLASH_45, new Vec3d[]{a, p, b}, 2.4f, 0x88FFFFFF);
         }
-    }
-
-    /** Направление текущего удара в мире (для искр/вспышки на хите):
-     *  от начала замаха к сопровождению по bladeTipWorld. */
-    private static Vec3d hitDirection() {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player == null || comboStep < 0) {
-            return new Vec3d(0.0, 0.2, 1.0);
-        }
-        Vec3d slashPos = new Vec3d(client.player.getX(), client.player.getY(), client.player.getZ());
-        float rootYaw = currentRootYawRad();
-        Vec3d a = bladeTipWorld(computePose(0.06f), rootYaw, client.player.getBodyYaw(), slashPos);
-        Vec3d b = bladeTipWorld(computePose(0.5f), rootYaw, client.player.getBodyYaw(), slashPos);
-        Vec3d d = b.subtract(a);
-        return d.lengthSquared() < 1.0e-8 ? new Vec3d(0.0, 0.2, 1.0) : d.normalize();
     }
 
     /** Атака идёт прямо сейчас (включая хит-стоп и фазу восстановления). */
@@ -1159,28 +831,14 @@ public final class CombatController {
         return comboStep >= 0 || finalCooldownTicks > 0;
     }
 
-    /** Заряженный спин идёт прямо сейчас (1 секунда, DURATION_TICKS[5]): в это
-     *  время запрещены любые действия — удары, рывок, прыжок, движение. */
-    public static boolean isChargedAttackActive() {
-        return comboStep == SwordCombo.CHARGE_INDEX;
-    }
-
     /** Dash-cancel: рывок прерывает анимацию атаки, как в Genshin. Серия
-     *  комбо при этом сохраняется (lastStep) — следующий клик продолжит цепочку.
-     *  Заряженный спин рывком не прерывается (блок на всю секунду). */
+     *  комбо при этом сохраняется (lastStep) — следующий клик продолжит цепочку. */
     public static boolean tryCancelByDash() {
-        if (isChargedAttackActive()) {
-            return false;
-        }
         return cancelAttack();
     }
 
-    /** Jump-cancel: прыжок прерывает атаку (как в Genshin). Заряженный спин
-     *  прыжком не прерывается — герой «заперт» на секунду спина. */
+    /** Jump-cancel: прыжок прерывает атаку (как в Genshin). */
     public static boolean tryCancelByJump() {
-        if (isChargedAttackActive()) {
-            return false;
-        }
         return cancelAttack();
     }
 
@@ -1203,11 +861,6 @@ public final class CombatController {
         sentHit = false;
         finalCooldownTicks = 0;
         hitlagTicks = 0;
-        chargeSphereRadius = 0f;
-        burstTicks = -1;
-        wrapDrawn = 0;
-        wrapTotal = 0;
-        lastWhirlBlade = null;
         return true;
     }
 
@@ -1250,15 +903,7 @@ public final class CombatController {
         if (!isLocalPlayer(state.id)) {
             return;
         }
-        if (palActive) {
-            // PAL рисует кости — НЕ перезаписываем процедурными позами.
-            // Сбрасываем только head (PAL управлять головой не может корректно
-            // из-за различий в pivot-point).
-            model.head.yaw = 0f;
-            model.head.pitch = 0f;
-            model.head.roll = 0f;
-            return;
-        } else if (charging) {
+        if (charging) {
             applyChargePose(model, state);
         } else if (comboStep >= 0) {
             applyPose(model, state.id);
@@ -1350,56 +995,55 @@ public final class CombatController {
         }
         float amt = MathHelper.clamp(state.limbSwingAmplitude, 0f, 1f);
         float move = MathHelper.clamp(amt * 1.3f, 0f, 1f);
-
         if (move < 0.01f) {
-            // Idle: Genshin idle animation (8.333s cycle)
-            float t = (state.age % 166.7f) / 166.7f;
-            model.rightArm.yaw = LocomotionClips.sample_idle_rYaw(t);
-            model.rightArm.pitch = LocomotionClips.sample_idle_rPitch(t);
-            model.rightArm.roll = LocomotionClips.sample_idle_rRoll(t);
-            model.leftArm.yaw = LocomotionClips.sample_idle_lYaw(t);
-            model.leftArm.pitch = LocomotionClips.sample_idle_lPitch(t);
-            model.leftArm.roll = LocomotionClips.sample_idle_lRoll(t);
-            model.body.yaw = LocomotionClips.sample_idle_bYaw(t);
-            model.body.pitch = LocomotionClips.sample_idle_bPitch(t);
-            model.body.roll = LocomotionClips.sample_idle_bRoll(t);
-            model.rightLeg.yaw = LocomotionClips.sample_idle_rlYaw(t);
-            model.rightLeg.pitch = LocomotionClips.sample_idle_rlPitch(t);
-            model.rightLeg.roll = LocomotionClips.sample_idle_rlRoll(t);
-            model.leftLeg.yaw = LocomotionClips.sample_idle_llYaw(t);
-            model.leftLeg.pitch = LocomotionClips.sample_idle_llPitch(t);
-            model.leftLeg.roll = LocomotionClips.sample_idle_llRoll(t);
+            // АФК-покачивание вокруг БОЕВОЙ СТОЙКИ: клинок держим
+            // горизонтально слева (не «дефолтный майнкрафт» с вертикальным
+            // мечом), сверху — дыхание, лёгкий перекат с ноги на ногу и
+            // покачивание корпуса. Голова не трогается (всегда смотрит вперёд).
+            float t = state.age * 0.05f;
+            float sway = MathHelper.sin(t);
+            float sway2 = MathHelper.sin(t * 0.77f + 1.7f);
+            float breath = MathHelper.sin(state.age * 0.09f);
+            model.getRootPart().yaw = sway * 0.045f;
+            model.getRootPart().pitch = 0.02f + sway2 * 0.02f;
+            model.rightArm.yaw = READY_RYAW + sway * 0.01f;
+            model.rightArm.pitch = READY_RPITCH + breath * 0.015f + sway2 * 0.012f;
+            model.rightArm.roll = READY_RROLL + breath * 0.02f + sway2 * 0.015f;
+            model.leftArm.yaw = 0f;
+            model.leftArm.pitch = READY_LPITCH + sway2 * 0.02f;
+            model.leftArm.roll = breath * 0.04f - sway2 * 0.03f;
+            model.body.yaw = READY_BYAW - sway * 0.025f;
+            model.body.roll = sway2 * 0.03f;
+            model.body.pitch = READY_BPITCH + breath * 0.035f + MathHelper.cos(t) * 0.012f;
+            model.rightLeg.roll = sway * 0.012f;
+            model.leftLeg.roll = -sway * 0.012f;
+            model.rightLeg.yaw = -sway2 * 0.01f;
+            model.leftLeg.yaw = sway2 * 0.01f;
             model.getRootPart().originY = 0f;
             return;
         }
-
-        // Choose animation based on movement speed
         float ph = state.limbSwingAnimationProgress * 0.6662f;
-        float p;
-        if (move > 0.8f) {
-            p = (state.age % 14.0f) / 14.0f;
-        } else if (move > 0.4f) {
-            p = (state.age % 16.7f) / 16.7f;
-        } else {
-            p = (state.age % 31.3f) / 31.3f;
-        }
-
-        // Sample run locomotion (walk/run/sprint share similar motion)
-        model.rightArm.yaw = LocomotionClips.sample_run_rYaw(p);
-        model.rightArm.pitch = LocomotionClips.sample_run_rPitch(p);
-        model.rightArm.roll = LocomotionClips.sample_run_rRoll(p);
-        model.leftArm.yaw = LocomotionClips.sample_run_lYaw(p);
-        model.leftArm.pitch = LocomotionClips.sample_run_lPitch(p);
-        model.leftArm.roll = LocomotionClips.sample_run_lRoll(p);
-        model.body.yaw = LocomotionClips.sample_run_bYaw(p);
-        model.body.pitch = LocomotionClips.sample_run_bPitch(p);
-        model.body.roll = LocomotionClips.sample_run_bRoll(p);
-        model.rightLeg.yaw = LocomotionClips.sample_run_rlYaw(p);
-        model.rightLeg.pitch = LocomotionClips.sample_run_rlPitch(p);
-        model.rightLeg.roll = LocomotionClips.sample_run_rlRoll(p);
-        model.leftLeg.yaw = LocomotionClips.sample_run_llYaw(p);
-        model.leftLeg.pitch = LocomotionClips.sample_run_llPitch(p);
-        model.leftLeg.roll = LocomotionClips.sample_run_llRoll(p);
+        // Единый чистый цикл бега: правая рука держит меч впереди (стойка с
+        // клинком — почти фиксированный хват с лёгким покачиванием в такт
+        // шагам), левая рука машет для баланса, корпус слегка наклонён и
+        // покачивается, модель чуть подпрыгивает.
+        float swing = 0.85f * move;
+        model.rightArm.pitch = MathHelper.lerp(move, model.rightArm.pitch, RUN_ARM_PITCH + MathHelper.cos(ph) * 0.06f * move);
+        model.leftArm.pitch = MathHelper.lerp(move, model.leftArm.pitch, -MathHelper.cos(ph + (float) Math.PI) * swing);
+        model.rightArm.yaw = MathHelper.lerp(move, model.rightArm.yaw, RUN_ARM_YAW);
+        model.leftArm.yaw = MathHelper.lerp(move, model.leftArm.yaw, 0f);
+        model.rightArm.roll = MathHelper.lerp(move, model.rightArm.roll, RUN_ARM_ROLL + MathHelper.cos(ph + (float) Math.PI) * 0.06f * move);
+        model.leftArm.roll = MathHelper.lerp(move, model.leftArm.roll, MathHelper.cos(ph) * 0.12f * move);
+        float legSwing = 0.7f * move;
+        model.rightLeg.pitch = MathHelper.lerp(move, model.rightLeg.pitch, MathHelper.cos(ph) * legSwing);
+        model.leftLeg.pitch = MathHelper.lerp(move, model.leftLeg.pitch, MathHelper.cos(ph + (float) Math.PI) * legSwing);
+        model.rightLeg.yaw = MathHelper.lerp(move, model.rightLeg.yaw, 0f);
+        model.leftLeg.yaw = MathHelper.lerp(move, model.leftLeg.yaw, 0f);
+        model.rightLeg.roll = MathHelper.lerp(move, model.rightLeg.roll, 0f);
+        model.leftLeg.roll = MathHelper.lerp(move, model.leftLeg.roll, 0f);
+        model.body.pitch = MathHelper.lerp(move, model.body.pitch, 0.3f * move);
+        model.body.yaw = MathHelper.lerp(move, model.body.yaw, MathHelper.sin(ph * 2f) * 0.16f * move);
+        model.body.roll = MathHelper.lerp(move, model.body.roll, 0f);
         model.getRootPart().pitch = 0.05f * move;
         model.getRootPart().originY = MathHelper.sin(ph * 2f) * 0.8f * move;
     }
@@ -1610,19 +1254,6 @@ public final class CombatController {
      *  клинок в системе руки — фиксированные константы из цепочки предмета.
      *  Поэтому разрез совпадает с видимым мечом (scripts/blade_geo.py). */
     public static Vec3d bladeTipWorld(Pose pose, float rootYawRad, float bodyYawDeg, Vec3d playerPos) {
-        return bladeItemPoint(pose, rootYawRad, bodyYawDeg, playerPos, 0f, 1f, 0f);
-    }
-
-    /** Точка КИСТИ (origin предмета в руке) в мировых координатах — для сферы
-     *  заряда «в руках, где меч» (а не на кончике клинка). */
-    public static Vec3d bladeHandWorld(Pose pose, float rootYawRad, float bodyYawDeg, Vec3d playerPos) {
-        return bladeItemPoint(pose, rootYawRad, bodyYawDeg, playerPos, 0f, 0f, 0f);
-    }
-
-    /** Промаршировать точку (lx, ly, lz) предмета через ту же цепочку, что у
-     *  видимого меча: плечо->рука->display handheld->грип->лезвие. */
-    private static Vec3d bladeItemPoint(Pose pose, float rootYawRad, float bodyYawDeg, Vec3d playerPos,
-                                        float lx, float ly, float lz) {
         Matrix4f m = new Matrix4f();
         // LivingEntityRenderer.setupTransforms: поворот тела (180 - bodyYaw).
         m.rotate(new Quaternionf().rotationY((float) Math.toRadians(180f - bodyYawDeg)));
@@ -1649,7 +1280,8 @@ public final class CombatController {
         m.rotate(BLADE_GRIP_C);
         m.rotate(currentBladeRotation());
         m.scale(0.85f, 0.85f, 0.85f);
-        Vector3f tip = m.transformPosition(new Vector3f(lx, ly, lz), new Vector3f());
+        // Кончик клинка — верх модели меча (локальный +Y предмета).
+        Vector3f tip = m.transformPosition(new Vector3f(0f, 1f, 0f), new Vector3f());
         return new Vec3d(playerPos.x + tip.x, playerPos.y + tip.y, playerPos.z + tip.z);
     }
 
@@ -1699,28 +1331,6 @@ public final class CombatController {
     private static float chargedSpinTurn(float p) {
         float u = MathHelper.clamp(p / 0.25f, 0f, 1f);
         return (float) (-Math.PI * 2.0) * ease(E_IN_OUT_CUBIC, u);
-    }
-
-    /** Точка «шерстяной дуги» на сфере спина: θ — долгота (1..6 оборотов),
-     *  φ — широта с некратным «плетением» (0.618 — золотое сечение), чтобы
-     *  витки не ложились друг на друга; вся «сфера параллелей» наклонена
-     *  на случайный угол — как нити шерстяного клубка. */
-    private static Vec3d wrapPoint(int i) {
-        double t = i / (double) Math.max(1, wrapTotal);
-        double theta = Math.PI * 2.0 * wrapTurns * t;
-        double phi = 0.9 * Math.sin(theta * 0.618);
-        double x0 = Math.cos(phi) * Math.cos(theta);
-        double y0 = Math.sin(phi);
-        double z0 = Math.cos(phi) * Math.sin(theta);
-        double cy = Math.cos(wrapTiltYaw);
-        double sy = Math.sin(wrapTiltYaw);
-        double cx = Math.cos(wrapTiltPitch);
-        double sx = Math.sin(wrapTiltPitch);
-        double x = x0 * cy + z0 * sy;
-        double z = -x0 * sy + z0 * cy;
-        double y = y0 * cx - z * sx;
-        z = y0 * sx + z * cx;
-        return wrapCenter.add(x * wrapRadius, y * wrapRadius, z * wrapRadius);
     }
 
     /** Боевая стойка (покой/после удара): клинок держим горизонтально слева —
@@ -1820,208 +1430,518 @@ public final class CombatController {
      *  y/p/r, голова y/p/r, прав. нога y/p/r, лев. нога y/p/r. Углы в
      *  радианах, как у ModelPart. */
     // Удар 1: широкий горизонтальный слева направо
+    private static final Pose hit1_00 = new Pose(0.000000f, -0.349066f, 0.000000f, 0.000000f, -0.174533f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
+    private static final Pose hit1_01 = new Pose(0.663225f, -0.767945f, -0.104720f, 0.000000f, -0.663225f, -0.191986f, 0.111701f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.209440f, 0.000000f, 0.000000f, 0.139626f, 0.000000f);
+    private static final Pose hit1_02 = new Pose(1.012291f, -1.047198f, -0.087266f, 0.000000f, -1.099557f, -0.296706f, 0.171042f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.383972f, 0.000000f, 0.000000f, 0.261799f, 0.000000f);
+    private static final Pose hit1_03 = new Pose(0.911935f, -1.036289f, -0.043633f, 0.000000f, -1.049379f, -0.237801f, 0.154025f, 0.006545f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.292343f, 0.000000f, 0.000000f, 0.218166f, 0.000000f);
+    private static final Pose hit1_04 = new Pose(0.209440f, -0.959931f, 0.261799f, 0.000000f, -0.698132f, 0.174533f, 0.034907f, 0.052360f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.349066f, 0.000000f, 0.000000f, -0.087266f, 0.000000f);
+    private static final Pose hit1_05 = new Pose(0.208338f, -0.959967f, 0.261704f, 0.000000f, -0.697749f, 0.174437f, 0.034751f, 0.052350f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.349377f, 0.000000f, 0.000000f, -0.087422f, 0.000000f);
+    private static final Pose hit1_06 = new Pose(0.200629f, -0.960218f, 0.261033f, 0.000000f, -0.695067f, 0.173767f, 0.033662f, 0.052283f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.351556f, 0.000000f, 0.000000f, -0.088511f, 0.000000f);
+    private static final Pose hit1_07 = new Pose(0.179704f, -0.960901f, 0.259214f, 0.000000f, -0.687789f, 0.171947f, 0.030705f, 0.052101f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.357469f, 0.000000f, 0.000000f, -0.091468f, 0.000000f);
+    private static final Pose hit1_08 = new Pose(0.138956f, -0.962229f, 0.255670f, 0.000000f, -0.673616f, 0.168404f, 0.024947f, 0.051747f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.368985f, 0.000000f, 0.000000f, -0.097226f, 0.000000f);
+    private static final Pose hit1_09 = new Pose(0.071776f, -0.964420f, 0.249829f, 0.000000f, -0.650249f, 0.162562f, 0.015454f, 0.051163f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.387971f, 0.000000f, 0.000000f, -0.106719f, 0.000000f);
+    private static final Pose hit1_10 = new Pose(-0.028442f, -0.967688f, 0.241114f, 0.000000f, -0.615390f, 0.153848f, 0.001293f, 0.050291f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.416293f, 0.000000f, 0.000000f, -0.120880f, 0.000000f);
+    private static final Pose hit1_11 = new Pose(-0.168308f, -0.972249f, 0.228952f, 0.000000f, -0.566741f, 0.141685f, -0.018471f, 0.049075f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.455821f, 0.000000f, 0.000000f, -0.140644f, 0.000000f);
+    private static final Pose hit1_12 = new Pose(-0.354429f, -0.978318f, 0.212767f, 0.000000f, -0.502004f, 0.125501f, -0.044770f, 0.047457f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.508420f, 0.000000f, 0.000000f, -0.166943f, 0.000000f);
+    private static final Pose hit1_13 = new Pose(-0.593412f, -0.986111f, 0.191986f, 0.000000f, -0.418879f, 0.104720f, -0.078540f, 0.045379f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.575959f, 0.000000f, 0.000000f, -0.200713f, 0.000000f);
+    private static final Pose hit1_14 = new Pose(-0.758303f, -0.984344f, 0.141930f, 0.000000f, -0.374712f, 0.078219f, -0.072062f, 0.042434f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.573603f, 0.000000f, 0.000000f, -0.204835f, 0.000000f);
+    private static final Pose hit1_15 = new Pose(-0.881178f, -0.983028f, 0.104629f, 0.000000f, -0.341799f, 0.058472f, -0.067235f, 0.040240f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.571848f, 0.000000f, 0.000000f, -0.207907f, 0.000000f);
+    private static final Pose hit1_16 = new Pose(-0.968217f, -0.982095f, 0.078206f, 0.000000f, -0.318485f, 0.044483f, -0.063815f, 0.038686f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.570604f, 0.000000f, 0.000000f, -0.210083f, 0.000000f);
+    private static final Pose hit1_17 = new Pose(-1.025597f, -0.981480f, 0.060787f, 0.000000f, -0.303115f, 0.035261f, -0.061561f, 0.037661f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.569785f, 0.000000f, 0.000000f, -0.211517f, 0.000000f);
+    private static final Pose hit1_18 = new Pose(-1.059498f, -0.981117f, 0.050496f, 0.000000f, -0.294035f, 0.029813f, -0.060229f, 0.037056f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.569300f, 0.000000f, 0.000000f, -0.212365f, 0.000000f);
+    private static final Pose hit1_19 = new Pose(-1.076098f, -0.980939f, 0.045456f, 0.000000f, -0.289588f, 0.027145f, -0.059577f, 0.036759f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.569063f, 0.000000f, 0.000000f, -0.212780f, 0.000000f);
+    private static final Pose hit1_20 = new Pose(-1.081577f, -0.980881f, 0.043793f, 0.000000f, -0.288121f, 0.026265f, -0.059362f, 0.036661f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.568985f, 0.000000f, 0.000000f, -0.212917f, 0.000000f);
+    private static final Pose hit1_21 = new Pose(-1.073893f, -0.980601f, 0.040212f, 0.000000f, -0.285927f, 0.024127f, -0.057425f, 0.036515f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.568156f, 0.000000f, 0.000000f, -0.212656f, 0.000000f);
+    private static final Pose hit1_22 = new Pose(-1.038771f, -0.979431f, 0.025578f, 0.000000f, -0.277146f, 0.015347f, -0.049230f, 0.035930f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.564644f, 0.000000f, 0.000000f, -0.211486f, 0.000000f);
+    private static final Pose hit1_23 = new Pose(-1.012625f, -0.978559f, 0.014684f, 0.000000f, -0.270610f, 0.008810f, -0.043129f, 0.035494f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.562029f, 0.000000f, 0.000000f, -0.210614f, 0.000000f);
+    private static final Pose hit1_24 = new Pose(-0.994211f, -0.977945f, 0.007011f, 0.000000f, -0.266006f, 0.004207f, -0.038833f, 0.035187f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.560188f, 0.000000f, 0.000000f, -0.210000f, 0.000000f);
+    private static final Pose hit1_25 = new Pose(-0.982287f, -0.977548f, 0.002043f, 0.000000f, -0.263025f, 0.001226f, -0.036050f, 0.034988f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558996f, 0.000000f, 0.000000f, -0.209603f, 0.000000f);
+    private static final Pose hit1_26 = new Pose(-0.975608f, -0.977325f, -0.000740f, 0.000000f, -0.261355f, -0.000444f, -0.034492f, 0.034877f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558328f, 0.000000f, 0.000000f, -0.209380f, 0.000000f);
+    private static final Pose hit1_27 = new Pose(-0.972932f, -0.977236f, -0.001855f, 0.000000f, -0.260686f, -0.001113f, -0.033868f, 0.034832f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558060f, 0.000000f, 0.000000f, -0.209291f, 0.000000f);
+    private static final Pose hit1_28 = new Pose(-0.973015f, -0.977239f, -0.001821f, 0.000000f, -0.260707f, -0.001092f, -0.033887f, 0.034834f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558068f, 0.000000f, 0.000000f, -0.209294f, 0.000000f);
+    private static final Pose hit1_29 = new Pose(-0.974613f, -0.977292f, -0.001155f, 0.000000f, -0.261107f, -0.000693f, -0.034260f, 0.034860f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558228f, 0.000000f, 0.000000f, -0.209347f, 0.000000f);
+    private static final Pose hit1_30 = new Pose(-0.976484f, -0.977354f, -0.000375f, 0.000000f, -0.261574f, -0.000225f, -0.034697f, 0.034892f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558415f, 0.000000f, 0.000000f, -0.209410f, 0.000000f);
+    private static final Pose hit1_31 = new Pose(-0.977384f, -0.977384f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, -0.034907f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558505f, 0.000000f, 0.000000f, -0.209440f, 0.000000f);
+    private static final Pose hit1_32 = new Pose(-0.977384f, -0.977384f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, -0.034907f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558505f, 0.000000f, 0.000000f, -0.209440f, 0.000000f);
+    private static final Pose hit1_33 = new Pose(-0.977384f, -0.977384f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, -0.034907f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558505f, 0.000000f, 0.000000f, -0.209440f, 0.000000f);
+    private static final Pose hit1_34 = new Pose(-0.977384f, -0.977384f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, -0.034907f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558505f, 0.000000f, 0.000000f, -0.209440f, 0.000000f);
+    private static final Pose hit1_35 = new Pose(-0.977384f, -0.977384f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, -0.034907f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558505f, 0.000000f, 0.000000f, -0.209440f, 0.000000f);
+    private static final Pose hit1_36 = new Pose(-0.977384f, -0.977384f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, -0.034907f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558505f, 0.000000f, 0.000000f, -0.209440f, 0.000000f);
+    private static final Pose hit1_37 = new Pose(-0.977384f, -0.977384f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, -0.034907f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558505f, 0.000000f, 0.000000f, -0.209440f, 0.000000f);
+    private static final Pose hit1_38 = new Pose(-0.977384f, -0.977384f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, -0.034907f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558505f, 0.000000f, 0.000000f, -0.209440f, 0.000000f);
+    private static final Pose hit1_39 = new Pose(-0.977384f, -0.977384f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, -0.034907f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558505f, 0.000000f, 0.000000f, -0.209440f, 0.000000f);
+    private static final Pose hit1_40 = new Pose(-0.977384f, -0.977384f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, -0.034907f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558505f, 0.000000f, 0.000000f, -0.209440f, 0.000000f);
 
-    // ═══════════════════════════════════════════════════════════════
-    // Mixamo 'Great Sword' motion-capture animations
-    // Source: Mixamo Great Sword Pack → converted via mixamo_final_converter.py
-    // ═══════════════════════════════════════════════════════════════
+    private static final Pose hit2_00 = new Pose(-0.977384f, -0.977384f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, -0.034907f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558505f, 0.000000f, 0.000000f, -0.209440f, 0.000000f);
+    private static final Pose hit2_01 = new Pose(-0.802851f, -0.744674f, -0.087266f, 0.000000f, -0.479966f, -0.130900f, -0.052360f, 0.023271f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.296706f, 0.000000f, 0.000000f, -0.063995f, 0.000000f);
+    private static final Pose hit2_02 = new Pose(-0.757602f, -0.610219f, -0.063349f, 0.000000f, -0.606340f, -0.172594f, -0.061022f, 0.018875f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.140919f, 0.000000f, 0.000000f, 0.021978f, 0.000000f);
+    private static final Pose hit2_03 = new Pose(-0.738210f, -0.428575f, 0.012928f, 0.000000f, -0.810608f, -0.206854f, -0.073950f, 0.016419f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.113770f, 0.000000f, 0.000000f, 0.161605f, 0.000000f);
+    private static final Pose hit2_04 = new Pose(-0.831102f, -0.916262f, -0.381866f, 0.000000f, -0.949948f, -0.160407f, -0.085562f, 0.060543f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.276332f, 0.000000f, 0.000000f, 0.242886f, 0.000000f);
+    private static final Pose hit2_05 = new Pose(-0.865050f, -1.094489f, -0.526145f, 0.000000f, -1.000870f, -0.143433f, -0.089805f, 0.076668f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.335741f, 0.000000f, 0.000000f, 0.272590f, 0.000000f);
+    private static final Pose hit2_06 = new Pose(-0.872966f, -1.134765f, -0.558392f, 0.000000f, -1.012178f, -0.139513f, -0.090776f, 0.080278f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.348878f, 0.000000f, 0.000000f, 0.279140f, 0.000000f);
+    private static final Pose hit2_07 = new Pose(-0.876096f, -1.137896f, -0.557218f, 0.000000f, -1.011004f, -0.138339f, -0.090972f, 0.080199f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.346921f, 0.000000f, 0.000000f, 0.277966f, 0.000000f);
+    private static final Pose hit2_08 = new Pose(-0.885582f, -1.147382f, -0.553661f, 0.000000f, -1.007447f, -0.134782f, -0.091564f, 0.079962f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.340992f, 0.000000f, 0.000000f, 0.274409f, 0.000000f);
+    private static final Pose hit2_09 = new Pose(-0.904954f, -1.166754f, -0.546397f, 0.000000f, -1.000182f, -0.127518f, -0.092775f, 0.079478f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.328885f, 0.000000f, 0.000000f, 0.267144f, 0.000000f);
+    private static final Pose hit2_10 = new Pose(-0.937743f, -1.199542f, -0.534101f, 0.000000f, -0.987887f, -0.115222f, -0.094825f, 0.078658f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.308392f, 0.000000f, 0.000000f, 0.254848f, 0.000000f);
+    private static final Pose hit2_11 = new Pose(-0.987479f, -1.249279f, -0.515450f, 0.000000f, -0.969235f, -0.096571f, -0.097933f, 0.077415f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.277307f, 0.000000f, 0.000000f, 0.236197f, 0.000000f);
+    private static final Pose hit2_12 = new Pose(-1.057694f, -1.319493f, -0.489119f, 0.000000f, -0.942905f, -0.070240f, -0.102321f, 0.075659f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.233423f, 0.000000f, 0.000000f, 0.209867f, 0.000000f);
+    private static final Pose hit2_13 = new Pose(-1.151917f, -1.413717f, -0.453786f, 0.000000f, -0.907571f, -0.034907f, -0.108210f, 0.073304f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.174533f, 0.000000f, 0.000000f, 0.174533f, 0.000000f);
+    private static final Pose hit2_14 = new Pose(-1.162308f, -1.237077f, -0.620035f, 0.000000f, -0.866009f, -0.014125f, -0.111328f, 0.068109f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.112189f, 0.000000f, 0.000000f, 0.138166f, 0.000000f);
+    private static final Pose hit2_15 = new Pose(-1.170400f, -1.099510f, -0.749510f, 0.000000f, -0.833640f, 0.002059f, -0.113755f, 0.064062f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.063636f, 0.000000f, 0.000000f, 0.109843f, 0.000000f);
+    private static final Pose hit2_16 = new Pose(-1.176481f, -0.996131f, -0.846808f, 0.000000f, -0.809316f, 0.014221f, -0.115580f, 0.061022f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.027150f, 0.000000f, 0.000000f, 0.088559f, 0.000000f);
+    private static final Pose hit2_17 = new Pose(-1.180839f, -0.922056f, -0.916525f, 0.000000f, -0.791886f, 0.022936f, -0.116887f, 0.058843f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.001006f, 0.000000f, 0.000000f, 0.073309f, 0.000000f);
+    private static final Pose hit2_18 = new Pose(-1.183759f, -0.872401f, -0.963259f, 0.000000f, -0.780203f, 0.028778f, -0.117763f, 0.057383f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.016520f, 0.000000f, 0.000000f, 0.063086f, 0.000000f);
+    private static final Pose hit2_19 = new Pose(-1.185531f, -0.842283f, -0.991606f, 0.000000f, -0.773116f, 0.032321f, -0.118295f, 0.056497f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.027150f, 0.000000f, 0.000000f, 0.056885f, 0.000000f);
+    private static final Pose hit2_20 = new Pose(-1.186441f, -0.826817f, -1.006162f, 0.000000f, -0.769477f, 0.034140f, -0.118567f, 0.056042f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.032608f, 0.000000f, 0.000000f, 0.053701f, 0.000000f);
+    private static final Pose hit2_21 = new Pose(-1.186776f, -0.821119f, -1.011525f, 0.000000f, -0.768136f, 0.034811f, -0.118668f, 0.055874f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.034619f, 0.000000f, 0.000000f, 0.052527f, 0.000000f);
+    private static final Pose hit2_22 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.767945f, 0.034907f, -0.118682f, 0.055851f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.034907f, 0.000000f, 0.000000f, 0.052360f, 0.000000f);
+    private static final Pose hit2_23 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.744438f, 0.040783f, -0.119858f, 0.052324f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.081921f, 0.000000f, 0.000000f, 0.028853f, 0.000000f);
+    private static final Pose hit2_24 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.726457f, 0.045279f, -0.120757f, 0.049627f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.117882f, 0.000000f, 0.000000f, 0.010872f, 0.000000f);
+    private static final Pose hit2_25 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.713305f, 0.048567f, -0.121414f, 0.047654f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.144187f, 0.000000f, 0.000000f, -0.002280f, 0.000000f);
+    private static final Pose hit2_26 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.704282f, 0.050822f, -0.121866f, 0.046301f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.162232f, 0.000000f, 0.000000f, -0.011303f, 0.000000f);
+    private static final Pose hit2_27 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.698691f, 0.052220f, -0.122145f, 0.045462f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.173414f, 0.000000f, 0.000000f, -0.016894f, 0.000000f);
+    private static final Pose hit2_28 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.695833f, 0.052934f, -0.122288f, 0.045034f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.179130f, 0.000000f, 0.000000f, -0.019752f, 0.000000f);
+    private static final Pose hit2_29 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.695011f, 0.053140f, -0.122329f, 0.044910f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.180775f, 0.000000f, 0.000000f, -0.020574f, 0.000000f);
+    private static final Pose hit2_30 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.695525f, 0.053012f, -0.122303f, 0.044988f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.179747f, 0.000000f, 0.000000f, -0.020060f, 0.000000f);
+    private static final Pose hit2_31 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.696677f, 0.052723f, -0.122246f, 0.045160f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.177442f, 0.000000f, 0.000000f, -0.018908f, 0.000000f);
+    private static final Pose hit2_32 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.697770f, 0.052450f, -0.122191f, 0.045324f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.175256f, 0.000000f, 0.000000f, -0.017815f, 0.000000f);
+    private static final Pose hit2_33 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.698098f, 0.052360f, -0.122173f, 0.045359f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.174599f, 0.000000f, 0.000000f, -0.017520f, 0.000000f);
+    private static final Pose hit2_34 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.696963f, 0.052360f, -0.122173f, 0.044677f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.176871f, 0.000000f, 0.000000f, -0.019792f, 0.000000f);
+    private static final Pose hit2_35 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.694410f, 0.052360f, -0.122173f, 0.043146f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.181975f, 0.000000f, 0.000000f, -0.024896f, 0.000000f);
+    private static final Pose hit2_36 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.690920f, 0.052360f, -0.122173f, 0.041052f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.188955f, 0.000000f, 0.000000f, -0.031876f, 0.000000f);
+    private static final Pose hit2_37 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.687146f, 0.052360f, -0.122173f, 0.038787f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.196503f, 0.000000f, 0.000000f, -0.039424f, 0.000000f);
+    private static final Pose hit2_38 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.683796f, 0.052360f, -0.122173f, 0.036777f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.203205f, 0.000000f, 0.000000f, -0.046125f, 0.000000f);
+    private static final Pose hit2_39 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.681496f, 0.052360f, -0.122173f, 0.035397f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.207804f, 0.000000f, 0.000000f, -0.050725f, 0.000000f);
+    private static final Pose hit2_40 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.680678f, 0.052360f, -0.122173f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.209440f, 0.000000f, 0.000000f, -0.052360f, 0.000000f);
 
+    private static final Pose hit3_00 = new Pose(-1.186824f, -0.820305f, -1.012291f, 0.000000f, -0.680678f, 0.052360f, -0.122173f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.209440f, 0.000000f, 0.000000f, -0.052360f, 0.000000f);
+    private static final Pose hit3_01 = new Pose(-0.779580f, -1.882047f, -0.314159f, 0.000000f, -0.840667f, -0.049451f, -0.136717f, 0.020362f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.122173f, 0.000000f, 0.000000f, -0.008727f, 0.000000f);
+    private static final Pose hit3_02 = new Pose(-0.594705f, -2.249535f, -0.164190f, 0.000000f, -0.945063f, -0.090499f, -0.142729f, 0.010731f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.042664f, 0.000000f, 0.000000f, 0.031028f, 0.000000f);
+    private static final Pose hit3_03 = new Pose(-0.338158f, -2.679080f, -0.130900f, 0.000000f, -1.138827f, -0.148353f, -0.150971f, -0.005672f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.113446f, 0.000000f, 0.000000f, 0.109083f, 0.000000f);
+    private static final Pose hit3_04 = new Pose(-0.272708f, -2.947425f, -0.082903f, 0.000000f, -1.261000f, -0.194168f, -0.135263f, 0.001091f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.191986f, 0.000000f, 0.000000f, 0.152716f, 0.000000f);
+    private static final Pose hit3_05 = new Pose(-0.292814f, -2.653879f, -0.107030f, 0.000000f, -1.204704f, -0.166020f, -0.095051f, 0.019186f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.224156f, 0.000000f, 0.000000f, 0.176843f, 0.000000f);
+    private static final Pose hit3_06 = new Pose(-0.329017f, -2.125312f, -0.150474f, 0.000000f, -1.103335f, -0.115335f, -0.022645f, 0.051769f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.282081f, 0.000000f, 0.000000f, 0.220287f, 0.000000f);
+    private static final Pose hit3_07 = new Pose(-0.349098f, -1.832424f, -0.174507f, 0.000000f, -1.047109f, -0.087222f, 0.017476f, 0.069814f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.314096f, 0.000000f, 0.000000f, 0.244308f, 0.000000f);
+    private static final Pose hit3_08 = new Pose(-0.349669f, -1.829339f, -0.174050f, 0.000000f, -1.045509f, -0.086422f, 0.017875f, 0.069837f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.312953f, 0.000000f, 0.000000f, 0.243622f, 0.000000f);
+    private static final Pose hit3_09 = new Pose(-0.351654f, -1.818622f, -0.172463f, 0.000000f, -1.039952f, -0.083644f, 0.019265f, 0.069917f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.308984f, 0.000000f, 0.000000f, 0.241241f, 0.000000f);
+    private static final Pose hit3_10 = new Pose(-0.355935f, -1.795501f, -0.169037f, 0.000000f, -1.027963f, -0.077649f, 0.022262f, 0.070088f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.300421f, 0.000000f, 0.000000f, 0.236103f, 0.000000f);
+    private static final Pose hit3_11 = new Pose(-0.363397f, -1.755207f, -0.163068f, 0.000000f, -1.007070f, -0.067203f, 0.027485f, 0.070386f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.285497f, 0.000000f, 0.000000f, 0.227149f, 0.000000f);
+    private static final Pose hit3_12 = new Pose(-0.374923f, -1.692969f, -0.153848f, 0.000000f, -0.974799f, -0.051067f, 0.035553f, 0.070847f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.262446f, 0.000000f, 0.000000f, 0.213318f, 0.000000f);
+    private static final Pose hit3_13 = new Pose(-0.391395f, -1.604017f, -0.140669f, 0.000000f, -0.928675f, -0.028005f, 0.047084f, 0.071506f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.229501f, 0.000000f, 0.000000f, 0.193551f, 0.000000f);
+    private static final Pose hit3_14 = new Pose(-0.413698f, -1.483581f, -0.122827f, 0.000000f, -0.866227f, 0.003219f, 0.062696f, 0.072398f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.184894f, 0.000000f, 0.000000f, 0.166787f, 0.000000f);
+    private static final Pose hit3_15 = new Pose(-0.481632f, -1.323104f, -0.103713f, 0.000000f, -0.780705f, 0.036920f, 0.081056f, 0.071089f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.121506f, 0.000000f, 0.000000f, 0.129560f, 0.000000f);
+    private static final Pose hit3_16 = new Pose(-0.682199f, -1.153736f, -0.099256f, 0.000000f, -0.682650f, 0.045834f, 0.092199f, 0.061284f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.041280f, 0.000000f, 0.000000f, 0.084989f, 0.000000f);
+    private static final Pose hit3_17 = new Pose(-0.842800f, -1.018117f, -0.095687f, 0.000000f, -0.604134f, 0.052972f, 0.101121f, 0.053432f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.022961f, 0.000000f, 0.000000f, 0.049300f, 0.000000f);
+    private static final Pose hit3_18 = new Pose(-0.967877f, -0.912497f, -0.092908f, 0.000000f, -0.542985f, 0.058531f, 0.108070f, 0.047317f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.072991f, 0.000000f, 0.000000f, 0.021505f, 0.000000f);
+    private static final Pose hit3_19 = new Pose(-1.061869f, -0.833126f, -0.090819f, 0.000000f, -0.497033f, 0.062708f, 0.113292f, 0.042722f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.110588f, 0.000000f, 0.000000f, 0.000618f, 0.000000f);
+    private static final Pose hit3_20 = new Pose(-1.129218f, -0.776253f, -0.089322f, 0.000000f, -0.464107f, 0.065702f, 0.117033f, 0.039429f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.137528f, 0.000000f, 0.000000f, -0.014348f, 0.000000f);
+    private static final Pose hit3_21 = new Pose(-1.174364f, -0.738130f, -0.088319f, 0.000000f, -0.442036f, 0.067708f, 0.119542f, 0.037222f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.155586f, 0.000000f, 0.000000f, -0.024381f, 0.000000f);
+    private static final Pose hit3_22 = new Pose(-1.201748f, -0.715006f, -0.087711f, 0.000000f, -0.428648f, 0.068925f, 0.121063f, 0.035884f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.166540f, 0.000000f, 0.000000f, -0.030466f, 0.000000f);
+    private static final Pose hit3_23 = new Pose(-1.215810f, -0.703131f, -0.087398f, 0.000000f, -0.421774f, 0.069550f, 0.121844f, 0.035196f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.172165f, 0.000000f, 0.000000f, -0.033591f, 0.000000f);
+    private static final Pose hit3_24 = new Pose(-1.220990f, -0.698757f, -0.087283f, 0.000000f, -0.419241f, 0.069780f, 0.122132f, 0.034943f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.174237f, 0.000000f, 0.000000f, -0.034742f, 0.000000f);
+    private static final Pose hit3_25 = new Pose(-1.221730f, -0.698132f, -0.087266f, 0.000000f, -0.418879f, 0.069813f, 0.122173f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.174533f, 0.000000f, 0.000000f, -0.034907f, 0.000000f);
+    private static final Pose hit3_26 = new Pose(-0.959047f, -0.838230f, -0.087266f, 0.000000f, -0.379476f, 0.052301f, 0.126551f, 0.026150f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.218314f, 0.000000f, 0.000000f, -0.026150f, 0.000000f);
+    private static final Pose hit3_27 = new Pose(-0.740857f, -0.954597f, -0.087266f, 0.000000f, -0.346748f, 0.037755f, 0.130188f, 0.018877f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.254678f, 0.000000f, 0.000000f, -0.018877f, 0.000000f);
+    private static final Pose hit3_28 = new Pose(-0.563253f, -1.049320f, -0.087266f, 0.000000f, -0.320107f, 0.025915f, 0.133148f, 0.012957f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.284279f, 0.000000f, 0.000000f, -0.012957f, 0.000000f);
+    private static final Pose hit3_29 = new Pose(-0.422323f, -1.124482f, -0.087266f, 0.000000f, -0.298968f, 0.016519f, 0.135497f, 0.008260f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.307767f, 0.000000f, 0.000000f, -0.008260f, 0.000000f);
+    private static final Pose hit3_30 = new Pose(-0.314159f, -1.182170f, -0.087266f, 0.000000f, -0.282743f, 0.009308f, 0.137299f, 0.004654f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.325795f, 0.000000f, 0.000000f, -0.004654f, 0.000000f);
+    private static final Pose hit3_31 = new Pose(-0.234852f, -1.224467f, -0.087266f, 0.000000f, -0.270847f, 0.004021f, 0.138621f, 0.002011f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.339013f, 0.000000f, 0.000000f, -0.002011f, 0.000000f);
+    private static final Pose hit3_32 = new Pose(-0.180490f, -1.253460f, -0.087266f, 0.000000f, -0.262693f, 0.000397f, 0.139527f, 0.000199f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.348073f, 0.000000f, 0.000000f, -0.000199f, 0.000000f);
+    private static final Pose hit3_33 = new Pose(-0.147166f, -1.271233f, -0.087266f, 0.000000f, -0.257694f, -0.001824f, 0.140082f, -0.000912f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.353627f, 0.000000f, 0.000000f, 0.000912f, 0.000000f);
+    private static final Pose hit3_34 = new Pose(-0.130970f, -1.279871f, -0.087266f, 0.000000f, -0.255265f, -0.002904f, 0.140352f, -0.001452f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.356326f, 0.000000f, 0.000000f, 0.001452f, 0.000000f);
+    private static final Pose hit3_35 = new Pose(-0.127991f, -1.281460f, -0.087266f, 0.000000f, -0.254818f, -0.003103f, 0.140402f, -0.001551f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.356823f, 0.000000f, 0.000000f, 0.001551f, 0.000000f);
+    private static final Pose hit3_36 = new Pose(-0.134321f, -1.278084f, -0.087266f, 0.000000f, -0.255768f, -0.002681f, 0.140297f, -0.001340f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.355768f, 0.000000f, 0.000000f, 0.001340f, 0.000000f);
+    private static final Pose hit3_37 = new Pose(-0.146049f, -1.271828f, -0.087266f, 0.000000f, -0.257527f, -0.001899f, 0.140101f, -0.000949f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.353813f, 0.000000f, 0.000000f, 0.000949f, 0.000000f);
+    private static final Pose hit3_38 = new Pose(-0.159267f, -1.264779f, -0.087266f, 0.000000f, -0.259510f, -0.001018f, 0.139881f, -0.000509f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.351610f, 0.000000f, 0.000000f, 0.000509f, 0.000000f);
+    private static final Pose hit3_39 = new Pose(-0.170065f, -1.259020f, -0.087266f, 0.000000f, -0.261129f, -0.000298f, 0.139701f, -0.000149f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.349811f, 0.000000f, 0.000000f, 0.000149f, 0.000000f);
+    private static final Pose hit3_40 = new Pose(-0.174533f, -1.256637f, -0.087266f, 0.000000f, -0.261799f, 0.000000f, 0.139626f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.349066f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
 
-    // ═══════════════════════════════════════════════════════════════
-    // Mixamo 'Great Sword' motion-capture animations (re-mapped)
-    // hit1: horizontal slash L→R | hit2: uppercut | hit3: 360° spin
-    // hit4: horizontal slash R→L | hit5: wide arc R→L | charged: spin
-    // ═══════════════════════════════════════════════════════════════
+    private static final Pose hit4_00 = new Pose(-0.174533f, -1.256637f, -0.087266f, 0.000000f, -0.261799f, 0.000000f, 0.139626f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.349066f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
+    private static final Pose hit4_01 = new Pose(-0.379448f, -1.881724f, -0.053006f, 0.000000f, -0.603755f, -0.176472f, 0.167422f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.201682f, 0.000000f, 0.000000f, 0.056238f, 0.000000f);
+    private static final Pose hit4_02 = new Pose(-0.174533f, -3.106686f, 0.104720f, 0.000000f, -1.082104f, -0.244346f, 0.226893f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.279253f, 0.000000f, 0.000000f, 0.209440f, 0.000000f);
+    private static final Pose hit4_03 = new Pose(-0.177811f, -2.905075f, 0.070298f, 0.000000f, -1.046044f, -0.205007f, 0.208863f, 0.004917f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.220245f, 0.000000f, 0.000000f, 0.181575f, 0.000000f);
+    private static final Pose hit4_04 = new Pose(-0.200759f, -1.493797f, -0.170652f, 0.000000f, -0.793620f, 0.070364f, 0.082651f, 0.039339f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.192812f, 0.000000f, 0.000000f, -0.013480f, 0.000000f);
+    private static final Pose hit4_05 = new Pose(-0.207877f, -1.056040f, -0.245391f, 0.000000f, -0.715322f, 0.155780f, 0.043502f, 0.050016f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.320936f, 0.000000f, 0.000000f, -0.073983f, 0.000000f);
+    private static final Pose hit4_06 = new Pose(-0.208611f, -0.959988f, -0.261743f, 0.000000f, -0.697830f, 0.174458f, 0.034775f, 0.052349f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.349311f, 0.000000f, 0.000000f, -0.087389f, 0.000000f);
+    private static final Pose hit4_07 = new Pose(-0.200002f, -0.960575f, -0.261156f, 0.000000f, -0.694700f, 0.173675f, 0.033405f, 0.052231f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.351854f, 0.000000f, 0.000000f, -0.088661f, 0.000000f);
+    private static final Pose hit4_08 = new Pose(-0.173916f, -0.962353f, -0.259377f, 0.000000f, -0.685214f, 0.171303f, 0.029255f, 0.051875f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.359562f, 0.000000f, 0.000000f, -0.092514f, 0.000000f);
+    private static final Pose hit4_09 = new Pose(-0.120643f, -0.965985f, -0.255745f, 0.000000f, -0.665842f, 0.166460f, 0.020780f, 0.051149f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.375301f, 0.000000f, 0.000000f, -0.100384f, 0.000000f);
+    private static final Pose hit4_10 = new Pose(-0.030474f, -0.972133f, -0.249597f, 0.000000f, -0.633053f, 0.158263f, 0.006435f, 0.049919f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.401942f, 0.000000f, 0.000000f, -0.113705f, 0.000000f);
+    private static final Pose hit4_11 = new Pose(0.106301f, -0.981459f, -0.240272f, 0.000000f, -0.583317f, 0.145829f, -0.015325f, 0.048054f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.442353f, 0.000000f, 0.000000f, -0.133910f, 0.000000f);
+    private static final Pose hit4_12 = new Pose(0.299391f, -0.994624f, -0.227106f, 0.000000f, -0.513102f, 0.128276f, -0.046044f, 0.045421f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.499402f, 0.000000f, 0.000000f, -0.162435f, 0.000000f);
+    private static final Pose hit4_13 = new Pose(0.558505f, -1.012291f, -0.209440f, 0.000000f, -0.418879f, 0.104720f, -0.087266f, 0.041888f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.575959f, 0.000000f, 0.000000f, -0.200713f, 0.000000f);
+    private static final Pose hit4_14 = new Pose(0.662411f, -1.048658f, -0.188658f, 0.000000f, -0.379914f, 0.081341f, -0.104930f, 0.033575f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.544787f, 0.000000f, 0.000000f, -0.172139f, 0.000000f);
+    private static final Pose hit4_15 = new Pose(0.743333f, -1.076981f, -0.172474f, 0.000000f, -0.349569f, 0.063134f, -0.118687f, 0.027102f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.520510f, 0.000000f, 0.000000f, -0.149885f, 0.000000f);
+    private static final Pose hit4_16 = new Pose(0.804144f, -1.098265f, -0.160312f, 0.000000f, -0.326764f, 0.049451f, -0.129025f, 0.022237f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.502267f, 0.000000f, 0.000000f, -0.133162f, 0.000000f);
+    private static final Pose hit4_17 = new Pose(0.847718f, -1.113515f, -0.151597f, 0.000000f, -0.310424f, 0.039647f, -0.136433f, 0.018751f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.489195f, 0.000000f, 0.000000f, -0.121179f, 0.000000f);
+    private static final Pose hit4_18 = new Pose(0.876926f, -1.123738f, -0.145755f, 0.000000f, -0.299471f, 0.033075f, -0.141398f, 0.016414f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.480432f, 0.000000f, 0.000000f, -0.113147f, 0.000000f);
+    private static final Pose hit4_19 = new Pose(0.894643f, -1.129939f, -0.142212f, 0.000000f, -0.292827f, 0.029089f, -0.144410f, 0.014997f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.475117f, 0.000000f, 0.000000f, -0.108275f, 0.000000f);
+    private static final Pose hit4_20 = new Pose(0.903741f, -1.133123f, -0.140392f, 0.000000f, -0.289416f, 0.027042f, -0.145956f, 0.014269f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.472388f, 0.000000f, 0.000000f, -0.105773f, 0.000000f);
+    private static final Pose hit4_21 = new Pose(0.907092f, -1.134296f, -0.139722f, 0.000000f, -0.288159f, 0.026288f, -0.146526f, 0.014001f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.471383f, 0.000000f, 0.000000f, -0.104851f, 0.000000f);
+    private static final Pose hit4_22 = new Pose(0.907571f, -1.134464f, -0.139626f, 0.000000f, -0.287979f, 0.026180f, -0.146608f, 0.013963f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.471239f, 0.000000f, 0.000000f, -0.104720f, 0.000000f);
+    private static final Pose hit4_23 = new Pose(0.954586f, -1.093327f, -0.139626f, 0.000000f, -0.279164f, 0.017365f, -0.153660f, 0.011024f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.418348f, 0.000000f, 0.000000f, -0.081213f, 0.000000f);
+    private static final Pose hit4_24 = new Pose(0.990547f, -1.061860f, -0.139626f, 0.000000f, -0.272421f, 0.010622f, -0.159054f, 0.008777f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.377891f, 0.000000f, 0.000000f, -0.063232f, 0.000000f);
+    private static final Pose hit4_25 = new Pose(1.016852f, -1.038843f, -0.139626f, 0.000000f, -0.267489f, 0.005690f, -0.163000f, 0.007133f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.348298f, 0.000000f, 0.000000f, -0.050079f, 0.000000f);
+    private static final Pose hit4_26 = new Pose(1.034897f, -1.023054f, -0.139626f, 0.000000f, -0.264106f, 0.002306f, -0.165707f, 0.006005f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.327997f, 0.000000f, 0.000000f, -0.041057f, 0.000000f);
+    private static final Pose hit4_27 = new Pose(1.046079f, -1.013270f, -0.139626f, 0.000000f, -0.262009f, 0.000210f, -0.167384f, 0.005306f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.315418f, 0.000000f, 0.000000f, -0.035466f, 0.000000f);
+    private static final Pose hit4_28 = new Pose(1.051794f, -1.008269f, -0.139626f, 0.000000f, -0.260937f, -0.000862f, -0.168241f, 0.004949f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.308988f, 0.000000f, 0.000000f, -0.032608f, 0.000000f);
+    private static final Pose hit4_29 = new Pose(1.053440f, -1.006829f, -0.139626f, 0.000000f, -0.260629f, -0.001170f, -0.168488f, 0.004846f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.307137f, 0.000000f, 0.000000f, -0.031786f, 0.000000f);
+    private static final Pose hit4_30 = new Pose(1.052411f, -1.007729f, -0.139626f, 0.000000f, -0.260822f, -0.000978f, -0.168334f, 0.004910f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.308294f, 0.000000f, 0.000000f, -0.032300f, 0.000000f);
+    private static final Pose hit4_31 = new Pose(1.050106f, -1.009746f, -0.139626f, 0.000000f, -0.261254f, -0.000545f, -0.167988f, 0.005054f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.310887f, 0.000000f, 0.000000f, -0.033452f, 0.000000f);
+    private static final Pose hit4_32 = new Pose(1.047921f, -1.011658f, -0.139626f, 0.000000f, -0.261664f, -0.000136f, -0.167660f, 0.005191f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.313345f, 0.000000f, 0.000000f, -0.034545f, 0.000000f);
+    private static final Pose hit4_33 = new Pose(1.046600f, -1.013188f, -0.139626f, 0.000000f, -0.261799f, 0.000000f, -0.167565f, 0.005226f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.314060f, 0.000000f, 0.000000f, -0.034840f, 0.000000f);
+    private static final Pose hit4_34 = new Pose(1.026153f, -1.043858f, -0.139626f, 0.000000f, -0.261799f, 0.000000f, -0.168019f, 0.004885f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.310652f, 0.000000f, 0.000000f, -0.032568f, 0.000000f);
+    private static final Pose hit4_35 = new Pose(0.980215f, -1.112765f, -0.139626f, 0.000000f, -0.261799f, 0.000000f, -0.169040f, 0.004120f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.302996f, 0.000000f, 0.000000f, -0.027464f, 0.000000f);
+    private static final Pose hit4_36 = new Pose(0.917395f, -1.206996f, -0.139626f, 0.000000f, -0.261799f, 0.000000f, -0.170436f, 0.003073f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.292525f, 0.000000f, 0.000000f, -0.020484f, 0.000000f);
+    private static final Pose hit4_37 = new Pose(0.849463f, -1.308893f, -0.139626f, 0.000000f, -0.261799f, 0.000000f, -0.171946f, 0.001940f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.281203f, 0.000000f, 0.000000f, -0.012936f, 0.000000f);
+    private static final Pose hit4_38 = new Pose(0.789149f, -1.399364f, -0.139626f, 0.000000f, -0.261799f, 0.000000f, -0.173286f, 0.000935f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.271151f, 0.000000f, 0.000000f, -0.006235f, 0.000000f);
+    private static final Pose hit4_39 = new Pose(0.747755f, -1.461454f, -0.139626f, 0.000000f, -0.261799f, 0.000000f, -0.174206f, 0.000245f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.264252f, 0.000000f, 0.000000f, -0.001635f, 0.000000f);
+    private static final Pose hit4_40 = new Pose(0.733038f, -1.483530f, -0.139626f, 0.000000f, -0.261799f, 0.000000f, -0.174533f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.261799f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
 
+    private static final Pose hit5_00 = new Pose(0.733038f, -1.483530f, -0.139626f, 0.000000f, -0.261799f, 0.000000f, -0.174533f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.261799f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
+    private static final Pose hit5_01 = new Pose(0.959931f, -1.919862f, -0.104720f, 0.000000f, -0.698132f, -0.209440f, -0.205949f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.034907f, 0.000000f, 0.000000f, 0.139626f, 0.000000f);
+    private static final Pose hit5_02 = new Pose(0.959931f, -2.188772f, -0.073692f, 0.000000f, -0.936014f, -0.250810f, -0.212154f, 0.015514f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.099548f, 0.000000f, 0.000000f, 0.186168f, 0.000000f);
+    private static final Pose hit5_03 = new Pose(0.952568f, -2.805071f, 0.002727f, 0.000000f, -1.493620f, -0.344157f, -0.224493f, 0.053287f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.410425f, 0.000000f, 0.000000f, 0.294524f, 0.000000f);
+    private static final Pose hit5_04 = new Pose(0.761127f, -2.223659f, 0.073631f, 0.000000f, -1.302179f, -0.216530f, -0.162097f, 0.077394f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.190623f, 0.000000f, 0.000000f, 0.237801f, 0.000000f);
+    private static final Pose hit5_05 = new Pose(0.687223f, -1.999210f, 0.101003f, 0.000000f, -1.228275f, -0.167261f, -0.138010f, 0.086701f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.105770f, 0.000000f, 0.000000f, 0.215904f, 0.000000f);
+    private static final Pose hit5_06 = new Pose(0.596957f, -1.725068f, 0.134435f, 0.000000f, -1.138009f, -0.107083f, -0.108590f, 0.098068f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.002131f, 0.000000f, 0.000000f, 0.189158f, 0.000000f);
+    private static final Pose hit5_07 = new Pose(0.488692f, -1.396263f, 0.174533f, 0.000000f, -1.029744f, -0.034907f, -0.073304f, 0.111701f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.122173f, 0.000000f, 0.000000f, 0.157080f, 0.000000f);
+    private static final Pose hit5_08 = new Pose(0.487736f, -1.395454f, 0.174717f, 0.000000f, -1.028972f, -0.034465f, -0.073094f, 0.111742f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.122872f, 0.000000f, 0.000000f, 0.156454f, 0.000000f);
+    private static final Pose hit5_09 = new Pose(0.481042f, -1.389790f, 0.176004f, 0.000000f, -1.023565f, -0.031376f, -0.071627f, 0.112025f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.127763f, 0.000000f, 0.000000f, 0.152078f, 0.000000f);
+    private static final Pose hit5_10 = new Pose(0.462874f, -1.374417f, 0.179498f, 0.000000f, -1.008891f, -0.022990f, -0.067644f, 0.112793f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.141040f, 0.000000f, 0.000000f, 0.140198f, 0.000000f);
+    private static final Pose hit5_11 = new Pose(0.427493f, -1.344479f, 0.186302f, 0.000000f, -0.980314f, -0.006661f, -0.059887f, 0.114290f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.166896f, 0.000000f, 0.000000f, 0.117065f, 0.000000f);
+    private static final Pose hit5_12 = new Pose(0.369162f, -1.295123f, 0.197519f, 0.000000f, -0.933201f, 0.020261f, -0.047099f, 0.116758f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.209522f, 0.000000f, 0.000000f, 0.078925f, 0.000000f);
+    private static final Pose hit5_13 = new Pose(0.282144f, -1.221492f, 0.214254f, 0.000000f, -0.862917f, 0.060423f, -0.028022f, 0.120440f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.273112f, 0.000000f, 0.000000f, 0.022029f, 0.000000f);
+    private static final Pose hit5_14 = new Pose(0.160702f, -1.118733f, 0.237608f, 0.000000f, -0.764829f, 0.116474f, -0.001398f, 0.125578f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.361858f, 0.000000f, 0.000000f, -0.057376f, 0.000000f);
+    private static final Pose hit5_15 = new Pose(-0.018651f, -1.002553f, 0.254496f, 0.000000f, -0.643750f, 0.169664f, 0.034092f, 0.127248f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.470827f, 0.000000f, 0.000000f, -0.145712f, 0.000000f);
+    private static final Pose hit5_16 = new Pose(-0.249435f, -0.960593f, 0.223026f, 0.000000f, -0.559828f, 0.148684f, 0.068185f, 0.111513f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.544258f, 0.000000f, 0.000000f, -0.171938f, 0.000000f);
+    private static final Pose hit5_17 = new Pose(-0.424245f, -0.928809f, 0.199188f, 0.000000f, -0.496261f, 0.132792f, 0.094009f, 0.099594f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.599879f, 0.000000f, 0.000000f, -0.191803f, 0.000000f);
+    private static final Pose hit5_18 = new Pose(-0.550858f, -0.905788f, 0.181922f, 0.000000f, -0.450220f, 0.121282f, 0.112713f, 0.090961f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.640165f, 0.000000f, 0.000000f, -0.206190f, 0.000000f);
+    private static final Pose hit5_19 = new Pose(-0.637045f, -0.890118f, 0.170170f, 0.000000f, -0.418879f, 0.113446f, 0.125446f, 0.085085f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.667588f, 0.000000f, 0.000000f, -0.215984f, 0.000000f);
+    private static final Pose hit5_20 = new Pose(-0.690582f, -0.880384f, 0.162869f, 0.000000f, -0.399411f, 0.108579f, 0.133354f, 0.081435f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.684623f, 0.000000f, 0.000000f, -0.222068f, 0.000000f);
+    private static final Pose hit5_21 = new Pose(-0.719242f, -0.875173f, 0.158961f, 0.000000f, -0.388989f, 0.105974f, 0.137588f, 0.079480f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.693742f, 0.000000f, 0.000000f, -0.225325f, 0.000000f);
+    private static final Pose hit5_22 = new Pose(-0.730799f, -0.873072f, 0.157385f, 0.000000f, -0.384787f, 0.104923f, 0.139296f, 0.078692f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.697419f, 0.000000f, 0.000000f, -0.226638f, 0.000000f);
+    private static final Pose hit5_23 = new Pose(-0.733028f, -0.872667f, 0.157081f, 0.000000f, -0.383976f, 0.104721f, 0.139625f, 0.078541f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.698128f, 0.000000f, 0.000000f, -0.226892f, 0.000000f);
+    private static final Pose hit5_24 = new Pose(-0.882955f, -0.776290f, 0.114246f, 0.000000f, -0.346493f, 0.075272f, 0.150335f, 0.073721f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.655298f, 0.000000f, 0.000000f, -0.194768f, 0.000000f);
+    private static final Pose hit5_25 = new Pose(-1.026146f, -0.684238f, 0.073335f, 0.000000f, -0.310695f, 0.047145f, 0.160563f, 0.069118f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.614387f, 0.000000f, 0.000000f, -0.164084f, 0.000000f);
+    private static final Pose hit5_26 = new Pose(-1.126718f, -0.619585f, 0.044600f, 0.000000f, -0.285553f, 0.027390f, 0.167746f, 0.065886f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.585652f, 0.000000f, 0.000000f, -0.142533f, 0.000000f);
+    private static final Pose hit5_27 = new Pose(-1.191629f, -0.577857f, 0.026054f, 0.000000f, -0.269325f, 0.014640f, 0.172383f, 0.063799f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.567106f, 0.000000f, 0.000000f, -0.128623f, 0.000000f);
+    private static final Pose hit5_28 = new Pose(-1.227839f, -0.554578f, 0.015708f, 0.000000f, -0.260272f, 0.007527f, 0.174969f, 0.062636f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.556760f, 0.000000f, 0.000000f, -0.120864f, 0.000000f);
+    private static final Pose hit5_29 = new Pose(-1.242309f, -0.545276f, 0.011574f, 0.000000f, -0.256655f, 0.004684f, 0.176003f, 0.062170f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.552626f, 0.000000f, 0.000000f, -0.117763f, 0.000000f);
+    private static final Pose hit5_30 = new Pose(-1.241997f, -0.545477f, 0.011663f, 0.000000f, -0.256733f, 0.004746f, 0.175981f, 0.062180f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.552715f, 0.000000f, 0.000000f, -0.117830f, 0.000000f);
+    private static final Pose hit5_31 = new Pose(-1.233864f, -0.550705f, 0.013986f, 0.000000f, -0.258766f, 0.006343f, 0.175400f, 0.062442f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.555039f, 0.000000f, 0.000000f, -0.119573f, 0.000000f);
+    private static final Pose hit5_32 = new Pose(-1.224870f, -0.556487f, 0.016556f, 0.000000f, -0.261015f, 0.008110f, 0.174757f, 0.062731f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.557608f, 0.000000f, 0.000000f, -0.121500f, 0.000000f);
+    private static final Pose hit5_33 = new Pose(-1.221730f, -0.558505f, 0.017420f, 0.000000f, -0.261799f, 0.008710f, 0.174533f, 0.062779f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.558439f, 0.000000f, 0.000000f, -0.122140f, 0.000000f);
+    private static final Pose hit5_34 = new Pose(-1.221730f, -0.558505f, 0.016284f, 0.000000f, -0.261799f, 0.008142f, 0.174533f, 0.060961f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.556167f, 0.000000f, 0.000000f, -0.121004f, 0.000000f);
+    private static final Pose hit5_35 = new Pose(-1.221730f, -0.558505f, 0.013732f, 0.000000f, -0.261799f, 0.006866f, 0.174533f, 0.056878f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.551063f, 0.000000f, 0.000000f, -0.118452f, 0.000000f);
+    private static final Pose hit5_36 = new Pose(-1.221730f, -0.558505f, 0.010242f, 0.000000f, -0.261799f, 0.005121f, 0.174533f, 0.051294f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.544083f, 0.000000f, 0.000000f, -0.114962f, 0.000000f);
+    private static final Pose hit5_37 = new Pose(-1.221730f, -0.558505f, 0.006468f, 0.000000f, -0.261799f, 0.003234f, 0.174533f, 0.045255f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.536535f, 0.000000f, 0.000000f, -0.111188f, 0.000000f);
+    private static final Pose hit5_38 = new Pose(-1.221730f, -0.558505f, 0.003117f, 0.000000f, -0.261799f, 0.001559f, 0.174533f, 0.039894f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.529833f, 0.000000f, 0.000000f, -0.107837f, 0.000000f);
+    private static final Pose hit5_39 = new Pose(-1.221730f, -0.558505f, 0.000818f, 0.000000f, -0.261799f, 0.000409f, 0.174533f, 0.036215f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.525234f, 0.000000f, 0.000000f, -0.105537f, 0.000000f);
+    private static final Pose hit5_40 = new Pose(-1.221730f, -0.558505f, 0.000000f, 0.000000f, -0.261799f, 0.000000f, 0.174533f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.523599f, 0.000000f, 0.000000f, -0.104720f, 0.000000f);
 
-    // ═══════════════════════════════════════════════════════════════
-    // Mixamo 'Great Sword' motion-capture (arm follows body rotation)
-    // ═══════════════════════════════════════════════════════════════
-
-
-    // ═══════════════════════════════════════════════════════════════
-    // Mixamo motion-capture + combat ready stance
-    // ═══════════════════════════════════════════════════════════════
-
-
-    // ═══════════════════════════════════════════════════════════════
-    // Mixamo Sword & Shield — Spine2→Arm mapping
-    // ═══════════════════════════════════════════════════════════════
-
-    private static final Pose hit1_00 = new Pose(-0.349066f, -0.523599f, -0.087266f, 0.000000f, -0.436332f, 0.087266f, 0.087266f, 0.017453f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_01 = new Pose(-0.733247f, -0.374008f, -0.150082f, 0.000000f, -0.436332f, 0.087266f, 0.084890f, 0.025850f, -0.003770f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_02 = new Pose(-0.809446f, -0.328416f, -0.282764f, 0.000000f, -0.436332f, 0.087266f, 0.077765f, 0.036422f, -0.012754f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_03 = new Pose(-0.614382f, -0.421601f, -0.186172f, 0.000000f, -0.436332f, 0.087266f, 0.075364f, 0.027000f, -0.015829f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_04 = new Pose(-0.415404f, -0.494454f, 0.003903f, 0.000000f, -0.436332f, 0.087266f, 0.093588f, -0.025544f, -0.022571f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_05 = new Pose(-0.543455f, -0.435964f, 0.019537f, 0.000000f, -0.436332f, 0.087266f, 0.118120f, -0.067706f, -0.040259f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_06 = new Pose(-0.603467f, -0.425280f, 0.013568f, 0.000000f, -0.436332f, 0.087266f, 0.088527f, -0.080877f, -0.032865f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_07 = new Pose(-0.678765f, -0.395669f, -0.025032f, 0.000000f, -0.436332f, 0.087266f, 0.078852f, -0.064592f, -0.034584f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_08 = new Pose(-0.431583f, -0.506152f, -0.072406f, 0.000000f, -0.436332f, 0.087266f, 0.085631f, -0.011113f, -0.035164f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_09 = new Pose(-0.417054f, -0.569418f, -0.092105f, 0.000000f, -0.436332f, 0.087266f, 0.092042f, 0.015159f, -0.029497f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_10 = new Pose(-0.413815f, -0.677862f, -0.072365f, 0.000000f, -0.436332f, 0.087266f, 0.091261f, 0.018270f, -0.015380f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit1_11 = new Pose(-0.349066f, -0.523599f, -0.087266f, 0.000000f, -0.436332f, 0.087266f, 0.087266f, 0.017453f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-
-    private static final Pose hit2_00 = new Pose(-0.349066f, -0.523599f, -0.087266f, 0.349066f, -0.436332f, 0.087266f, 0.087266f, 0.017453f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_01 = new Pose(-0.227153f, -0.557436f, 0.037915f, 0.348412f, -0.431500f, 0.086776f, 0.091421f, 0.000630f, -0.009111f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_02 = new Pose(-0.233097f, -0.561840f, 0.102258f, 0.347188f, -0.433549f, 0.086112f, 0.087718f, -0.010883f, -0.003015f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_03 = new Pose(-0.205692f, -0.565471f, 0.072650f, 0.347029f, -0.434638f, 0.086038f, 0.077152f, -0.011925f, 0.019228f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_04 = new Pose(-0.205189f, -0.574000f, -0.013146f, 0.347506f, -0.434485f, 0.086332f, 0.076336f, -0.010977f, 0.018481f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_05 = new Pose(-0.254743f, -0.538777f, -0.057625f, 0.348747f, -0.434331f, 0.087055f, 0.074921f, -0.006973f, 0.013037f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_06 = new Pose(-0.283197f, -0.509477f, -0.069357f, 0.349451f, -0.434668f, 0.087463f, 0.074421f, -0.002701f, 0.011966f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_07 = new Pose(-0.300736f, -0.499869f, -0.077308f, 0.349610f, -0.434822f, 0.087560f, 0.076423f, 0.000503f, 0.010323f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_08 = new Pose(-0.314812f, -0.497724f, -0.084366f, 0.349608f, -0.434797f, 0.087567f, 0.079168f, 0.003401f, 0.008374f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_09 = new Pose(-0.328034f, -0.496796f, -0.090820f, 0.349581f, -0.434830f, 0.087559f, 0.081813f, 0.006368f, 0.006433f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_10 = new Pose(-0.335128f, -0.505525f, -0.089745f, 0.349325f, -0.435405f, 0.087415f, 0.083795f, 0.009907f, 0.004190f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit2_11 = new Pose(-0.342132f, -0.514191f, -0.089052f, 0.349069f, -0.435979f, 0.087270f, 0.085789f, 0.013441f, 0.002010f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-
-    private static final Pose hit3_00 = new Pose(-0.349066f, -0.523599f, -0.087266f, 0.000000f, -0.436332f, 0.087266f, 0.087266f, 0.017453f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_01 = new Pose(-0.457749f, -0.529143f, -0.191697f, 0.000000f, -0.436332f, 0.087266f, 0.083604f, 0.020304f, 0.001497f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_02 = new Pose(-0.520111f, -0.388813f, -0.275576f, 0.000000f, -0.436332f, 0.087266f, 0.090762f, -0.003742f, 0.003214f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_03 = new Pose(-0.680291f, -0.393116f, -0.228147f, 0.000000f, -0.436332f, 0.087266f, 0.067402f, -0.032032f, -0.001693f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_04 = new Pose(-0.558136f, -0.373381f, -0.108042f, 0.000000f, -0.436332f, 0.087266f, -0.043391f, -0.099248f, 0.035866f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_05 = new Pose(-0.377354f, -0.416382f, -0.013116f, 0.000000f, -0.436332f, 0.087266f, 0.011711f, -0.108711f, 0.048025f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_06 = new Pose(-0.903533f, -0.373039f, -0.022300f, 0.000000f, -0.436332f, 0.087266f, 0.107629f, -0.059968f, -0.001547f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_07 = new Pose(-0.838793f, -0.347692f, -0.154483f, 0.000000f, -0.436332f, 0.087266f, 0.099478f, -0.017211f, -0.013324f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_08 = new Pose(-0.564813f, -0.466658f, -0.204009f, 0.000000f, -0.436332f, 0.087266f, 0.089075f, 0.012211f, -0.004402f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_09 = new Pose(-0.529305f, -0.503976f, -0.184436f, 0.000000f, -0.436332f, 0.087266f, 0.083726f, 0.021575f, 0.000563f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_10 = new Pose(-0.461856f, -0.512739f, -0.126300f, 0.000000f, -0.436332f, 0.087266f, 0.086059f, 0.022453f, 0.002305f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit3_11 = new Pose(-0.357738f, -0.522109f, -0.089078f, 0.000000f, -0.436332f, 0.087266f, 0.087072f, 0.021066f, 0.001975f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-
-    private static final Pose hit4_00 = new Pose(-0.349066f, -0.523599f, -0.087266f, 0.349066f, -0.436332f, 0.087266f, 0.087266f, 0.017453f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_01 = new Pose(-0.477107f, -0.530089f, -0.054034f, 0.349066f, -0.436332f, 0.087267f, 0.060598f, -0.005872f, 0.004424f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_02 = new Pose(-0.647302f, -0.528122f, 0.018094f, 0.349066f, -0.436332f, 0.087267f, 0.040268f, 0.007191f, -0.006727f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_03 = new Pose(-0.877114f, -0.391672f, -0.072789f, 0.349066f, -0.436332f, 0.087267f, 0.151183f, -0.084910f, -0.057436f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_04 = new Pose(-0.967469f, -0.351724f, -0.074794f, 0.349066f, -0.436332f, 0.087267f, 0.052224f, -0.072906f, 0.006791f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_05 = new Pose(-1.043883f, -0.371204f, -0.012005f, 0.349066f, -0.436332f, 0.087267f, 0.058552f, -0.038960f, -0.000621f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_06 = new Pose(-1.100432f, -0.350661f, 0.037557f, 0.349066f, -0.436332f, 0.087267f, 0.071738f, -0.048432f, -0.026396f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_07 = new Pose(-0.741152f, -0.517147f, -0.024312f, 0.349066f, -0.436332f, 0.087267f, 0.051848f, -0.045429f, 0.015682f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_08 = new Pose(-0.427756f, -0.534147f, -0.118673f, 0.349066f, -0.436332f, 0.087267f, 0.082313f, -0.051375f, -0.021478f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_09 = new Pose(-0.506231f, -0.554162f, -0.084376f, 0.349066f, -0.436332f, 0.087267f, 0.052099f, -0.023129f, 0.007376f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_10 = new Pose(-0.357822f, -0.566527f, -0.011006f, 0.349066f, -0.436332f, 0.087267f, 0.061677f, 0.034218f, -0.016917f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit4_11 = new Pose(-0.351067f, -0.581015f, -0.074630f, 0.349100f, -0.436336f, 0.087278f, 0.078668f, 0.027436f, -0.007316f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-
-    private static final Pose hit5_00 = new Pose(-0.349066f, -0.523599f, -0.087266f, 0.000000f, -0.436332f, 0.087266f, 0.087266f, 0.017453f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_01 = new Pose(-0.972688f, -0.390610f, -0.026622f, 0.000000f, -0.436332f, 0.087266f, 0.067915f, 0.035264f, -0.015297f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_02 = new Pose(-0.602973f, -0.377259f, -0.143631f, 0.000000f, -0.436332f, 0.087266f, 0.077802f, -0.062482f, -0.011166f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_03 = new Pose(-0.418719f, -0.414611f, -0.049582f, 0.000000f, -0.436332f, 0.087266f, 0.204053f, -0.100791f, -0.100900f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_04 = new Pose(-0.875930f, -0.371335f, -0.029634f, 0.000000f, -0.436332f, 0.087266f, 0.079638f, -0.089737f, -0.017997f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_05 = new Pose(-0.922799f, -0.422419f, -0.229118f, 0.000000f, -0.436332f, 0.087266f, 0.068340f, -0.022219f, -0.028595f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_06 = new Pose(-0.824893f, -0.399669f, -0.142846f, 0.000000f, -0.436332f, 0.087266f, 0.074994f, -0.043052f, -0.008291f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_07 = new Pose(-0.823000f, -0.556156f, -0.006699f, 0.000000f, -0.436332f, 0.087266f, 0.073076f, -0.011456f, -0.008037f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_08 = new Pose(-0.274434f, -0.379546f, -0.155391f, 0.000000f, -0.436332f, 0.087266f, 0.051125f, -0.044940f, 0.014959f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_09 = new Pose(-0.347046f, -0.402336f, -0.017692f, 0.000000f, -0.436332f, 0.087266f, 0.056373f, -0.043256f, 0.003889f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_10 = new Pose(-0.349398f, -0.567259f, -0.034414f, 0.000000f, -0.436332f, 0.087266f, 0.058650f, 0.042891f, -0.020554f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose hit5_11 = new Pose(-0.345712f, -0.576151f, -0.071891f, 0.000000f, -0.436332f, 0.087266f, 0.079160f, 0.027147f, -0.007566f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-
-    private static final Pose charged_00 = new Pose(-0.349066f, -0.523599f, -0.087266f, 0.000000f, -0.436332f, 0.087266f, 0.087266f, 0.017453f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose charged_01 = new Pose(-0.139437f, -0.605898f, -0.078238f, 0.000000f, -0.436332f, 0.087266f, 0.095431f, 0.030124f, 0.025211f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose charged_02 = new Pose(-0.481035f, -0.601567f, -0.246028f, 0.000000f, -0.436332f, 0.087266f, 0.096269f, 0.025260f, 0.027067f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose charged_03 = new Pose(-0.514688f, -0.563720f, -0.209942f, 0.000000f, -0.436332f, 0.087266f, 0.085539f, 0.028240f, 0.086995f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose charged_04 = new Pose(-0.573679f, -0.565885f, -0.313496f, 0.000000f, -0.436332f, 0.087266f, 0.073969f, 0.018996f, 0.067974f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose charged_05 = new Pose(-0.441717f, -0.572591f, -0.080828f, 0.000000f, -0.436332f, 0.087266f, 0.081321f, 0.028599f, 0.047379f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose charged_06 = new Pose(-0.511364f, -0.444344f, 0.069887f, 0.000000f, -0.436332f, 0.087266f, 0.099031f, 0.026272f, 0.004494f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose charged_07 = new Pose(-0.748838f, -0.435108f, 0.150759f, 0.000000f, -0.436332f, 0.087266f, 0.101420f, -0.018085f, 0.006164f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose charged_08 = new Pose(-0.742373f, -0.442784f, 0.147688f, 0.000000f, -0.436332f, 0.087266f, 0.111242f, -0.017128f, 0.002219f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose charged_09 = new Pose(-0.392818f, -0.562365f, 0.054620f, 0.000000f, -0.436332f, 0.087266f, 0.097121f, 0.031749f, 0.000332f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose charged_10 = new Pose(-0.150941f, -0.590123f, -0.097475f, 0.000000f, -0.436332f, 0.087266f, 0.113418f, 0.061235f, 0.019868f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
-    private static final Pose charged_11 = new Pose(-0.099250f, -0.606042f, -0.251020f, 0.000000f, -0.436332f, 0.087266f, 0.122871f, 0.062021f, 0.040836f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
+    private static final Pose charged_00 = new Pose(0.000000f, -0.349066f, 0.000000f, 0.000000f, -0.174533f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f);
+    private static final Pose charged_01 = new Pose(-0.610865f, -1.803507f, -0.116355f, 0.000000f, -0.829031f, -0.145444f, -0.101811f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.174533f, 0.000000f, 0.000000f, 0.116355f, 0.000000f);
+    private static final Pose charged_02 = new Pose(-0.645125f, -2.327106f, -0.124112f, 0.000000f, -1.047844f, -0.195218f, -0.132516f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.240468f, 0.000000f, 0.000000f, 0.160312f, 0.000000f);
+    private static final Pose charged_03 = new Pose(-0.431730f, -2.783152f, -0.073461f, 0.000000f, -1.225344f, -0.220416f, -0.146955f, 0.003682f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, -0.279185f, 0.000000f, 0.000000f, 0.192873f, 0.000000f);
+    private static final Pose charged_04 = new Pose(-0.349066f, -1.047198f, 0.174533f, 0.000000f, -0.663225f, 0.209440f, 0.034907f, 0.069813f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.349066f, 0.000000f, 0.000000f, -0.104720f, 0.000000f);
+    private static final Pose charged_05 = new Pose(-0.347773f, -1.047245f, 0.174437f, 0.000000f, -0.662842f, 0.209248f, 0.035002f, 0.069789f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.349209f, 0.000000f, 0.000000f, -0.104768f, 0.000000f);
+    private static final Pose charged_06 = new Pose(-0.338723f, -1.047581f, 0.173767f, 0.000000f, -0.660161f, 0.207907f, 0.035673f, 0.069622f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.350215f, 0.000000f, 0.000000f, -0.105103f, 0.000000f);
+    private static final Pose charged_07 = new Pose(-0.314159f, -1.048490f, 0.171947f, 0.000000f, -0.652882f, 0.204268f, 0.037492f, 0.069167f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.352944f, 0.000000f, 0.000000f, -0.106013f, 0.000000f);
+    private static final Pose charged_08 = new Pose(-0.266324f, -1.050262f, 0.168404f, 0.000000f, -0.638709f, 0.197182f, 0.041036f, 0.068281f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.358259f, 0.000000f, 0.000000f, -0.107784f, 0.000000f);
+    private static final Pose charged_09 = new Pose(-0.187461f, -1.053183f, 0.162562f, 0.000000f, -0.615342f, 0.185498f, 0.046877f, 0.066820f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.367022f, 0.000000f, 0.000000f, -0.110705f, 0.000000f);
+    private static final Pose charged_10 = new Pose(-0.069813f, -1.057540f, 0.153848f, 0.000000f, -0.580484f, 0.168069f, 0.055592f, 0.064642f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.380094f, 0.000000f, 0.000000f, -0.115062f, 0.000000f);
+    private static final Pose charged_11 = new Pose(0.094377f, -1.063621f, 0.141685f, 0.000000f, -0.531835f, 0.143744f, 0.067754f, 0.061601f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.398337f, 0.000000f, 0.000000f, -0.121144f, 0.000000f);
+    private static final Pose charged_12 = new Pose(0.312866f, -1.071714f, 0.125501f, 0.000000f, -0.467097f, 0.111375f, 0.083939f, 0.057555f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.422614f, 0.000000f, 0.000000f, -0.129236f, 0.000000f);
+    private static final Pose charged_13 = new Pose(0.593412f, -1.082104f, 0.104720f, 0.000000f, -0.383972f, 0.069813f, 0.104720f, 0.052360f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.453786f, 0.000000f, 0.000000f, -0.139626f, 0.000000f);
+    private static final Pose charged_14 = new Pose(0.361087f, -0.998467f, 0.067548f, 0.000000f, -0.356093f, 0.055874f, 0.100073f, 0.047713f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.407321f, 0.000000f, 0.000000f, -0.121040f, 0.000000f);
+    private static final Pose charged_15 = new Pose(0.174155f, -0.931171f, 0.037639f, 0.000000f, -0.333662f, 0.044658f, 0.096335f, 0.043975f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.369934f, 0.000000f, 0.000000f, -0.106086f, 0.000000f);
+    private static final Pose charged_16 = new Pose(0.027681f, -0.878441f, 0.014203f, 0.000000f, -0.316085f, 0.035869f, 0.093405f, 0.041045f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.340639f, 0.000000f, 0.000000f, -0.094368f, 0.000000f);
+    private static final Pose charged_17 = new Pose(-0.083268f, -0.838499f, -0.003549f, 0.000000f, -0.302771f, 0.029212f, 0.091186f, 0.038826f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.318450f, 0.000000f, 0.000000f, -0.085492f, 0.000000f);
+    private static final Pose charged_18 = new Pose(-0.163626f, -0.809570f, -0.016406f, 0.000000f, -0.293128f, 0.024391f, 0.089579f, 0.037219f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.302378f, 0.000000f, 0.000000f, -0.079063f, 0.000000f);
+    private static final Pose charged_19 = new Pose(-0.218328f, -0.789878f, -0.025159f, 0.000000f, -0.286564f, 0.021109f, 0.088485f, 0.036125f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.291438f, 0.000000f, 0.000000f, -0.074687f, 0.000000f);
+    private static final Pose charged_20 = new Pose(-0.252307f, -0.777645f, -0.030595f, 0.000000f, -0.282486f, 0.019070f, 0.087805f, 0.035446f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.284642f, 0.000000f, 0.000000f, -0.071969f, 0.000000f);
+    private static final Pose charged_21 = new Pose(-0.270496f, -0.771097f, -0.033506f, 0.000000f, -0.280303f, 0.017979f, 0.087442f, 0.035082f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.281004f, 0.000000f, 0.000000f, -0.070514f, 0.000000f);
+    private static final Pose charged_22 = new Pose(-0.277832f, -0.768456f, -0.034679f, 0.000000f, -0.279423f, 0.017539f, 0.087295f, 0.034935f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.279537f, 0.000000f, 0.000000f, -0.069927f, 0.000000f);
+    private static final Pose charged_23 = new Pose(-0.279246f, -0.767947f, -0.034906f, 0.000000f, -0.279253f, 0.017454f, 0.087267f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.279254f, 0.000000f, 0.000000f, -0.069814f, 0.000000f);
+    private static final Pose charged_24 = new Pose(-0.279253f, -0.767945f, -0.028495f, 0.000000f, -0.279253f, 0.014248f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.272841f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_25 = new Pose(-0.279253f, -0.767945f, -0.021566f, 0.000000f, -0.279253f, 0.010783f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.265912f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_26 = new Pose(-0.279253f, -0.767945f, -0.015756f, 0.000000f, -0.279253f, 0.007878f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.260103f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_27 = new Pose(-0.279253f, -0.767945f, -0.010973f, 0.000000f, -0.279253f, 0.005487f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.255319f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_28 = new Pose(-0.279253f, -0.767945f, -0.007124f, 0.000000f, -0.279253f, 0.003562f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.251470f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_29 = new Pose(-0.279253f, -0.767945f, -0.004115f, 0.000000f, -0.279253f, 0.002058f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.248461f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_30 = new Pose(-0.279253f, -0.767945f, -0.001855f, 0.000000f, -0.279253f, 0.000928f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.246201f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_31 = new Pose(-0.279253f, -0.767945f, -0.000250f, 0.000000f, -0.279253f, 0.000125f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.244597f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_32 = new Pose(-0.279253f, -0.767945f, 0.000792f, 0.000000f, -0.279253f, -0.000396f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.243555f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_33 = new Pose(-0.279253f, -0.767945f, 0.001364f, 0.000000f, -0.279253f, -0.000682f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.242983f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_34 = new Pose(-0.279253f, -0.767945f, 0.001558f, 0.000000f, -0.279253f, -0.000779f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.242788f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_35 = new Pose(-0.279253f, -0.767945f, 0.001469f, 0.000000f, -0.279253f, -0.000734f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.242877f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_36 = new Pose(-0.279253f, -0.767945f, 0.001187f, 0.000000f, -0.279253f, -0.000594f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.243159f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_37 = new Pose(-0.279253f, -0.767945f, 0.000807f, 0.000000f, -0.279253f, -0.000403f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.243539f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_38 = new Pose(-0.279253f, -0.767945f, 0.000421f, 0.000000f, -0.279253f, -0.000210f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.243926f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_39 = new Pose(-0.279253f, -0.767945f, 0.000121f, 0.000000f, -0.279253f, -0.000060f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.244226f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
+    private static final Pose charged_40 = new Pose(-0.279253f, -0.767945f, 0.000000f, 0.000000f, -0.279253f, 0.000000f, 0.087266f, 0.034907f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.000000f, 0.244346f, 0.000000f, 0.000000f, -0.069813f, 0.000000f);
 
     private static final Clip[] CLIPS = {
         new Clip(new Keyframe[] { // hit1
-            new Keyframe(0.000f, 0, hit1_00),
-            new Keyframe(0.091f, 0, hit1_01),
-            new Keyframe(0.182f, 0, hit1_02),
-            new Keyframe(0.273f, 0, hit1_03),
-            new Keyframe(0.364f, 0, hit1_04),
-            new Keyframe(0.455f, 0, hit1_05),
-            new Keyframe(0.545f, 0, hit1_06),
-            new Keyframe(0.636f, 0, hit1_07),
-            new Keyframe(0.727f, 0, hit1_08),
-            new Keyframe(0.818f, 0, hit1_09),
-            new Keyframe(0.909f, 0, hit1_10),
-            new Keyframe(1.000f, 0, hit1_11),
+                new Keyframe(0.000f, 0, hit1_00),
+                new Keyframe(0.025f, 0, hit1_01),
+                new Keyframe(0.050f, 0, hit1_02),
+                new Keyframe(0.075f, 0, hit1_03),
+                new Keyframe(0.100f, 0, hit1_04),
+                new Keyframe(0.125f, 0, hit1_05),
+                new Keyframe(0.150f, 0, hit1_06),
+                new Keyframe(0.175f, 0, hit1_07),
+                new Keyframe(0.200f, 0, hit1_08),
+                new Keyframe(0.225f, 0, hit1_09),
+                new Keyframe(0.250f, 0, hit1_10),
+                new Keyframe(0.275f, 0, hit1_11),
+                new Keyframe(0.300f, 0, hit1_12),
+                new Keyframe(0.325f, 0, hit1_13),
+                new Keyframe(0.350f, 0, hit1_14),
+                new Keyframe(0.375f, 0, hit1_15),
+                new Keyframe(0.400f, 0, hit1_16),
+                new Keyframe(0.425f, 0, hit1_17),
+                new Keyframe(0.450f, 0, hit1_18),
+                new Keyframe(0.475f, 0, hit1_19),
+                new Keyframe(0.500f, 0, hit1_20),
+                new Keyframe(0.525f, 0, hit1_21),
+                new Keyframe(0.550f, 0, hit1_22),
+                new Keyframe(0.575f, 0, hit1_23),
+                new Keyframe(0.600f, 0, hit1_24),
+                new Keyframe(0.625f, 0, hit1_25),
+                new Keyframe(0.650f, 0, hit1_26),
+                new Keyframe(0.675f, 0, hit1_27),
+                new Keyframe(0.700f, 0, hit1_28),
+                new Keyframe(0.725f, 0, hit1_29),
+                new Keyframe(0.750f, 0, hit1_30),
+                new Keyframe(0.775f, 0, hit1_31),
+                new Keyframe(0.800f, 0, hit1_32),
+                new Keyframe(0.825f, 0, hit1_33),
+                new Keyframe(0.850f, 0, hit1_34),
+                new Keyframe(0.875f, 0, hit1_35),
+                new Keyframe(0.900f, 0, hit1_36),
+                new Keyframe(0.925f, 0, hit1_37),
+                new Keyframe(0.950f, 0, hit1_38),
+                new Keyframe(0.975f, 0, hit1_39),
+                new Keyframe(1.000f, 0, hit1_40),
         }),
         new Clip(new Keyframe[] { // hit2
-            new Keyframe(0.000f, 0, hit2_00),
-            new Keyframe(0.091f, 0, hit2_01),
-            new Keyframe(0.182f, 0, hit2_02),
-            new Keyframe(0.273f, 0, hit2_03),
-            new Keyframe(0.364f, 0, hit2_04),
-            new Keyframe(0.455f, 0, hit2_05),
-            new Keyframe(0.545f, 0, hit2_06),
-            new Keyframe(0.636f, 0, hit2_07),
-            new Keyframe(0.727f, 0, hit2_08),
-            new Keyframe(0.818f, 0, hit2_09),
-            new Keyframe(0.909f, 0, hit2_10),
-            new Keyframe(1.000f, 0, hit2_11),
+                new Keyframe(0.000f, 0, hit2_00),
+                new Keyframe(0.025f, 0, hit2_01),
+                new Keyframe(0.050f, 0, hit2_02),
+                new Keyframe(0.075f, 0, hit2_03),
+                new Keyframe(0.100f, 0, hit2_04),
+                new Keyframe(0.125f, 0, hit2_05),
+                new Keyframe(0.150f, 0, hit2_06),
+                new Keyframe(0.175f, 0, hit2_07),
+                new Keyframe(0.200f, 0, hit2_08),
+                new Keyframe(0.225f, 0, hit2_09),
+                new Keyframe(0.250f, 0, hit2_10),
+                new Keyframe(0.275f, 0, hit2_11),
+                new Keyframe(0.300f, 0, hit2_12),
+                new Keyframe(0.325f, 0, hit2_13),
+                new Keyframe(0.350f, 0, hit2_14),
+                new Keyframe(0.375f, 0, hit2_15),
+                new Keyframe(0.400f, 0, hit2_16),
+                new Keyframe(0.425f, 0, hit2_17),
+                new Keyframe(0.450f, 0, hit2_18),
+                new Keyframe(0.475f, 0, hit2_19),
+                new Keyframe(0.500f, 0, hit2_20),
+                new Keyframe(0.525f, 0, hit2_21),
+                new Keyframe(0.550f, 0, hit2_22),
+                new Keyframe(0.575f, 0, hit2_23),
+                new Keyframe(0.600f, 0, hit2_24),
+                new Keyframe(0.625f, 0, hit2_25),
+                new Keyframe(0.650f, 0, hit2_26),
+                new Keyframe(0.675f, 0, hit2_27),
+                new Keyframe(0.700f, 0, hit2_28),
+                new Keyframe(0.725f, 0, hit2_29),
+                new Keyframe(0.750f, 0, hit2_30),
+                new Keyframe(0.775f, 0, hit2_31),
+                new Keyframe(0.800f, 0, hit2_32),
+                new Keyframe(0.825f, 0, hit2_33),
+                new Keyframe(0.850f, 0, hit2_34),
+                new Keyframe(0.875f, 0, hit2_35),
+                new Keyframe(0.900f, 0, hit2_36),
+                new Keyframe(0.925f, 0, hit2_37),
+                new Keyframe(0.950f, 0, hit2_38),
+                new Keyframe(0.975f, 0, hit2_39),
+                new Keyframe(1.000f, 0, hit2_40),
         }),
         new Clip(new Keyframe[] { // hit3
-            new Keyframe(0.000f, 0, hit3_00),
-            new Keyframe(0.091f, 0, hit3_01),
-            new Keyframe(0.182f, 0, hit3_02),
-            new Keyframe(0.273f, 0, hit3_03),
-            new Keyframe(0.364f, 0, hit3_04),
-            new Keyframe(0.455f, 0, hit3_05),
-            new Keyframe(0.545f, 0, hit3_06),
-            new Keyframe(0.636f, 0, hit3_07),
-            new Keyframe(0.727f, 0, hit3_08),
-            new Keyframe(0.818f, 0, hit3_09),
-            new Keyframe(0.909f, 0, hit3_10),
-            new Keyframe(1.000f, 0, hit3_11),
+                new Keyframe(0.000f, 0, hit3_00),
+                new Keyframe(0.025f, 0, hit3_01),
+                new Keyframe(0.050f, 0, hit3_02),
+                new Keyframe(0.075f, 0, hit3_03),
+                new Keyframe(0.100f, 0, hit3_04),
+                new Keyframe(0.125f, 0, hit3_05),
+                new Keyframe(0.150f, 0, hit3_06),
+                new Keyframe(0.175f, 0, hit3_07),
+                new Keyframe(0.200f, 0, hit3_08),
+                new Keyframe(0.225f, 0, hit3_09),
+                new Keyframe(0.250f, 0, hit3_10),
+                new Keyframe(0.275f, 0, hit3_11),
+                new Keyframe(0.300f, 0, hit3_12),
+                new Keyframe(0.325f, 0, hit3_13),
+                new Keyframe(0.350f, 0, hit3_14),
+                new Keyframe(0.375f, 0, hit3_15),
+                new Keyframe(0.400f, 0, hit3_16),
+                new Keyframe(0.425f, 0, hit3_17),
+                new Keyframe(0.450f, 0, hit3_18),
+                new Keyframe(0.475f, 0, hit3_19),
+                new Keyframe(0.500f, 0, hit3_20),
+                new Keyframe(0.525f, 0, hit3_21),
+                new Keyframe(0.550f, 0, hit3_22),
+                new Keyframe(0.575f, 0, hit3_23),
+                new Keyframe(0.600f, 0, hit3_24),
+                new Keyframe(0.625f, 0, hit3_25),
+                new Keyframe(0.650f, 0, hit3_26),
+                new Keyframe(0.675f, 0, hit3_27),
+                new Keyframe(0.700f, 0, hit3_28),
+                new Keyframe(0.725f, 0, hit3_29),
+                new Keyframe(0.750f, 0, hit3_30),
+                new Keyframe(0.775f, 0, hit3_31),
+                new Keyframe(0.800f, 0, hit3_32),
+                new Keyframe(0.825f, 0, hit3_33),
+                new Keyframe(0.850f, 0, hit3_34),
+                new Keyframe(0.875f, 0, hit3_35),
+                new Keyframe(0.900f, 0, hit3_36),
+                new Keyframe(0.925f, 0, hit3_37),
+                new Keyframe(0.950f, 0, hit3_38),
+                new Keyframe(0.975f, 0, hit3_39),
+                new Keyframe(1.000f, 0, hit3_40),
         }),
         new Clip(new Keyframe[] { // hit4
-            new Keyframe(0.000f, 0, hit4_00),
-            new Keyframe(0.091f, 0, hit4_01),
-            new Keyframe(0.182f, 0, hit4_02),
-            new Keyframe(0.273f, 0, hit4_03),
-            new Keyframe(0.364f, 0, hit4_04),
-            new Keyframe(0.455f, 0, hit4_05),
-            new Keyframe(0.545f, 0, hit4_06),
-            new Keyframe(0.636f, 0, hit4_07),
-            new Keyframe(0.727f, 0, hit4_08),
-            new Keyframe(0.818f, 0, hit4_09),
-            new Keyframe(0.909f, 0, hit4_10),
-            new Keyframe(1.000f, 0, hit4_11),
+                new Keyframe(0.000f, 0, hit4_00),
+                new Keyframe(0.025f, 0, hit4_01),
+                new Keyframe(0.050f, 0, hit4_02),
+                new Keyframe(0.075f, 0, hit4_03),
+                new Keyframe(0.100f, 0, hit4_04),
+                new Keyframe(0.125f, 0, hit4_05),
+                new Keyframe(0.150f, 0, hit4_06),
+                new Keyframe(0.175f, 0, hit4_07),
+                new Keyframe(0.200f, 0, hit4_08),
+                new Keyframe(0.225f, 0, hit4_09),
+                new Keyframe(0.250f, 0, hit4_10),
+                new Keyframe(0.275f, 0, hit4_11),
+                new Keyframe(0.300f, 0, hit4_12),
+                new Keyframe(0.325f, 0, hit4_13),
+                new Keyframe(0.350f, 0, hit4_14),
+                new Keyframe(0.375f, 0, hit4_15),
+                new Keyframe(0.400f, 0, hit4_16),
+                new Keyframe(0.425f, 0, hit4_17),
+                new Keyframe(0.450f, 0, hit4_18),
+                new Keyframe(0.475f, 0, hit4_19),
+                new Keyframe(0.500f, 0, hit4_20),
+                new Keyframe(0.525f, 0, hit4_21),
+                new Keyframe(0.550f, 0, hit4_22),
+                new Keyframe(0.575f, 0, hit4_23),
+                new Keyframe(0.600f, 0, hit4_24),
+                new Keyframe(0.625f, 0, hit4_25),
+                new Keyframe(0.650f, 0, hit4_26),
+                new Keyframe(0.675f, 0, hit4_27),
+                new Keyframe(0.700f, 0, hit4_28),
+                new Keyframe(0.725f, 0, hit4_29),
+                new Keyframe(0.750f, 0, hit4_30),
+                new Keyframe(0.775f, 0, hit4_31),
+                new Keyframe(0.800f, 0, hit4_32),
+                new Keyframe(0.825f, 0, hit4_33),
+                new Keyframe(0.850f, 0, hit4_34),
+                new Keyframe(0.875f, 0, hit4_35),
+                new Keyframe(0.900f, 0, hit4_36),
+                new Keyframe(0.925f, 0, hit4_37),
+                new Keyframe(0.950f, 0, hit4_38),
+                new Keyframe(0.975f, 0, hit4_39),
+                new Keyframe(1.000f, 0, hit4_40),
         }),
         new Clip(new Keyframe[] { // hit5
-            new Keyframe(0.000f, 0, hit5_00),
-            new Keyframe(0.091f, 0, hit5_01),
-            new Keyframe(0.182f, 0, hit5_02),
-            new Keyframe(0.273f, 0, hit5_03),
-            new Keyframe(0.364f, 0, hit5_04),
-            new Keyframe(0.455f, 0, hit5_05),
-            new Keyframe(0.545f, 0, hit5_06),
-            new Keyframe(0.636f, 0, hit5_07),
-            new Keyframe(0.727f, 0, hit5_08),
-            new Keyframe(0.818f, 0, hit5_09),
-            new Keyframe(0.909f, 0, hit5_10),
-            new Keyframe(1.000f, 0, hit5_11),
+                new Keyframe(0.000f, 0, hit5_00),
+                new Keyframe(0.025f, 0, hit5_01),
+                new Keyframe(0.050f, 0, hit5_02),
+                new Keyframe(0.075f, 0, hit5_03),
+                new Keyframe(0.100f, 0, hit5_04),
+                new Keyframe(0.125f, 0, hit5_05),
+                new Keyframe(0.150f, 0, hit5_06),
+                new Keyframe(0.175f, 0, hit5_07),
+                new Keyframe(0.200f, 0, hit5_08),
+                new Keyframe(0.225f, 0, hit5_09),
+                new Keyframe(0.250f, 0, hit5_10),
+                new Keyframe(0.275f, 0, hit5_11),
+                new Keyframe(0.300f, 0, hit5_12),
+                new Keyframe(0.325f, 0, hit5_13),
+                new Keyframe(0.350f, 0, hit5_14),
+                new Keyframe(0.375f, 0, hit5_15),
+                new Keyframe(0.400f, 0, hit5_16),
+                new Keyframe(0.425f, 0, hit5_17),
+                new Keyframe(0.450f, 0, hit5_18),
+                new Keyframe(0.475f, 0, hit5_19),
+                new Keyframe(0.500f, 0, hit5_20),
+                new Keyframe(0.525f, 0, hit5_21),
+                new Keyframe(0.550f, 0, hit5_22),
+                new Keyframe(0.575f, 0, hit5_23),
+                new Keyframe(0.600f, 0, hit5_24),
+                new Keyframe(0.625f, 0, hit5_25),
+                new Keyframe(0.650f, 0, hit5_26),
+                new Keyframe(0.675f, 0, hit5_27),
+                new Keyframe(0.700f, 0, hit5_28),
+                new Keyframe(0.725f, 0, hit5_29),
+                new Keyframe(0.750f, 0, hit5_30),
+                new Keyframe(0.775f, 0, hit5_31),
+                new Keyframe(0.800f, 0, hit5_32),
+                new Keyframe(0.825f, 0, hit5_33),
+                new Keyframe(0.850f, 0, hit5_34),
+                new Keyframe(0.875f, 0, hit5_35),
+                new Keyframe(0.900f, 0, hit5_36),
+                new Keyframe(0.925f, 0, hit5_37),
+                new Keyframe(0.950f, 0, hit5_38),
+                new Keyframe(0.975f, 0, hit5_39),
+                new Keyframe(1.000f, 0, hit5_40),
         }),
         new Clip(new Keyframe[] { // charged
-            new Keyframe(0.000f, 0, charged_00),
-            new Keyframe(0.091f, 0, charged_01),
-            new Keyframe(0.182f, 0, charged_02),
-            new Keyframe(0.273f, 0, charged_03),
-            new Keyframe(0.364f, 0, charged_04),
-            new Keyframe(0.455f, 0, charged_05),
-            new Keyframe(0.545f, 0, charged_06),
-            new Keyframe(0.636f, 0, charged_07),
-            new Keyframe(0.727f, 0, charged_08),
-            new Keyframe(0.818f, 0, charged_09),
-            new Keyframe(0.909f, 0, charged_10),
-            new Keyframe(1.000f, 0, charged_11),
+                new Keyframe(0.000f, 0, charged_00),
+                new Keyframe(0.025f, 0, charged_01),
+                new Keyframe(0.050f, 0, charged_02),
+                new Keyframe(0.075f, 0, charged_03),
+                new Keyframe(0.100f, 0, charged_04),
+                new Keyframe(0.125f, 0, charged_05),
+                new Keyframe(0.150f, 0, charged_06),
+                new Keyframe(0.175f, 0, charged_07),
+                new Keyframe(0.200f, 0, charged_08),
+                new Keyframe(0.225f, 0, charged_09),
+                new Keyframe(0.250f, 0, charged_10),
+                new Keyframe(0.275f, 0, charged_11),
+                new Keyframe(0.300f, 0, charged_12),
+                new Keyframe(0.325f, 0, charged_13),
+                new Keyframe(0.350f, 0, charged_14),
+                new Keyframe(0.375f, 0, charged_15),
+                new Keyframe(0.400f, 0, charged_16),
+                new Keyframe(0.425f, 0, charged_17),
+                new Keyframe(0.450f, 0, charged_18),
+                new Keyframe(0.475f, 0, charged_19),
+                new Keyframe(0.500f, 0, charged_20),
+                new Keyframe(0.525f, 0, charged_21),
+                new Keyframe(0.550f, 0, charged_22),
+                new Keyframe(0.575f, 0, charged_23),
+                new Keyframe(0.600f, 0, charged_24),
+                new Keyframe(0.625f, 0, charged_25),
+                new Keyframe(0.650f, 0, charged_26),
+                new Keyframe(0.675f, 0, charged_27),
+                new Keyframe(0.700f, 0, charged_28),
+                new Keyframe(0.725f, 0, charged_29),
+                new Keyframe(0.750f, 0, charged_30),
+                new Keyframe(0.775f, 0, charged_31),
+                new Keyframe(0.800f, 0, charged_32),
+                new Keyframe(0.825f, 0, charged_33),
+                new Keyframe(0.850f, 0, charged_34),
+                new Keyframe(0.875f, 0, charged_35),
+                new Keyframe(0.900f, 0, charged_36),
+                new Keyframe(0.925f, 0, charged_37),
+                new Keyframe(0.950f, 0, charged_38),
+                new Keyframe(0.975f, 0, charged_39),
+                new Keyframe(1.000f, 0, charged_40),
         }),
     };
-
-
-
-
-
-
-
-
-
-
 
     /** Смешать две позы (голова — NaN-безопасно: NaN «замирает» на другом значении). */
     private static Pose mix(Pose a, Pose b, float t) {

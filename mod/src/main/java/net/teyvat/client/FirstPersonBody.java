@@ -24,7 +24,7 @@ import java.util.Deque;
  */
 public final class FirstPersonBody {
     private static final Identifier TRAIL_GLOW = Identifier.of("teyvat", "textures/misc/trail_glow.png");
-    private static final float[] SLASH_COLOR = {1.0f, 1.0f, 1.0f};
+    private static final float[] SLASH_COLOR = {0.98f, 1.0f, 1.0f};
 
     /** true только на время отрисовки собственной модели (миксин прячет голову). */
     private static boolean selfRendering;
@@ -48,8 +48,6 @@ public final class FirstPersonBody {
 
     public static void render(WorldRenderContext ctx) {
         MinecraftClient client = MinecraftClient.getInstance();
-        // Сфера заряда/разлёта и «шерстяная дуга» заряженной атаки.
-        renderChargeFx(ctx, client);
         if (!active()) {
             CombatController.clearSlashTrail();
             return;
@@ -93,71 +91,6 @@ public final class FirstPersonBody {
         CombatController.sampleCurrentSlashTrail(player.getBodyYaw(), player.getLerpedPos(tickDelta));
     }
 
-    /** Растущая светлая сфера В КИСТЯХ, где меч, во время накопления заряда.
-     *  Разлёт сферы и «шерстяная дуга» спина рисуются частицами (в tick) —
-     *  вокруг камеры ленты не строятся, чтобы ничего не уходило «за облака». */
-    private static void renderChargeFx(WorldRenderContext ctx, MinecraftClient client) {
-        RenderLayer layer = RenderLayer.getEntityTranslucentEmissive(TRAIL_GLOW);
-        CameraRenderState camera = client.gameRenderer.getEntityRenderStates().cameraRenderState;
-        ctx.commandQueue().submitCustom(ctx.matrices(), layer, (entry, consumer) -> {
-            Vec3d cam = camera.pos;
-            CombatController.ChargeSphere cs = CombatController.chargeSphere();
-            if (cs != null) {
-                drawSphereWireframe(entry, consumer, cam, cs.center().subtract(cam), cs.radius(), cs.alpha(), 6);
-            }
-        });
-    }
-
-    /** Светящаяся «клетка» сферы: кольца в наклонных плоскостях — издалека
-     *  читается как светлый шар, растёт с радиусом. */
-    private static void drawSphereWireframe(MatrixStack.Entry entry, VertexConsumer consumer,
-                                            Vec3d cam, Vec3d center, float radius,
-                                            float alpha, int rings) {
-        if (radius <= 0.02f || alpha <= 0.01f) {
-            return;
-        }
-        for (int k = 0; k < rings; k++) {
-            double az = k * Math.PI * 2.0 / rings;
-            float tilt = (float) Math.toRadians((k % 3) * 60.0 - 60.0);
-            Vec3d dir = new Vec3d(Math.cos(az), 0, Math.sin(az)).rotateX(tilt);
-            Vec3d up = new Vec3d(0, 1, 0).rotateX(tilt);
-            drawRingArc(entry, consumer, cam, center, dir, up, radius, alpha);
-        }
-    }
-
-    /** Перпендикуляр к сегменту ленты, повёрнутый к камере (в camera-space
-     *  камера — в начале координат). */
-    private static Vec3d ribbonRight(Vec3d sdir, Vec3d p0) {
-        Vec3d right = sdir.crossProduct(p0.negate());
-        if (right.lengthSquared() < 1.0e-6) {
-            return new Vec3d(0.0, 1.0, 0.0);
-        }
-        return right.normalize();
-    }
-
-    /** Кольцо-лента вокруг центра в плоскости (dir, up). */
-    private static void drawRingArc(MatrixStack.Entry entry, VertexConsumer consumer,
-                                    Vec3d cam, Vec3d center, Vec3d dir, Vec3d up,
-                                    float radius, float alpha) {
-        int steps = 16;
-        float w = 0.07f;
-        for (int i = 0; i < steps; i++) {
-            float t0 = (float) (Math.PI * 2.0 * i / steps);
-            float t1 = (float) (Math.PI * 2.0 * (i + 1) / steps);
-            Vec3d p0 = center.add(dir.multiply(radius * Math.cos(t0)))
-                    .add(up.multiply(radius * Math.sin(t0)));
-            Vec3d p1 = center.add(dir.multiply(radius * Math.cos(t1)))
-                    .add(up.multiply(radius * Math.sin(t1)));
-            Vec3d seg = p1.subtract(p0);
-            double slen = seg.length();
-            if (slen < 1.0e-5) {
-                continue;
-            }
-            Vec3d sdir = seg.multiply(1.0 / slen);
-            ribbonQuad(entry, consumer, p0, p1, ribbonRight(sdir, p0), w, w, alpha, alpha, 0f, 1f);
-        }
-    }
-
     /** Дуга-лента разреза: полоса вдоль траектории клинка, повёрнутая к камере,
      *  сужается и тает к хвосту (как шлейф Паймон). */
     private static void drawSlashRibbon(MatrixStack.Entry entry, VertexConsumer consumer,
@@ -169,16 +102,15 @@ public final class FirstPersonBody {
         }
         int maxAge = CombatController.slashTrailAge();
         for (int i = 0; i < count - 1; i++) {
-            // Координаты относительно камеры (как у сущностей в очереди рендера).
-            Vec3d a = pts[i].pos().subtract(camLocal);
-            Vec3d b = pts[i + 1].pos().subtract(camLocal);
+            Vec3d a = pts[i].pos();
+            Vec3d b = pts[i + 1].pos();
             Vec3d seg = b.subtract(a);
             double len = seg.length();
             if (len < 1.0e-5) {
                 continue;
             }
             Vec3d dir = seg.multiply(1.0 / len);
-            Vec3d right = dir.crossProduct(a.negate());
+            Vec3d right = dir.crossProduct(camLocal.subtract(a));
             if (right.lengthSquared() < 1.0e-6) {
                 right = new Vec3d(0.0, 0.0, 1.0);
             } else {
@@ -195,10 +127,10 @@ public final class FirstPersonBody {
                 // Сужение к хвосту и таяние по возрасту точки.
                 float age0 = 1f - pts[i].age() / (float) maxAge;
                 float age1 = 1f - pts[i + 1].age() / (float) maxAge;
-                float w0 = 0.06f + 0.34f * t0;
-                float w1 = 0.06f + 0.34f * t1;
-                float a0 = 0.25f + 0.70f * t0;
-                float a1 = 0.25f + 0.70f * t1;
+                float w0 = 0.02f + 0.32f * t0;
+                float w1 = 0.02f + 0.32f * t1;
+                float a0 = 0.08f + 0.60f * t0;
+                float a1 = 0.08f + 0.60f * t1;
                 a0 *= age0;
                 a1 *= age1;
                 ribbonQuad(entry, consumer, p0, p1, right, w0, w1, a0, a1, t0, t1);

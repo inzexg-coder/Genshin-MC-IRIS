@@ -28,9 +28,7 @@ import net.teyvat.client.WaterSplashParticle;
 import net.teyvat.client.WaterDropletParticle;
 import net.teyvat.client.WaterRippleParticle;
 import net.teyvat.client.WaterMistParticle;
-import net.teyvat.client.TeyvatSlashParticle;
 import net.teyvat.client.CombatController;
-import net.teyvat.client.PlayerCombatAnimations;
 import net.teyvat.client.FirstPersonBody;
 import net.teyvat.client.StaminaController;
 import net.teyvat.client.PickupController;
@@ -94,8 +92,6 @@ public class TeyvatClient implements ClientModInitializer {
         // Рендеры Гидро слайма и его водяного шара.
         EntityRendererRegistry.register(HydroSlimeEntity.TYPE, HydroSlimeEntityRenderer::new);
         EntityRendererRegistry.register(HydroSlimeProjectileEntity.TYPE, HydroSlimeProjectileRenderer::new);
-        // Player Animation Library: боевые анимации.
-        PlayerCombatAnimations.init();
 
         // Кастомный всплеск воды при смерти слайма: кольцо на текстуре water_splash.
         ParticleFactoryRegistry.getInstance().register(TeyvatParticles.WATER_SPLASH,
@@ -107,19 +103,6 @@ public class TeyvatClient implements ClientModInitializer {
                 (FabricSpriteProvider spriteProvider) -> new WaterRippleParticle.Factory(spriteProvider));
         ParticleFactoryRegistry.getInstance().register(TeyvatParticles.WATER_MIST,
                 (FabricSpriteProvider spriteProvider) -> new WaterMistParticle.Factory(spriteProvider));
-
-        // Дуги-разрезы ударов: квад-частицы Better Combat-стиля, текстуры в
-        // assets/teyvat/particles/slash_*.json (кадры прочерчивания дуги).
-        ParticleFactoryRegistry.getInstance().register(TeyvatParticles.SLASH_45,
-                (FabricSpriteProvider spriteProvider) -> new TeyvatSlashParticle.Factory(spriteProvider));
-        ParticleFactoryRegistry.getInstance().register(TeyvatParticles.SLASH_90,
-                (FabricSpriteProvider spriteProvider) -> new TeyvatSlashParticle.Factory(spriteProvider));
-        ParticleFactoryRegistry.getInstance().register(TeyvatParticles.SLASH_180,
-                (FabricSpriteProvider spriteProvider) -> new TeyvatSlashParticle.Factory(spriteProvider));
-        ParticleFactoryRegistry.getInstance().register(TeyvatParticles.SLASH_270,
-                (FabricSpriteProvider spriteProvider) -> new TeyvatSlashParticle.Factory(spriteProvider));
-        ParticleFactoryRegistry.getInstance().register(TeyvatParticles.SLASH_360,
-                (FabricSpriteProvider spriteProvider) -> new TeyvatSlashParticle.Factory(spriteProvider));
 
         // Кинокамера для съёмки боя со стороны: /cinema side|orbit|off.
         ClientCommandRegistrationCallback.EVENT.register(CinemaCommand::register);

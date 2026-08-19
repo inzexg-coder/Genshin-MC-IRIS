@@ -159,13 +159,12 @@ def _clip_at(anchors, p):
 
 
 def warp(p):
-    """Мягкое сжатие таймлайна: замах (клип-время 0..0.40) умещается в первые
-    ~25% игрового прогресса — более плавный размах перед ударом, урон
-    (DAMAGE_TICKS) наносится после размаха, дальше идёт широкое
-    сопровождение клинка. Пик свинга (0.40 в клипе) оказывается на 0.25
-    игрового прогресса, 1.0 остаётся 1.0 (финал удара не двигаем).
-    Более мягкий warp даёт плавные, живые анимации без рывков."""
-    PEAK_GAME = 0.25
+    """Сжатие таймлайна: замах (клип-время 0..0.40) умещается в первые
+    ~10% игрового прогресса — размах перед ударом очень быстрый, урон
+    (DAMAGE_TICKS) наносится почти сразу после клика, дальше идёт широкое
+    сопровождение клинка. Пик свинга (0.40 в клипе) оказывается на 0.10
+    игрового прогресса, 1.0 остаётся 1.0 (финал удара не двигаем)."""
+    PEAK_GAME = 0.10
     PEAK_CLIP = 0.40
     if p <= PEAK_GAME:
         return p / PEAK_GAME * PEAK_CLIP
@@ -186,86 +185,94 @@ def bake(anchors, n=41):
 # Мгновенный старт из нейтрали, широкий замах вправо, свинг через фронт,
 # занос клинка влево и мягкая фиксация (сеam в апперкот). ---
 HIT1 = [
-    # Forward-right slash (17° from center) — quick, light
-    # Blade sweeps from right to left at chest height
-    (0.00, E_LINEAR, P(rYaw=-20.0, rPitch=-30.0, rRoll=-5.0, lPitch=-10.0, bYaw=5.0, bPitch=1.0, rlPitch=-5.0, llPitch=5.0)),
-    (0.08, E_IN_CUBIC, P(rYaw=-35.0, rPitch=-40.0, rRoll=-10.0, lPitch=-20.0, lRoll=-8.0, bYaw=8.0, bPitch=2.0, rlPitch=-12.0, llPitch=10.0)),
-    (0.15, E_IN_CUBIC, P(rYaw=-15.0, rPitch=-50.0, rRoll=-5.0, lPitch=-35.0, lRoll=-12.0, bYaw=10.0, bPitch=3.0, rlPitch=-20.0, llPitch=15.0)),
-    (0.25, E_IN_CUBIC, P(rYaw=10.0, rPitch=-45.0, rRoll=5.0, lPitch=-40.0, lRoll=-8.0, bYaw=6.0, bPitch=4.0, rlPitch=10.0, llPitch=-8.0)),
-    (0.40, E_OUT_CUBIC, P(rYaw=30.0, rPitch=-35.0, rRoll=10.0, lPitch=-25.0, lRoll=5.0, bYaw=0.0, bPitch=3.0, rlPitch=20.0, llPitch=-15.0)),
-    (0.55, E_OUT_CUBIC, P(rYaw=40.0, rPitch=-30.0, rRoll=8.0, lPitch=-15.0, lRoll=5.0, bYaw=-3.0, bPitch=2.0, rlPitch=25.0, llPitch=-18.0)),
-    (0.75, E_OUT_BACK, P(rYaw=35.0, rPitch=-28.0, rRoll=5.0, lPitch=-12.0, lRoll=3.0, bYaw=-2.0, bPitch=1.0, rlPitch=22.0, llPitch=-15.0)),
-    (1.00, E_IN_OUT_SINE, P(rYaw=30.0, rPitch=-30.0, rRoll=3.0, lPitch=-10.0, bYaw=-2.0, bPitch=1.0, rlPitch=20.0, llPitch=-12.0)),
-]
-
-HIT2 = [
-    # Wide left slash (-73°), 180° arc — wider, stronger
-    # Blade sweeps from right to left in a wide horizontal arc
-    (0.00, E_LINEAR, P(rYaw=30.0, rPitch=-30.0, rRoll=3.0, lPitch=-10.0, bYaw=-2.0, bPitch=1.0, rlPitch=20.0, llPitch=-12.0)),
-    (0.08, E_IN_CUBIC, P(rYaw=40.0, rPitch=-40.0, rRoll=5.0, lPitch=-25.0, lRoll=-8.0, bYaw=-5.0, bPitch=2.0, rlPitch=15.0, llPitch=-8.0)),
-    (0.15, E_IN_CUBIC, P(rYaw=25.0, rPitch=-55.0, rRoll=-5.0, lPitch=-40.0, lRoll=-12.0, bYaw=-8.0, bPitch=3.0, rlPitch=5.0, llPitch=2.0)),
-    (0.25, E_IN_CUBIC, P(rYaw=-10.0, rPitch=-50.0, rRoll=-10.0, lPitch=-45.0, lRoll=-8.0, bYaw=-5.0, bPitch=4.0, rlPitch=-5.0, llPitch=10.0)),
-    (0.40, E_OUT_CUBIC, P(rYaw=-40.0, rPitch=-35.0, rRoll=-12.0, lPitch=-30.0, lRoll=5.0, bYaw=2.0, bPitch=3.0, rlPitch=-18.0, llPitch=15.0)),
-    (0.55, E_OUT_CUBIC, P(rYaw=-55.0, rPitch=-30.0, rRoll=-8.0, lPitch=-20.0, lRoll=8.0, bYaw=5.0, bPitch=2.0, rlPitch=-22.0, llPitch=18.0)),
-    (0.75, E_OUT_BACK, P(rYaw=-50.0, rPitch=-28.0, rRoll=-5.0, lPitch=-15.0, lRoll=5.0, bYaw=4.0, bPitch=1.0, rlPitch=-20.0, llPitch=16.0)),
-    (1.00, E_IN_OUT_SINE, P(rYaw=-45.0, rPitch=-30.0, rRoll=-3.0, lPitch=-12.0, bYaw=3.0, bPitch=1.0, rlPitch=-18.0, llPitch=14.0)),
-]
-
-HIT3 = [
-    # Wide uppercut: arm FORWARD (rYaw≈0°) so sword extends far from body.
-    # Root does 360° spin (spinTurn); arm stays forward throughout.
-    # Wind-up: sword low-right, arm slightly back.  Strike: arm sweeps UP
-    # through front with pitch going from -10° to -130°.  Follow-through:
-    # arm overshoots past vertical then settles.
-    # 10 keyframes for smooth, non-rushed arc (duration=20 ticks).
-    (0.00, E_LINEAR, P(rYaw=5.0, rPitch=-10.0, rRoll=-2.0, lPitch=-10.0, bYaw=2.0, bPitch=1.0, rlPitch=-18.0, llPitch=14.0)),
-    (0.05, E_IN_OUT_SINE, P(rYaw=2.0, rPitch=5.0, rRoll=-3.0, lPitch=-12.0, lRoll=-3.0, bYaw=3.0, bPitch=-1.0, rlPitch=-14.0, llPitch=10.0)),
-    (0.12, E_IN_CUBIC, P(rYaw=0.0, rPitch=-5.0, rRoll=-2.0, lPitch=-18.0, lRoll=-6.0, bYaw=4.0, bPitch=-2.0, rlPitch=-8.0, llPitch=6.0)),
-    (0.22, E_IN_CUBIC, P(rYaw=-2.0, rPitch=-25.0, rRoll=0.0, lPitch=-30.0, lRoll=-8.0, bYaw=5.0, bPitch=-3.0, rlPitch=0.0, llPitch=0.0)),
-    (0.35, E_IN_CUBIC, P(rYaw=0.0, rPitch=-60.0, rRoll=2.0, lPitch=-45.0, lRoll=-6.0, bYaw=5.0, bPitch=-1.0, rlPitch=5.0, llPitch=-5.0)),
-    (0.50, E_OUT_CUBIC, P(rYaw=0.0, rPitch=-100.0, rRoll=4.0, lPitch=-60.0, lRoll=-2.0, bYaw=4.0, bPitch=2.0, rlPitch=10.0, llPitch=-10.0)),
-    (0.65, E_OUT_CUBIC, P(rYaw=-2.0, rPitch=-125.0, rRoll=5.0, lPitch=-70.0, lRoll=2.0, bYaw=3.0, bPitch=4.0, rlPitch=15.0, llPitch=-12.0)),
-    (0.78, E_OUT_BACK, P(rYaw=-5.0, rPitch=-105.0, rRoll=4.0, lPitch=-50.0, lRoll=4.0, bYaw=3.0, bPitch=3.0, rlPitch=16.0, llPitch=-10.0)),
-    (0.90, E_OUT_CUBIC, P(rYaw=-8.0, rPitch=-85.0, rRoll=3.0, lPitch=-35.0, lRoll=4.0, bYaw=2.0, bPitch=2.0, rlPitch=15.0, llPitch=-9.0)),
-    (1.00, E_IN_OUT_SINE, P(rYaw=-10.0, rPitch=-70.0, rRoll=2.0, lPitch=-25.0, bYaw=2.0, bPitch=1.0, rlPitch=15.0, llPitch=-8.0)),
-]
-
-HIT4 = [
-    # Diagonal spin (135°), 360° circle — body rotates via root.yaw
-    # Blade sweeps diagonally from upper-left to lower-right with body spin
-    (0.00, E_LINEAR, P(rYaw=-10.0, rPitch=-70.0, rRoll=2.0, lPitch=-25.0, bYaw=2.0, bPitch=1.0, rlPitch=15.0, llPitch=-8.0)),
-    (0.08, E_IN_CUBIC, P(rYaw=-20.0, rPitch=-80.0, rRoll=-3.0, lPitch=-35.0, lRoll=-5.0, bYaw=4.0, bPitch=2.0, rlPitch=10.0, llPitch=-5.0)),
-    (0.15, E_IN_CUBIC, P(rYaw=-15.0, rPitch=-100.0, rRoll=-5.0, lPitch=-50.0, lRoll=-8.0, bYaw=6.0, bPitch=3.0, rlPitch=5.0, llPitch=0.0)),
-    (0.25, E_IN_CUBIC, P(rYaw=5.0, rPitch=-80.0, rRoll=5.0, lPitch=-45.0, lRoll=-5.0, bYaw=8.0, bPitch=4.0, rlPitch=-5.0, llPitch=5.0)),
-    (0.40, E_OUT_CUBIC, P(rYaw=35.0, rPitch=-50.0, rRoll=12.0, lPitch=-30.0, lRoll=5.0, bYaw=5.0, bPitch=3.0, rlPitch=-10.0, llPitch=10.0)),
-    (0.55, E_OUT_CUBIC, P(rYaw=55.0, rPitch=-35.0, rRoll=10.0, lPitch=-20.0, lRoll=8.0, bYaw=0.0, bPitch=2.0, rlPitch=5.0, llPitch=-5.0)),
-    (0.75, E_OUT_BACK, P(rYaw=50.0, rPitch=-30.0, rRoll=6.0, lPitch=-15.0, lRoll=5.0, bYaw=-3.0, bPitch=1.0, rlPitch=15.0, llPitch=-10.0)),
-    (1.00, E_IN_OUT_SINE, P(rYaw=45.0, rPitch=-32.0, rRoll=4.0, lPitch=-12.0, bYaw=-2.0, bPitch=1.0, rlPitch=18.0, llPitch=-10.0)),
-]
-
-HIT5 = [
-    # Wide horizontal left (-90°), 240° arc — strongest hit
-    # Blade makes a massive horizontal sweep from far right to far left
-    (0.00, E_LINEAR, P(rYaw=45.0, rPitch=-32.0, rRoll=4.0, lPitch=-12.0, bYaw=-2.0, bPitch=1.0, rlPitch=18.0, llPitch=-10.0)),
-    (0.08, E_IN_CUBIC, P(rYaw=55.0, rPitch=-40.0, rRoll=6.0, lPitch=-25.0, lRoll=-8.0, bYaw=-5.0, bPitch=2.0, rlPitch=12.0, llPitch=-8.0)),
-    (0.18, E_IN_CUBIC, P(rYaw=50.0, rPitch=-55.0, rRoll=3.0, lPitch=-45.0, lRoll=-12.0, bYaw=-8.0, bPitch=4.0, rlPitch=5.0, llPitch=2.0)),
-    (0.30, E_IN_CUBIC, P(rYaw=25.0, rPitch=-45.0, rRoll=8.0, lPitch=-50.0, lRoll=-8.0, bYaw=-5.0, bPitch=5.0, rlPitch=-5.0, llPitch=8.0)),
-    (0.45, E_OUT_CUBIC, P(rYaw=-10.0, rPitch=-35.0, rRoll=12.0, lPitch=-40.0, lRoll=5.0, bYaw=2.0, bPitch=4.0, rlPitch=-15.0, llPitch=12.0)),
-    (0.60, E_OUT_CUBIC, P(rYaw=-40.0, rPitch=-30.0, rRoll=10.0, lPitch=-25.0, lRoll=8.0, bYaw=6.0, bPitch=3.0, rlPitch=-20.0, llPitch=15.0)),
-    (0.80, E_OUT_BACK, P(rYaw=-60.0, rPitch=-28.0, rRoll=6.0, lPitch=-15.0, lRoll=5.0, bYaw=8.0, bPitch=2.0, rlPitch=-18.0, llPitch=14.0)),
-    (1.00, E_IN_OUT_SINE, P(rYaw=-65.0, rPitch=-30.0, rRoll=3.0, lPitch=-12.0, bYaw=10.0, bPitch=1.0, rlPitch=-15.0, llPitch=12.0)),
-]
-
-CHARGED = [
-    # Charged spin: full 360° around body
     (0.00, E_LINEAR, P(rPitch=-20.0, lPitch=-10.0)),
-    (0.10, E_IN_CUBIC, P(rYaw=-40.0, rPitch=-80.0, rRoll=-5.0, lPitch=-50.0, lRoll=-10.0, bYaw=-5.0, bPitch=2.0, rlPitch=-10.0, llPitch=8.0)),
-    (0.25, E_IN_CUBIC, P(rYaw=-25.0, rPitch=-100.0, rRoll=-3.0, lPitch=-65.0, lRoll=-12.0, bYaw=-7.0, bPitch=3.0, rlPitch=-12.0, llPitch=10.0)),
-    (0.45, E_IN_CUBIC, P(rYaw=20.0, rPitch=-50.0, rRoll=8.0, lPitch=-40.0, lRoll=8.0, bYaw=3.0, bPitch=3.0, rlPitch=10.0, llPitch=-5.0)),
-    (0.65, E_OUT_CUBIC, P(rYaw=40.0, rPitch=-35.0, rRoll=6.0, lPitch=-25.0, lRoll=5.0, bYaw=5.0, bPitch=2.0, rlPitch=18.0, llPitch=-8.0)),
-    (0.85, E_OUT_BACK, P(rYaw=30.0, rPitch=-30.0, rRoll=4.0, lPitch=-18.0, bYaw=4.0, bPitch=1.5, rlPitch=15.0, llPitch=-6.0)),
-    (1.00, E_IN_OUT_SINE, P(rYaw=20.0, rPitch=-30.0, rRoll=2.0, lPitch=-12.0, bYaw=3.0, bPitch=1.0, rlPitch=12.0, llPitch=-5.0)),
+    (0.10, E_IN_CUBIC, P(rYaw=38.0, rPitch=-44.0, rRoll=-6.0, lPitch=-38.0, lRoll=-11.0, bYaw=6.4, rlPitch=-12.0, llPitch=8.0)),
+    (0.20, E_IN_CUBIC, P(rYaw=58.0, rPitch=-60.0, rRoll=-5.0, lPitch=-63.0, lRoll=-17.0, bYaw=9.8, rlPitch=-22.0, llPitch=15.0)),
+    (0.40, E_IN_CUBIC, P(rYaw=12.0, rPitch=-55.0, rRoll=15.0, lPitch=-40.0, lRoll=10.0, bYaw=2.0, bPitch=3.0, rlPitch=20.0, llPitch=-5.0)),
+    (0.55, E_OUT_CUBIC, P(rYaw=-34.0, rPitch=-56.5, rRoll=11.0, lPitch=-24.0, lRoll=6.0, bYaw=-4.5, bPitch=2.6, rlPitch=33.0, llPitch=-11.5)),
+    (0.68, E_OUT_BACK, P(rYaw=-62.0, rPitch=-56.2, rRoll=2.5, lPitch=-16.5, lRoll=1.5, bYaw=-3.4, bPitch=2.1, rlPitch=32.6, llPitch=-12.2)),
+    (0.85, E_IN_OUT_SINE, P(rYaw=-56.0, rPitch=-56.0, lPitch=-15.0, bYaw=-2.0, bPitch=2.0, rlPitch=32.0, llPitch=-12.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=-56.0, rPitch=-56.0, lPitch=-15.0, bYaw=-2.0, bPitch=2.0, rlPitch=32.0, llPitch=-12.0)),
 ]
+
+# --- hit2: апперкот вверх-влево. Клинок падает к земле (замах), затем
+# свинг вверх-влево МИМО ЛИЦА (рука и клинок всё время перед головой,
+# x>0 и/или z<-4 — голова не задевается), вершина и фиксация — рука
+# вверху-слева, сеam в замах удара 3. ---
+HIT2 = [
+    (0.00, E_LINEAR, P(rYaw=-56.0, rPitch=-56.0, lPitch=-15.0, bYaw=-2.0, bPitch=2.0, rlPitch=32.0, llPitch=-12.0)),
+    (0.12, E_IN_CUBIC, P(rYaw=-44.0, rPitch=-40.0, rRoll=-6.0, lPitch=-30.0, lRoll=-9.0, bYaw=-3.2, bPitch=1.2, rlPitch=14.0, llPitch=-2.0)),
+    (0.24, E_IN_CUBIC, P(rYaw=-42.0, rPitch=-23.0, rRoll=2.0, lPitch=-46.0, lRoll=-12.0, bYaw=-4.2, bPitch=0.8, rlPitch=-6.0, llPitch=9.0)),
+    (0.42, E_IN_CUBIC, P(rYaw=-50.0, rPitch=-65.0, rRoll=-32.0, lPitch=-58.0, lRoll=-8.0, bYaw=-5.2, bPitch=4.6, rlPitch=-20.0, llPitch=16.0)),
+    (0.55, E_OUT_CUBIC, P(rYaw=-66.0, rPitch=-81.0, rRoll=-26.0, lPitch=-52.0, lRoll=-2.0, bYaw=-6.2, bPitch=4.2, rlPitch=-10.0, llPitch=10.0)),
+    (0.70, E_OUT_BACK, P(rYaw=-68.0, rPitch=-47.0, rRoll=-58.0, lPitch=-44.0, lRoll=2.0, bYaw=-6.8, bPitch=3.2, rlPitch=2.0, llPitch=3.0)),
+    (0.88, E_IN_OUT_SINE, P(rYaw=-68.0, rPitch=-47.0, rRoll=-58.0, lPitch=-40.0, lRoll=3.0, bYaw=-7.0, bPitch=2.6, rlPitch=10.0, llPitch=-1.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=-68.0, rPitch=-47.0, rRoll=-58.0, lPitch=-39.0, lRoll=3.0, bYaw=-7.0, bPitch=2.0, rlPitch=12.0, llPitch=-3.0)),
+]
+
+# --- hit3: разворот против часовой стрелки (root -2pi) с рубящим ударом
+# клинком сверху. Замах уводит руку ВВЕРХ ПО ПЕРЕДНЕЙ ДУГЕ, затем вправо-за
+# голову (x<=-4.5 — голова огибается сбоку, ни один кадр не задевает её),
+# спин опускает клинок сверху вниз-вперёд. ---
+HIT3 = [
+    (0.00, E_LINEAR, P(rYaw=-68.0, rPitch=-47.0, rRoll=-58.0, lPitch=-39.0, lRoll=3.0, bYaw=-7.0, bPitch=2.0, rlPitch=12.0, llPitch=-3.0)),
+    (0.12, E_IN_CUBIC, P(rYaw=-40.0, rPitch=-120.0, rRoll=-10.0, lPitch=-50.0, lRoll=-4.0, bYaw=-8.0, bPitch=1.0, rlPitch=6.0, llPitch=0.0)),
+    (0.24, E_IN_CUBIC, P(rYaw=-20.0, rPitch=-150.0, rRoll=-8.0, lPitch=-64.0, lRoll=-8.0, bYaw=-8.6, bPitch=-0.3, rlPitch=-6.0, llPitch=6.0)),
+    (0.36, E_IN_CUBIC, P(rYaw=-15.0, rPitch=-178.0, rRoll=-4.0, lPitch=-74.0, lRoll=-12.0, bYaw=-9.0, bPitch=-0.5, rlPitch=-10.0, llPitch=8.0)),
+    (0.44, E_IN_CUBIC, P(rYaw=-20.0, rPitch=-105.0, rRoll=-10.0, lPitch=-60.0, lRoll=-5.0, bYaw=1.0, bPitch=4.0, rlPitch=-18.0, llPitch=14.0)),
+    (0.58, E_OUT_CUBIC, P(rYaw=-25.0, rPitch=-78.0, rRoll=-6.0, lPitch=-46.0, lRoll=2.0, bYaw=4.5, bPitch=4.2, rlPitch=-8.0, llPitch=8.0)),
+    (0.75, E_OUT_BACK, P(rYaw=-70.0, rPitch=-40.0, rRoll=-5.0, lPitch=-24.0, lRoll=4.0, bYaw=7.0, bPitch=2.0, rlPitch=10.0, llPitch=-2.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=-10.0, rPitch=-72.0, rRoll=-5.0, lPitch=-15.0, bYaw=8.0, rlPitch=20.0)),
+]
+
+# --- hit4: удар справа налево (на экране) с разгоном: замах над головой
+# (рука поднимается СПЕРЕДИ-СПРАВА и оказывается над головой x<=-4.4 —
+# без прохода через голову), свинг вниз-вправо, хвост уводит клинок в замах
+# удара 5 (без паузы). ---
+HIT4 = [
+    (0.00, E_LINEAR, P(rYaw=-10.0, rPitch=-72.0, rRoll=-5.0, lPitch=-15.0, bYaw=8.0, rlPitch=20.0)),
+    (0.08, E_IN_CUBIC, P(rYaw=-22.0, rPitch=-106.0, rRoll=-3.0, lPitch=-34.0, lRoll=-10.0, bYaw=9.5, rlPitch=12.0, llPitch=3.0)),
+    (0.14, E_IN_CUBIC, P(rYaw=-15.0, rPitch=-155.0, rRoll=-4.0, lPitch=-50.0, lRoll=-13.0, bYaw=12.0, rlPitch=0.0, llPitch=9.0)),
+    (0.20, E_IN_CUBIC, P(rYaw=-10.0, rPitch=-178.0, rRoll=6.0, lPitch=-62.0, lRoll=-14.0, bYaw=13.0, rlPitch=-16.0, llPitch=12.0)),
+    (0.42, E_IN_CUBIC, P(rYaw=-12.0, rPitch=-55.0, rRoll=-15.0, lPitch=-40.0, lRoll=10.0, bYaw=2.0, bPitch=3.0, rlPitch=20.0, llPitch=-5.0)),
+    (0.55, E_OUT_CUBIC, P(rYaw=32.0, rPitch=-58.0, rRoll=-12.0, lPitch=-24.0, lRoll=6.0, bYaw=-5.0, bPitch=2.4, rlPitch=33.0, llPitch=-11.5)),
+    (0.70, E_OUT_BACK, P(rYaw=52.0, rPitch=-65.0, rRoll=-8.0, lPitch=-16.5, lRoll=1.5, bYaw=-8.4, bPitch=0.8, rlPitch=27.0, llPitch=-6.0)),
+    (0.88, E_IN_OUT_SINE, P(rYaw=60.0, rPitch=-58.0, rRoll=-8.0, lPitch=-15.0, bYaw=-9.6, bPitch=0.3, rlPitch=18.0, llPitch=-2.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=42.0, rPitch=-85.0, rRoll=-8.0, lPitch=-15.0, bYaw=-10.0, rlPitch=15.0)),
+]
+
+# --- hit5: очень широкий удар слева направо (на экране): гигантский замах
+# за голову справа (x<=-10 — голова далеко), наклон корпуса и рывок вперёд
+# в свинге, клинок горизонтально на ударе, занос влево и финальная
+# задержка с «дыханием» корпуса (сеam в восстановление). ---
+HIT5 = [
+    (0.00, E_LINEAR, P(rYaw=42.0, rPitch=-85.0, rRoll=-8.0, lPitch=-15.0, bYaw=-10.0, rlPitch=15.0)),
+    (0.10, E_IN_CUBIC, P(rYaw=55.0, rPitch=-110.0, rRoll=-6.0, lPitch=-40.0, lRoll=-12.0, bYaw=-11.8, rlPitch=2.0, llPitch=8.0)),
+    (0.25, E_IN_CUBIC, P(rYaw=55.0, rPitch=-162.0, rRoll=0.0, lPitch=-86.0, lRoll=-20.0, bYaw=-13.0, bPitch=3.0, rlPitch=-24.0, llPitch=17.0)),
+    (0.45, E_IN_CUBIC, P(rYaw=28.0, rPitch=-80.0, rRoll=10.0, lPitch=-59.0, lRoll=-2.0, bYaw=-4.2, bPitch=6.4, rlPitch=7.0, llPitch=9.0)),
+    (0.58, E_OUT_CUBIC, P(rYaw=2.0, rPitch=-58.0, rRoll=15.0, lPitch=-38.0, lRoll=10.0, bYaw=1.5, bPitch=7.5, rlPitch=26.0, llPitch=-8.0)),
+    (0.72, E_OUT_BACK, P(rYaw=-42.0, rPitch=-50.0, rRoll=9.0, lPitch=-22.0, lRoll=6.0, bYaw=8.0, bPitch=4.5, rlPitch=40.0, llPitch=-13.0)),
+    (0.88, E_IN_OUT_SINE, P(rYaw=-70.0, rPitch=-32.0, rRoll=1.0, lPitch=-15.0, lRoll=0.5, bYaw=10.0, bPitch=3.6, rlPitch=32.0, llPitch=-7.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=-70.0, rPitch=-32.0, rRoll=0.0, lPitch=-15.0, bYaw=10.0, bPitch=2.0, rlPitch=30.0, llPitch=-6.0)),
+]
+
+# --- charged: заряженный спин на 360° (удержание ЛКМ, как у путешественника
+# в начале Genshin). Сжатый замах уводит клинок вверх-за спину, на пике
+# (момент урона) клинок горизонтально вбок и начинает ОРБИТУ вокруг тела —
+# полный оборот делает root (chargedSpinTurn), рука ведёт клинок по кругу
+# и на хвосте опускает его вниз-вперёд. Хит по всей площади вокруг героя
+# (сервер: полный круг, «орбиты атомов»). ---
+CHARGED = [
+    (0.00, E_LINEAR, P(rPitch=-20.0, lPitch=-10.0)),
+    (0.12, E_IN_CUBIC, P(rYaw=-42.0, rPitch=-120.0, rRoll=-8.0, lPitch=-55.0, lRoll=-10.0, bYaw=-7.0, rlPitch=-12.0, llPitch=8.0)),
+    (0.24, E_IN_CUBIC, P(rYaw=-25.0, rPitch=-165.0, rRoll=-5.0, lPitch=-72.0, lRoll=-14.0, bYaw=-9.0, rlPitch=-18.0, llPitch=12.0)),
+    (0.40, E_IN_CUBIC, P(rYaw=-20.0, rPitch=-60.0, rRoll=10.0, lPitch=-38.0, lRoll=12.0, bYaw=2.0, bPitch=4.0, rlPitch=20.0, llPitch=-6.0)),
+    (0.55, E_OUT_CUBIC, P(rYaw=34.0, rPitch=-62.0, rRoll=6.0, lPitch=-22.0, lRoll=4.0, bYaw=6.0, bPitch=3.0, rlPitch=26.0, llPitch=-8.0)),
+    (0.72, E_OUT_BACK, P(rYaw=-16.0, rPitch=-44.0, rRoll=-2.0, lPitch=-16.0, lRoll=1.0, bYaw=5.0, bPitch=2.0, rlPitch=16.0, llPitch=-4.0)),
+    (1.00, E_IN_OUT_SINE, P(rYaw=-16.0, rPitch=-44.0, lPitch=-16.0, bYaw=5.0, bPitch=2.0, rlPitch=14.0, llPitch=-4.0)),
+]
+
+
 CLIPS = [bake(HIT1), bake(HIT2), bake(HIT3), bake(HIT4), bake(HIT5), bake(CHARGED)]
 
 
