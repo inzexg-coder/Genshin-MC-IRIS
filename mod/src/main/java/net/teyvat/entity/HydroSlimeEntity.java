@@ -52,14 +52,13 @@ public class HydroSlimeEntity extends HostileEntity {
     public static final EntityType<HydroSlimeEntity> TYPE = Registry.register(
             Registries.ENTITY_TYPE, TYPE_ID,
             EntityType.Builder.create(HydroSlimeEntity::new, SpawnGroup.MONSTER)
-                    .dimensions(1.2f, 1.1f)
+                    .dimensions(0.6f, 0.6f)
                     .maxTrackingRange(64)
                     .build(RegistryKey.of(RegistryKeys.ENTITY_TYPE, TYPE_ID)));
 
     /** Тики до следующего прыжка (считаем на сервере). */
     private int hopCooldown = 20;
     /** Тики до следующего выстрела водяным шаром. */
-    private int shootCooldown = 30;
     /** Кулдаун bump-атаки (столкновение с игроком). */
     private int bumpCooldown = 0;
     /** Владелец тренировочного слайма (null — обычный слайм мира). */
@@ -140,15 +139,6 @@ public class HydroSlimeEntity extends HostileEntity {
                 this.setYaw(yaw);
                 this.setHeadYaw(yaw);
                 this.setBodyYaw(yaw);
-                // Стрельба водяными шарами по цели в радиусе видимости.
-                if ((!this.isTraining() || this.combatReady)
-                        && this.squaredDistanceTo(target) <= 20.0 * 20.0
-                        && --this.shootCooldown <= 0) {
-                    if (this.getVisibilityCache().canSee(target)) {
-                        this.shootAt(target);
-                    }
-                    this.shootCooldown = 30 + this.random.nextInt(20);
-                }
                 // Bump damage: столкновение с игроком (100% ATK = 15 урона).
                 if (this.bumpCooldown > 0) this.bumpCooldown--;
                 if (this.bumpCooldown <= 0 && this.getBoundingBox().intersects(target.getBoundingBox())) {
@@ -258,25 +248,6 @@ public class HydroSlimeEntity extends HostileEntity {
         this.getJumpControl().setActive();
     }
 
-    /** Выстрел водяным шаром в цель. */
-    void shootAt(LivingEntity target) {
-        World world = this.getEntityWorld();
-        // Важно: спавним с собственным типом сущности, иначе клиент рендерит
-        // ванильный снежок (конструктор SnowballEntity(World, owner, stack)
-        // жёстко ставит EntityType.SNOWBALL).
-        HydroSlimeProjectileEntity projectile = new HydroSlimeProjectileEntity(HydroSlimeProjectileEntity.TYPE, world);
-        projectile.setOwner(this);
-        Vec3d eye = this.getEyePos();
-        projectile.setPosition(eye.x, eye.y - 0.15, eye.z);
-        Vec3d aim = target.getEyePos().subtract(new Vec3d(projectile.getX(), projectile.getY(), projectile.getZ())).normalize().multiply(0.62);
-        aim = aim.add((this.random.nextDouble() - 0.5) * 0.08,
-                (this.random.nextDouble() - 0.5) * 0.08,
-                (this.random.nextDouble() - 0.5) * 0.08);
-        projectile.setVelocity(aim);
-        world.spawnEntity(projectile);
-        world.playSound(null, this.getBlockPos(), SoundEvents.ENTITY_SLIME_SQUISH,
-                SoundCategory.HOSTILE, 0.8f, 1.5f);
-    }
 
     @Override
     protected void dropLoot(ServerWorld world, DamageSource damageSource, boolean causedByPlayer) {
@@ -402,7 +373,7 @@ public class HydroSlimeEntity extends HostileEntity {
         @Override
         public void start() {
             this.slime.hop();
-            this.slime.hopCooldown = 12 + this.slime.random.nextInt(24);
+            this.slime.hopCooldown = 8 + this.slime.random.nextInt(16);
         }
     }
 }
