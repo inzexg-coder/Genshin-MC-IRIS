@@ -246,10 +246,6 @@ public final class CombatController {
             if (chargeTicks >= CHARGE_START_TICKS) {
                 chargeWindupTicks++;
                 spawnChargeWhirlwind(client, client.player);
-                // Периодический дамаг врагам в радиусе.
-                if (chargeWindupTicks % CHARGE_HIT_INTERVAL == 0) {
-                    sendHit(SwordCombo.CHARGE_INDEX, chargeProgress());
-                }
             }
             if (!lmbHeld) {
                 // Отпустили: спин с текущим уровнем заряда (ранний отпуск = слабее).
