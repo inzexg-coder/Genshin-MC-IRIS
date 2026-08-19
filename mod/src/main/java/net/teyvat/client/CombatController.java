@@ -114,9 +114,9 @@ public final class CombatController {
      *  Если ЛКМ не отпустить в течение CHARGE_START_TICKS, начнётся заряд. */
     private static int holdStartTick = -1;
 
-    /** Тиков удержания ЛКМ, после которых начинается заряд
-     *  (~2 сек). Быстрый тап (отпустили раньше) — обычный удар комбо. */
-    private static final int CHARGE_START_TICKS = 40;
+    /** Тиков удержания ЛКМ после удара, после которых начинается заряд
+     *  (~0.5 сек). Быстрый тап (отпустили раньше) — обычный удар комбо. */
+    private static final int CHARGE_START_TICKS = 10;
 
     /** Тиков восстановления после одиночного удара: поза плавно уходит в
      *  боевую стойку READY_POSE (клинок остаётся горизонтальным — никакого
@@ -658,40 +658,49 @@ public final class CombatController {
                 && tickCount - holdStartTick >= CHARGE_START_TICKS);
     }
 
-    /** Компактный вихрь во время заряда (близко к телу, плотный). */
+    /** Диагональный серп заряда: мощная дуга из правого верхнего в левый
+     *  нижний угол — эпичный удар как в Genshin. Частицы рисуют дугу
+     *  по траектории меча. */
     private static void spawnChargeWhirlwind(MinecraftClient client, ClientPlayerEntity player) {
         if (client.world == null) {
             return;
         }
         float level = chargeProgress();
-        double r = CHARGE_WINDUP_RADIUS * (0.6 + 0.4 * level);
-        for (int i = 0; i < 6; i++) {
-            double a = client.world.random.nextDouble() * Math.PI * 2.0;
-            double h = 0.3 + client.world.random.nextDouble() * 1.2;
+        float yaw = (float) Math.toRadians(player.getYaw());
+        // Направление взгляда игрока.
+        double lookX = -Math.sin(yaw);
+        double lookZ = Math.cos(yaw);
+        // Перпендикуляр вправо.
+        double rightX = Math.cos(yaw);
+        double rightZ = Math.sin(yaw);
+        // Энергетическое свечение вокруг тела (нарастает с зарядом).
+        double glowR = 0.6 + 0.4 * level;
+        for (int i = 0; i < 4; i++) {
+            double a = chargeWindupTicks * 0.3 + i * Math.PI / 2.0;
+            client.world.addParticleClient(ParticleTypes.END_ROD,
+                    player.getX() + Math.cos(a) * glowR,
+                    player.getY() + 1.0 + Math.sin(a * 2.0) * 0.3,
+                    player.getZ() + Math.sin(a) * glowR,
+                    0, 0.15, 0);
+        }
+        // Диагональный серп: дуга из верхнего правого в нижний левый угол.
+        if (chargeWindupTicks % 2 == 0) {
+            float t = (chargeWindupTicks % 10) / 10.0f;
+            double arcX = player.getX() + rightX * (1.5 - t * 3.0);
+            double arcY = player.getY() + 2.0 - t * 2.5;
+            double arcZ = player.getZ() + rightZ * (1.5 - t * 3.0);
             client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
-                    player.getX() + Math.cos(a) * r,
-                    player.getY() + h,
-                    player.getZ() + Math.sin(a) * r,
-                    Math.cos(a + Math.PI / 2.0), 0, Math.sin(a + Math.PI / 2.0));
+                    arcX, arcY, arcZ,
+                    -rightX * 0.5, -0.3, -rightZ * 0.5);
         }
-        for (int i = 0; i < 8; i++) {
-            double theta = client.world.random.nextDouble() * Math.PI * 2.0;
-            double phi = Math.acos(2.0 * client.world.random.nextDouble() - 1.0);
+        // Искры вдоль траектории удара.
+        for (int i = 0; i < 3; i++) {
+            float t = client.world.random.nextFloat();
+            double sx = player.getX() + rightX * (1.8 - t * 3.6);
+            double sy = player.getY() + 0.5 + (1.0 - t) * 1.5;
+            double sz = player.getZ() + rightZ * (1.8 - t * 3.6);
             client.world.addParticleClient(ParticleTypes.CRIT,
-                    player.getX() + r * Math.sin(phi) * Math.cos(theta),
-                    player.getY() + 0.8 + r * Math.cos(phi) * 0.4,
-                    player.getZ() + r * Math.sin(phi) * Math.sin(theta),
-                    0, 0, 0);
-        }
-        if (chargeWindupTicks % 3 == 0) {
-            for (int i = 0; i < 6; i++) {
-                double a = i / 6.0 * Math.PI * 2.0;
-                client.world.addParticleClient(ParticleTypes.END_ROD,
-                        player.getX() + Math.cos(a) * r,
-                        player.getY() + 0.1,
-                        player.getZ() + Math.sin(a) * r,
-                        Math.cos(a) * 0.3, 0.25, Math.sin(a) * 0.3);
-            }
+                    sx, sy, sz, 0, 0, 0);
         }
     }
 
@@ -1030,30 +1039,36 @@ public final class CombatController {
         float t = state.age * 0.06f;
         float sway = MathHelper.sin(t);
         float breath = MathHelper.sin(state.age * 0.11f);
+        float progress = chargeProgress();
         float w = MathHelper.clamp(chargeTicks / 6f, 0f, 1f);
         Pose base = hasPrevAppliedPose ? prevAppliedPose : CHARGE_POSE;
         Pose pose = mix(base, CHARGE_POSE, ease(E_IN_OUT_SINE, w));
+        // Анимация зарядки: правая рука поднимается вверх по cubic bezier,
+        // меч тянет за собой — нарастающее напряжение перед ударом.
+        float armLift = cubicBezier(progress) * 0.8f;
+        float armTilt = cubicBezier(progress) * 0.4f;
+        float bodyLean = cubicBezier(progress) * 0.15f;
         pose = new Pose(
-                pose.rYaw() + sway * 0.01f,
-                pose.rPitch() + breath * 0.012f,
+                pose.rYaw() - armTilt + sway * 0.01f,
+                pose.rPitch() - armLift + breath * 0.012f,
                 pose.rRoll() + sway * 0.008f,
-                pose.lYaw(),
-                pose.lPitch() + sway * 0.008f,
+                pose.lYaw() + armTilt * 0.5f,
+                pose.lPitch() + armLift * 0.6f + sway * 0.008f,
                 pose.lRoll(),
-                pose.bYaw() + sway * 0.02f,
-                pose.bPitch() + breath * 0.02f,
+                pose.bYaw() + bodyLean + sway * 0.02f,
+                pose.bPitch() - bodyLean * 0.5f + breath * 0.02f,
                 pose.bRoll(),
                 Float.NaN, Float.NaN, Float.NaN,
-                pose.rlYaw(),
+                pose.rlYaw() - bodyLean * 0.3f,
                 pose.rlPitch() + sway * 0.006f,
                 pose.rlRoll(),
-                pose.llYaw(),
+                pose.llYaw() + bodyLean * 0.3f,
                 pose.llPitch() - sway * 0.006f,
                 pose.llRoll());
         applyPoseToModel(model, pose);
         model.getRootPart().yaw = sway * 0.03f;
         model.getRootPart().pitch = breath * 0.01f;
-        model.getRootPart().originY = 0f;
+        model.getRootPart().originY = -cubicBezier(progress) * 0.1f;
         prevAppliedPose = poseFromModel(model);
         hasPrevAppliedPose = true;
     }
