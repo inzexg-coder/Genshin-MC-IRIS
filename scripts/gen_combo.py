@@ -170,8 +170,8 @@ def _ease(kind, t):
         return t ** 3
     if kind == E_CUBIC_BEZIER:
         # Cubic bezier (0,0) -> cp1 -> cp2 -> (1,1)
-        # cp1 = (0.42, 0), cp2 = (0.58, 1) — smooth ease-in-out
-        return _cubic_bezier(t, 0.42, 0.0, 0.58, 1.0)
+        # cp1 = (0.25, 0.1), cp2 = (0.25, 1.0) — ultra smooth ease-in-out
+        return _cubic_bezier(t, 0.25, 0.1, 0.25, 1.0)
     return t
 
 
