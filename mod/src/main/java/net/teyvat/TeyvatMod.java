@@ -102,7 +102,7 @@ public class TeyvatMod implements ModInitializer {
      *  Кладём только если слот пуст, чтобы не перезаписывать вещи игрока. */
     private static void ensureStarterSword(ServerPlayerEntity player) {
         if (player.getInventory().getStack(0).isEmpty()) {
-            player.getInventory().setStack(0, new ItemStack(Items.WOODEN_SWORD));
+            player.getInventory().setStack(0, new ItemStack(TeyvatItems.DULL_BLADE));
         }
     }
 
