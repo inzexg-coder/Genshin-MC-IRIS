@@ -958,6 +958,19 @@ public final class CombatController {
     /** Общая отмена атаки: сбрасываем удар в нейтраль с плавным выходом.
      *  Так же прерывает заряд (dash/jump-cancel заряженной атаки).
      *  Возвращает true, если что-то было отменено. */
+    /**
+     * Игрок получил урон — прерываем комбо (как в Genshin).
+     */
+    public static void onPlayerHurt() {
+        // Super Armor: во время выпуска заряженной атаки не прерываемся
+        if (comboStep == SwordCombo.CHARGE_INDEX) {
+            return;
+        }
+        if (comboStep >= 0 || charging) {
+            cancelAttack();
+        }
+    }
+
     private static boolean cancelAttack() {
         boolean wasActive = comboStep >= 0 || finalCooldownTicks > 0 || charging;
         charging = false;

@@ -24,41 +24,36 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Серверная часть боевки: по пакету удара от клиента ищет цели по хитбоксу
- * ТЕКУЩЕГО удара комбо (у каждого удара свои дальность/ширина/веер/высота,
- * 3-й удар — полный круг вокруг героя; заряженный спин, индекс CHARGE_INDEX, —
- * тоже полный круг, но шире, с отбросом по радиусу) и наносит урон.
- * Попадание подтверждается клиенту пакетом AttackResultPayload: hitlag, звук
- * и искры — только на хите. Реакция врага на удар — хит-стоп: цель замирает
- * на время hitlag, затем получает отброс. Промах ничего не подтверждает
- * (свинг остаётся визуальным).
+ * ТЕКУЩЕГО удара комбо и наносит урон.
+ *
+ * Механики взаимодействия (как в Genshin):
+ *  - Hitlag: моб замирает на HITLAG_TICKS тиков. Скорость = 0.01 (не 0).
+ *  - Poise-extending: если у моба есть стойкость, хит-стоп dài hơn (+0.06 сек).
+ *  - Poise damage: каждый удар наносит PoiseDamage. При 0 — оглушение (3× хит-стоп, 1.5× кнокбек).
+ *  - Stagger levels: Light/Heavy/Air — разные типы отброса.
+ *  - Weight: вес моба влияет на дальность кнокбека.
  */
 public final class PlayerCombat {
-    /** Минимальный интервал между ударами (защита от спама пакетами). */
     private static final int MIN_INTERVAL_TICKS = 6;
-    /** Тик последней атаки каждого игрока (player.age). */
     private static final Map<UUID, Integer> LAST_ATTACK_TICK = new ConcurrentHashMap<>();
-    /** Хит-стоп целей: entity id -> оставшиеся тики + отброс после стопа. */
     private static final Map<Integer, Stagger> STAGGER = new ConcurrentHashMap<>();
 
-    /** Состояние хит-стопа цели: пока ticksLeft > 0, цель замирает на месте
-     *  (реакция на удар), после — получает сохранённый отброс. */
-    private record Stagger(int ticksLeft, Vec3d knockback) {}
+    /** Сущность хит-стопа: тики + от镚 + оглушён ли моб. */
+    private record Stagger(int ticksLeft, Vec3d knockback, boolean wasStunned) {}
+
+    /** Скорость сущности во время хит-стопа (0.01 = почти замирание, но не 0). */
+    private static final float HITLAG_SPEED_MULT = 0.01f;
+    /** Дополнительные тики хит-стопа при наличии стойкости (+0.06 сек ≈ +1 тик). */
+    private static final int POISE_EXTEND_TICKS = 1;
 
     private PlayerCombat() {}
 
-    /** Обработать удар комбо от игрока (chargeLevel — уровень заряда спина 0..1:
-     *  урон зависит от него, ранний отпуск = слабее). */
     public static void onAttack(ServerPlayerEntity player, int hitIndex, float chargeLevel) {
-        if (hitIndex < 0 || hitIndex > SwordCombo.CHARGE_INDEX) {
-            return;
-        }
-        if (!(player.getEntityWorld() instanceof ServerWorld world)) {
-            return;
-        }
+        if (hitIndex < 0 || hitIndex > SwordCombo.CHARGE_INDEX) return;
+        if (!(player.getEntityWorld() instanceof ServerWorld world)) return;
+
         Integer last = LAST_ATTACK_TICK.get(player.getUuid());
-        if (last != null && player.age - last < MIN_INTERVAL_TICKS) {
-            return;
-        }
+        if (last != null && player.age - last < MIN_INTERVAL_TICKS) return;
         LAST_ATTACK_TICK.put(player.getUuid(), player.age);
 
         float reach = SwordCombo.HIT_REACH[hitIndex];
@@ -76,6 +71,7 @@ public final class PlayerCombat {
         Box box = new Box(
                 center.x - halfW, eye.y + bottom, center.z - halfW,
                 center.x + halfW, eye.y + top, center.z + halfW);
+
         List<LivingEntity> targets = world.getEntitiesByClass(LivingEntity.class, box,
                 e -> e.isAlive() && e != player
                         && !(e instanceof PlayerEntity)
@@ -84,40 +80,71 @@ public final class PlayerCombat {
         float base = (float) player.getAttributeValue(EntityAttributes.ATTACK_DAMAGE);
         float mult = SwordCombo.MULTIPLIERS[hitIndex];
         if (hitIndex == SwordCombo.CHARGE_INDEX) {
-            // Заряженный спин: урон масштабируется уровнем заряда — от
-            // CHARGE_MIN_MULT (ранний отпуск) до полного (3 сек / автозапуск).
             float lv = Math.max(0f, Math.min(1f, chargeLevel));
             mult *= SwordCombo.CHARGE_MIN_MULT + (1f - SwordCombo.CHARGE_MIN_MULT) * lv;
         }
         float amount = Math.max(0.5f, base * mult);
+
         List<Integer> hitIds = new ArrayList<>();
+
         for (LivingEntity target : targets) {
             Vec3d to = target.getBoundingBox().getCenter().subtract(eye);
             double dist = to.length();
-            if (dist > reach || dist < 1e-4) {
-                continue;
-            }
+            if (dist > reach || dist < 1e-4) continue;
+
             if (!fullCircle) {
                 Vec3d dir = to.normalize();
-                if (dir.dotProduct(look) < frontDot) {
-                    continue;
-                }
+                if (dir.dotProduct(look) < frontDot) continue;
                 Vec3d proj = look.multiply(to.dotProduct(look));
-                if (to.subtract(proj).length() > maxLateral) {
-                    continue;
-                }
+                if (to.subtract(proj).length() > maxLateral) continue;
             }
+
             if (target.damage(world, player.getDamageSources().playerAttack(player), amount)) {
                 hitIds.add(target.getId());
-                // Реакция на удар: сначала хит-стоп (замирает как и анимация героя),
-                // затем отброс по направлению удара.
+
+                // === POISE DAMAGE ===
+                float poiseDamage = SwordCombo.POISE_DAMAGE[hitIndex];
+                boolean stunned = PoiseSystem.applyPoiseDamage(target, poiseDamage);
+
+                // === KNOCKBACK ===
                 Vec3d dir = to.normalize();
-                Vec3d knockback = new Vec3d(dir.x, 0, dir.z).normalize()
-                        .multiply(SwordCombo.KNOCKBACK[hitIndex]);
-                STAGGER.put(target.getId(), new Stagger(SwordCombo.HITLAG_TICKS[hitIndex] + 1, knockback));
+                float kbStrength = SwordCombo.KNOCKBACK[hitIndex];
+
+                // Weight: тяжёлые мобы получают меньше кнокбека
+                float weight = target.getMaxHealth() / 200f; // 200 HP = вес 1.0
+                weight = Math.max(0.3f, Math.min(3.0f, weight));
+                kbStrength /= weight;
+
+                // Stun multiplier: оглушённые мобы отбрасываются дальше
+                if (stunned) {
+                    kbStrength *= PoiseSystem.STAGGER_KNOCKBACK_MULT;
+                }
+
+                Vec3d knockback = new Vec3d(dir.x, 0, dir.z).normalize().multiply(kbStrength);
+
+                // Air stagger: 5-й удар подбрасывает вверх
+                if (SwordCombo.STAGGER_LEVEL[hitIndex] == 2) {
+                    knockback = knockback.add(0, 0.3, 0);
+                }
+
+                // === HITLAG DURATION ===
+                int hitlag = SwordCombo.HITLAG_TICKS[hitIndex];
+
+                // Poise-extending: если у моба ещё есть стойкость — хит-стоп dài hơn
+                PoiseSystem.MobPoiseData poiseData = PoiseSystem.getOrCreate(target);
+                if (poiseData.current > 0 && !stunned) {
+                    hitlag += POISE_EXTEND_TICKS;
+                }
+
+                // Stun multiplier: оглушённые мобы замирают дольше
+                if (stunned) {
+                    hitlag *= PoiseSystem.STAGGER_HITLAG_MULT;
+                }
+
+                STAGGER.put(target.getId(), new Stagger(hitlag + 1, knockback, stunned));
             }
         }
-        // Подтверждение попадания клиенту: hitlag, звук и искры только на хите.
+
         if (!hitIds.isEmpty()) {
             ServerPlayNetworking.send(player, new AttackResultPayload(hitIds.stream().mapToInt(i -> i).toArray()));
             world.playSound(null, player.getBlockPos(), SoundEvents.ENTITY_PLAYER_ATTACK_STRONG,
@@ -125,28 +152,31 @@ public final class PlayerCombat {
         }
     }
 
-    /** Серверный тик: хит-стоп целей — замирание, затем отброс. */
+    /** Серверный тик: хит-стоп + poise. */
     public static void tick(ServerWorld world) {
-        if (STAGGER.isEmpty()) {
-            return;
-        }
-        // ConcurrentHashMap не поддерживает Entry.setValue в removeIf,
-        // поэтому обновления копим в отдельной map и применяем после.
+        // Poise tick: восстановление стойкости + таймер оглушения
+        PoiseSystem.tick(world);
+
+        if (STAGGER.isEmpty()) return;
+
         Map<Integer, Stagger> updates = new HashMap<>();
         STAGGER.entrySet().removeIf(entry -> {
             Entity entity = world.getEntityById(entry.getKey());
-            if (entity == null || !entity.isAlive()) {
-                return true;
-            }
+            if (entity == null || !entity.isAlive()) return true;
+
             Stagger s = entry.getValue();
             if (s.ticksLeft() > 1) {
-                // Замерла на месте: гасим скорость (включая прыжок/хоп слайма).
-                entity.setVelocity(0, 0, 0);
+                // Хит-стоп: скорость = 0.01 (не 0), моб чуть дёргается
+                float speed = s.wasStunned() ? 0f : HITLAG_SPEED_MULT;
+                entity.setVelocity(
+                        entity.getVelocity().x * speed,
+                        s.wasStunned() ? 0 : entity.getVelocity().y * speed,
+                        entity.getVelocity().z * speed);
                 entity.velocityModified = true;
-                updates.put(entry.getKey(), new Stagger(s.ticksLeft() - 1, s.knockback()));
+                updates.put(entry.getKey(), new Stagger(s.ticksLeft() - 1, s.knockback(), s.wasStunned()));
                 return false;
             }
-            // Стоп закончился: отброс цели.
+            // Стоп закончился: отброс
             entity.setVelocity(s.knockback().x, s.knockback().y, s.knockback().z);
             entity.velocityModified = true;
             return true;
@@ -154,7 +184,7 @@ public final class PlayerCombat {
         STAGGER.putAll(updates);
     }
 
-    /** Игрок вышел: забываем его тайминг атак. */
+    /** Игрок вышел: забываем его тайминги. */
     public static void onDisconnect(ServerPlayerEntity player) {
         LAST_ATTACK_TICK.remove(player.getUuid());
     }

@@ -100,6 +100,14 @@ public final class SwordCombo {
      *  на пару кадров — вес удара, как в Genshin. Промах хит-стопа не даёт. */
     public static final int[] HITLAG_TICKS = {3, 3, 4, 3, 6, 7};
 
+    /** Poise Damage: сколько стойкости снимает каждый удар (из Genshin wiki).
+     *  При 0 стойкости — оглушение моба (длинный хит-стоп + усиленный кнокбек). */
+    public static final float[] POISE_DAMAGE = {41.4f, 43.2f, 53.1f, 57.6f, 70.2f, 50.6f};
+
+    /** Уровень оглушения (Stagger Level): 0=Light, 1=Heavy, 2=Air (подбрасывает).
+     *  Удары 1-4 = Heavy, 5-й = Air (отбрасывает вверх), заряженная = Air. */
+    public static final int[] STAGGER_LEVEL = {1, 1, 1, 1, 2, 2};
+
     /** Доля LUNGE_STRENGTH, отдаваемая «шагу вперёд» в начале удара
      *  (остальное — толчок на тике урона): серия продвигает героя
      *  с каждым ударом, как в Genshin. */

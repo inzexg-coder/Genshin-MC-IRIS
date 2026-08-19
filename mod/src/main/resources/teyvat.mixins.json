@@ -31,7 +31,8 @@
     "client.InputMixin",
     "client.HeldItemRendererMixin",
     "client.HeldItemFeatureRendererMixin",
-    "client.MinecraftClientMixin"
+    "client.MinecraftClientMixin",
+    "client.PlayerHurtMixin"
   ],
   "injectors": {
     "defaultRequire": 1
