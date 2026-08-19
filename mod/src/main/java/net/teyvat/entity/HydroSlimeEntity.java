@@ -78,9 +78,9 @@ public class HydroSlimeEntity extends HostileEntity {
 
     public static DefaultAttributeContainer createAttributes() {
         return HostileEntity.createHostileAttributes()
-                .add(EntityAttributes.MAX_HEALTH, 14.0)
+                .add(EntityAttributes.MAX_HEALTH, 58.0)        // Genshin Lv1: 58 HP
                 .add(EntityAttributes.MOVEMENT_SPEED, 0.22)
-                .add(EntityAttributes.ATTACK_DAMAGE, 2.0)
+                .add(EntityAttributes.ATTACK_DAMAGE, 15.0)     // Genshin Lv1: ATK 15 (Bump = 100% ATK)
                 .add(EntityAttributes.FOLLOW_RANGE, 18.0)
                 .build();
     }
