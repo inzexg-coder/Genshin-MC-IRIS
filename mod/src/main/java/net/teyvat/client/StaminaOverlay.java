@@ -34,10 +34,12 @@ public final class StaminaOverlay {
 
     private StaminaOverlay() {}
 
-    /** Каждый тик: дуга проявляется при трате и тает на полной шкале. */
+    /** Каждый тик: дуга проявляется при трате, при заряде — всегда видна. */
     public static void tick(float stamina) {
         pulseTicks++;
-        float target = stamina < StaminaController.MAX_STAMINA ? 1f : 0f;
+        // Во время заряженной атаки стамина всегда видна.
+        boolean forceVisible = CombatController.chargeProgress() > 0f;
+        float target = (forceVisible || stamina < StaminaController.MAX_STAMINA) ? 1f : 0f;
         alpha += (target - alpha) * FADE_SPEED;
         if (alpha < 0.01f && target == 0f) {
             alpha = 0f;

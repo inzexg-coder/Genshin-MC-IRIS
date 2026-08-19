@@ -569,27 +569,27 @@ public final class CombatController {
         }
     }
 
-    /** Вихрь заряженного спина: серпы-удары по всей сфере вокруг героя и
-     *  полупрозрачная «граница шара» из искр — десятки ударов лезвием
-     *  в секунду. Радиус зависит от уровня заряда. */
+    /** Вихрь заряженного спина: серпы-удары по компактной сфере вокруг героя.
+     *  Радиус уменьшен (1.5..2.5 вместо 3.0..5.6), плотность увеличена
+     *  (больше частиц на тик) для визуально насыщенного вихря. */
     private static void spawnWhirlwindEffects(MinecraftClient client, ClientPlayerEntity player) {
         if (client.world == null) {
             return;
         }
         float level = chargeLevel;
-        double r = 3.0 + 2.6 * level;
-        // Серпы-удары: лезвия режут сферу по касательной на разной высоте.
-        for (int i = 0; i < 5; i++) {
+        double r = 1.5 + 1.0 * level;
+        // Серпы-удары: плотнее, ближе к телу.
+        for (int i = 0; i < 10; i++) {
             double a = client.world.random.nextDouble() * Math.PI * 2.0;
-            double h = 0.5 + client.world.random.nextDouble() * 1.7;
+            double h = 0.4 + client.world.random.nextDouble() * 1.4;
             client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
                     player.getX() + Math.cos(a) * r,
                     player.getY() + h,
                     player.getZ() + Math.sin(a) * r,
                     Math.cos(a + Math.PI / 2.0), 0, Math.sin(a + Math.PI / 2.0));
         }
-        // Полупрозрачная граница шара: плотный слой искр на сфере.
-        for (int i = 0; i < 8; i++) {
+        // Плотная граница шара: больше искр на сфере.
+        for (int i = 0; i < 16; i++) {
             double theta = client.world.random.nextDouble() * Math.PI * 2.0;
             double phi = Math.acos(2.0 * client.world.random.nextDouble() - 1.0);
             client.world.addParticleClient(ParticleTypes.CRIT,
@@ -598,8 +598,8 @@ public final class CombatController {
                     player.getZ() + r * Math.sin(phi) * Math.sin(theta),
                     0, 0, 0);
         }
-        // Кольцо по земле.
-        for (int i = 0; i < 5; i++) {
+        // Кольцо по земле: плотнее.
+        for (int i = 0; i < 10; i++) {
             double a = client.world.random.nextDouble() * Math.PI * 2.0;
             client.world.addParticleClient(ParticleTypes.END_ROD,
                     player.getX() + Math.cos(a) * r,
@@ -609,12 +609,35 @@ public final class CombatController {
         }
     }
 
-    /** Прогресс заряда 0..1 (для индикатора на дуге стамины). */
+    /** Cubic bezier: плавный разгон заряда (медленный старт, быстрый финал). */
+    private static float cubicBezier(float t) {
+        // P0(0,0) P1(0.42,0) P2(0.58,1) P3(1,1)
+        float cx = 3f * 0.42f;
+        float bx = 3f * (0.58f - 0.42f) - cx;
+        float ax = 1f - cx - bx;
+        float cy = 3f * 0f;
+        float by = 3f * (1f - 0f) - cy;
+        float ay = 1f - cy - by;
+        // Newton-Raphson for x -> t
+        float tt = t;
+        for (int i = 0; i < 8; i++) {
+            float err = ((ax * tt + bx) * tt + cx) * tt - t;
+            if (Math.abs(err) < 1e-6f) break;
+            float dx = (3f * ax * tt + 2f * bx) * tt + cx;
+            if (Math.abs(dx) < 1e-6f) break;
+            tt -= err / dx;
+        }
+        tt = MathHelper.clamp(tt, 0f, 1f);
+        return ((ay * tt + by) * tt + cy) * tt;
+    }
+
+    /** Прогресс заряда 0..1 с cubic bezier (медленный старт, быстрый финал). */
     public static float chargeProgress() {
         if (!charging) {
             return 0f;
         }
-        return MathHelper.clamp(chargeTicks / (float) SwordCombo.FULL_CHARGE_TICKS, 0f, 1f);
+        float linear = MathHelper.clamp(chargeTicks / (float) SwordCombo.FULL_CHARGE_TICKS, 0f, 1f);
+        return cubicBezier(linear);
     }
 
     /** Радиус поиска ближайшего врага для доворота в кинокамере-орбите. */
@@ -1234,7 +1257,7 @@ public final class CombatController {
      *  восстановления (после удара) движение уже разблокировано — персонаж
      *  не «замирает» на месте. */
     public static boolean lockInputDuringAttack() {
-        return comboStep >= 0 && recoveryTicks == 0;
+        return (comboStep >= 0 && recoveryTicks == 0) || charging;
     }
 
     /** Точки трейла разреза (мировые координаты + возраст, для рендера дуги). */
