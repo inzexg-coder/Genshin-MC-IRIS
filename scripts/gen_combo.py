@@ -64,6 +64,7 @@ E_OUT_CUBIC = 2
 E_OUT_BACK = 3
 E_IN_OUT_SINE = 4
 E_IN_CUBIC = 5
+E_CUBIC_BEZIER = 6  # cubic bezier: точки P0(0,0), P1(cp1), P2(cp2), P3(1,1)
 
 CH = ["rYaw", "rPitch", "rRoll", "lYaw", "lPitch", "lRoll",
       "bYaw", "bPitch", "bRoll", "hYaw", "hPitch", "hRoll",
@@ -120,6 +121,39 @@ def arm(blade_model, roll_pref=None, pitch_range=None):
 # и сбоку, ни на одном кадре клинок не проходит сквозь неё (удар 2 — раньше
 # кисть оказывалась у подбородка, а клинок входил в голову).
 
+def _cubic_bezier(t, x1, y1, x2, y2):
+    """Solve cubic bezier curve P0(0,0), P1(x1,y1), P2(x2,y2), P3(1,1) for t in [0,1]."""
+    # Newton-Raphson iteration to find t on curve for given x
+    cx = 3 * x1
+    bx = 3 * (x2 - x1) - cx
+    ax = 1 - cx - bx
+    cy = 3 * y1
+    by = 3 * (y2 - y1) - cy
+    ay = 1 - cy - by
+
+    def sample_x(tt):
+        return ((ax * tt + bx) * tt + cx) * tt
+
+    def sample_y(tt):
+        return ((ay * tt + by) * tt + cy) * tt
+
+    def sample_dx(tt):
+        return (3 * ax * tt + 2 * bx) * tt + cx
+
+    # Find t for given x using Newton-Raphson
+    tt = t  # initial guess
+    for _ in range(8):
+        err = sample_x(tt) - t
+        if abs(err) < 1e-6:
+            break
+        dx = sample_dx(tt)
+        if abs(dx) < 1e-6:
+            break
+        tt -= err / dx
+    tt = max(0.0, min(1.0, tt))
+    return sample_y(tt)
+
+
 def _ease(kind, t):
     """Зеркало CombatController.ease (t в 0..1) — запекаем те же кривые."""
     t = max(0.0, min(1.0, t))
@@ -134,6 +168,10 @@ def _ease(kind, t):
         return -(math.cos(math.pi * t) - 1) / 2
     if kind == E_IN_CUBIC:
         return t ** 3
+    if kind == E_CUBIC_BEZIER:
+        # Cubic bezier (0,0) -> cp1 -> cp2 -> (1,1)
+        # cp1 = (0.42, 0), cp2 = (0.58, 1) — smooth ease-in-out
+        return _cubic_bezier(t, 0.42, 0.0, 0.58, 1.0)
     return t
 
 
@@ -215,14 +253,14 @@ HIT2 = [
 # голову (x<=-4.5 — голова огибается сбоку, ни один кадр не задевает её),
 # спин опускает клинок сверху вниз-вперёд. ---
 HIT3 = [
-    (0.00, E_LINEAR, P(rYaw=-68.0, rPitch=-47.0, rRoll=-58.0, lPitch=-39.0, lRoll=3.0, bYaw=-7.0, bPitch=2.0, rlPitch=12.0, llPitch=-3.0)),
-    (0.12, E_IN_CUBIC, P(rYaw=-40.0, rPitch=-120.0, rRoll=-10.0, lPitch=-50.0, lRoll=-4.0, bYaw=-8.0, bPitch=1.0, rlPitch=6.0, llPitch=0.0)),
-    (0.24, E_IN_CUBIC, P(rYaw=-20.0, rPitch=-150.0, rRoll=-8.0, lPitch=-64.0, lRoll=-8.0, bYaw=-8.6, bPitch=-0.3, rlPitch=-6.0, llPitch=6.0)),
-    (0.36, E_IN_CUBIC, P(rYaw=-15.0, rPitch=-178.0, rRoll=-4.0, lPitch=-74.0, lRoll=-12.0, bYaw=-9.0, bPitch=-0.5, rlPitch=-10.0, llPitch=8.0)),
-    (0.44, E_IN_CUBIC, P(rYaw=-20.0, rPitch=-105.0, rRoll=-10.0, lPitch=-60.0, lRoll=-5.0, bYaw=1.0, bPitch=4.0, rlPitch=-18.0, llPitch=14.0)),
-    (0.58, E_OUT_CUBIC, P(rYaw=-25.0, rPitch=-78.0, rRoll=-6.0, lPitch=-46.0, lRoll=2.0, bYaw=4.5, bPitch=4.2, rlPitch=-8.0, llPitch=8.0)),
-    (0.75, E_OUT_BACK, P(rYaw=-70.0, rPitch=-40.0, rRoll=-5.0, lPitch=-24.0, lRoll=4.0, bYaw=7.0, bPitch=2.0, rlPitch=10.0, llPitch=-2.0)),
-    (1.00, E_IN_OUT_SINE, P(rYaw=-10.0, rPitch=-72.0, rRoll=-5.0, lPitch=-15.0, bYaw=8.0, rlPitch=20.0)),
+    (0.00, E_CUBIC_BEZIER, P(rYaw=-68.0, rPitch=-47.0, rRoll=-58.0, lPitch=-39.0, lRoll=3.0, bYaw=-7.0, bPitch=2.0, rlPitch=12.0, llPitch=-3.0)),
+    (0.12, E_CUBIC_BEZIER, P(rYaw=-40.0, rPitch=-120.0, rRoll=-10.0, lPitch=-50.0, lRoll=-4.0, bYaw=-8.0, bPitch=1.0, rlPitch=6.0, llPitch=0.0)),
+    (0.24, E_CUBIC_BEZIER, P(rYaw=-20.0, rPitch=-150.0, rRoll=-8.0, lPitch=-64.0, lRoll=-8.0, bYaw=-8.6, bPitch=-0.3, rlPitch=-6.0, llPitch=6.0)),
+    (0.36, E_CUBIC_BEZIER, P(rYaw=-15.0, rPitch=-178.0, rRoll=-4.0, lPitch=-74.0, lRoll=-12.0, bYaw=-9.0, bPitch=-0.5, rlPitch=-10.0, llPitch=8.0)),
+    (0.44, E_CUBIC_BEZIER, P(rYaw=-20.0, rPitch=-105.0, rRoll=-10.0, lPitch=-60.0, lRoll=-5.0, bYaw=1.0, bPitch=4.0, rlPitch=-18.0, llPitch=14.0)),
+    (0.58, E_CUBIC_BEZIER, P(rYaw=-25.0, rPitch=-78.0, rRoll=-6.0, lPitch=-46.0, lRoll=2.0, bYaw=4.5, bPitch=4.2, rlPitch=-8.0, llPitch=8.0)),
+    (0.75, E_CUBIC_BEZIER, P(rYaw=-70.0, rPitch=-40.0, rRoll=-5.0, lPitch=-24.0, lRoll=4.0, bYaw=7.0, bPitch=2.0, rlPitch=10.0, llPitch=-2.0)),
+    (1.00, E_CUBIC_BEZIER, P(rYaw=-10.0, rPitch=-72.0, rRoll=-5.0, lPitch=-15.0, bYaw=8.0, rlPitch=20.0)),
 ]
 
 # --- hit4: удар справа налево (на экране) с разгоном: замах над головой
