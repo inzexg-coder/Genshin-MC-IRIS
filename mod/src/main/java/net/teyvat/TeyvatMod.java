@@ -291,6 +291,11 @@ public class TeyvatMod implements ModInitializer {
             if (healthAttr != null) {
                 healthAttr.setBaseValue(TeyvatConfig.get().health.max_health);
             }
+            // Базовая атака как в Genshin: 17.81 (Aether Lv1).
+            var attackAttr = player.getAttributeInstance(EntityAttributes.ATTACK_DAMAGE);
+            if (attackAttr != null) {
+                attackAttr.setBaseValue(17.81);
+            }
             player.setHealth(player.getMaxHealth());
             String version = "?";
             try {
