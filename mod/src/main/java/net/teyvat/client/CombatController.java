@@ -247,9 +247,8 @@ public final class CombatController {
                 chargeWindupTicks++;
                 spawnChargeWhirlwind(client, client.player);
                 // Периодический дамаг врагам в радиусе.
-                if (chargeWindupTicks % CHARGE_HIT_INTERVAL == 0 && !sentHit) {
+                if (chargeWindupTicks % CHARGE_HIT_INTERVAL == 0) {
                     sendHit(SwordCombo.CHARGE_INDEX, chargeProgress());
-                    sentHit = true;
                 }
             }
             if (!lmbHeld) {
