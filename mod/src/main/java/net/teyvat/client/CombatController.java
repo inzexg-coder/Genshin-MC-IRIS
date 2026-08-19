@@ -86,6 +86,8 @@ public final class CombatController {
     private static int comboStep = -1;
     /** Предыдущий шаг комбо для отслеживания изменений (PAL анимации). */
     private static int prevComboStep = -1;
+    /** PAL активен: не применять процедурные позы (PAL рисует кости сам). */
+    private static boolean palActive = false;
     /** Тики с начала текущего удара. */
     private static int hitTicks;
     /** Счётчик клиентских тиков (для окна комбо от последнего клика). */
@@ -454,8 +456,10 @@ public final class CombatController {
         if (comboStep != prevComboStep) {
             if (comboStep >= 0) {
                 PlayerCombatAnimations.playComboHit(comboStep);
+                palActive = true;
             } else {
                 PlayerCombatAnimations.stop();
+                palActive = false;
             }
             prevComboStep = comboStep;
         }
@@ -1246,7 +1250,15 @@ public final class CombatController {
         if (!isLocalPlayer(state.id)) {
             return;
         }
-        if (charging) {
+        if (palActive) {
+            // PAL рисует кости — НЕ перезаписываем процедурными позами.
+            // Сбрасываем только head (PAL управлять головой не может корректно
+            // из-за различий в pivot-point).
+            model.head.yaw = 0f;
+            model.head.pitch = 0f;
+            model.head.roll = 0f;
+            return;
+        } else if (charging) {
             applyChargePose(model, state);
         } else if (comboStep >= 0) {
             applyPose(model, state.id);
