@@ -583,40 +583,64 @@ public final class CombatController {
     /** Вихрь заряженного спина: серпы-удары по компактной сфере вокруг героя.
      *  Радиус уменьшен (1.5..2.5 вместо 3.0..5.6), плотность увеличена
      *  (больше частиц на тик) для визуально насыщенного вихря. */
+    /** Визуал заряженного спина: 3 огромных диагональных серпа + искры. */
     private static void spawnWhirlwindEffects(MinecraftClient client, ClientPlayerEntity player) {
         if (client.world == null) {
             return;
         }
         float level = chargeLevel;
-        double r = 1.5 + 1.0 * level;
-        // Серпы-удары: плотнее, ближе к телу.
-        for (int i = 0; i < 10; i++) {
-            double a = client.world.random.nextDouble() * Math.PI * 2.0;
-            double h = 0.4 + client.world.random.nextDouble() * 1.4;
+        float yaw = (float) Math.toRadians(player.getYaw());
+        double rightX = Math.cos(yaw);
+        double rightZ = Math.sin(yaw);
+        int tick = hitTicks;
+        // Один огромный серп каждые 8 тиков — 3 удара за спин (26 тиков).
+        if (tick % 8 == 1) {
+            // Удар 1: верхний правый → нижний левый.
             client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
-                    player.getX() + Math.cos(a) * r,
-                    player.getY() + h,
-                    player.getZ() + Math.sin(a) * r,
-                    Math.cos(a + Math.PI / 2.0), 0, Math.sin(a + Math.PI / 2.0));
+                    player.getX() + rightX * 3.5,
+                    player.getY() + 2.5,
+                    player.getZ() + rightZ * 3.5,
+                    -rightX * 2.0, -1.0, -rightZ * 2.0);
+            for (int i = 0; i < 8; i++) {
+                client.world.addParticleClient(ParticleTypes.CRIT,
+                        player.getX() + (client.world.random.nextDouble() - 0.5) * 5.0,
+                        player.getY() + 0.5 + client.world.random.nextDouble() * 2.0,
+                        player.getZ() + (client.world.random.nextDouble() - 0.5) * 5.0,
+                        0, 0, 0);
+            }
         }
-        // Плотная граница шара: больше искр на сфере.
-        for (int i = 0; i < 16; i++) {
-            double theta = client.world.random.nextDouble() * Math.PI * 2.0;
-            double phi = Math.acos(2.0 * client.world.random.nextDouble() - 1.0);
-            client.world.addParticleClient(ParticleTypes.CRIT,
-                    player.getX() + r * Math.sin(phi) * Math.cos(theta),
-                    player.getY() + 1.0 + r * Math.cos(phi) * 0.55,
-                    player.getZ() + r * Math.sin(phi) * Math.sin(theta),
-                    0, 0, 0);
+        if (tick % 8 == 5) {
+            // Удар 2: верхний левый → нижний правый (зеркальный).
+            client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
+                    player.getX() - rightX * 3.5,
+                    player.getY() + 2.5,
+                    player.getZ() - rightZ * 3.5,
+                    rightX * 2.0, -1.0, rightZ * 2.0);
+            for (int i = 0; i < 8; i++) {
+                client.world.addParticleClient(ParticleTypes.CRIT,
+                        player.getX() + (client.world.random.nextDouble() - 0.5) * 5.0,
+                        player.getY() + 0.5 + client.world.random.nextDouble() * 2.0,
+                        player.getZ() + (client.world.random.nextDouble() - 0.5) * 5.0,
+                        0, 0, 0);
+            }
         }
-        // Кольцо по земле: плотнее.
-        for (int i = 0; i < 10; i++) {
-            double a = client.world.random.nextDouble() * Math.PI * 2.0;
-            client.world.addParticleClient(ParticleTypes.END_ROD,
-                    player.getX() + Math.cos(a) * r,
-                    player.getY() + 0.1,
-                    player.getZ() + Math.sin(a) * r,
-                    Math.cos(a) * 0.4, 0.3, Math.sin(a) * 0.4);
+        if (tick == 14) {
+            // Удар 3: финальный — горизонтальный круг.
+            for (int i = 0; i < 12; i++) {
+                double a = i / 12.0 * Math.PI * 2.0;
+                client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
+                        player.getX() + Math.cos(a) * 4.0,
+                        player.getY() + 1.2,
+                        player.getZ() + Math.sin(a) * 4.0,
+                        Math.cos(a) * 1.5, 0, Math.sin(a) * 1.5);
+            }
+            for (int i = 0; i < 20; i++) {
+                client.world.addParticleClient(ParticleTypes.CRIT,
+                        player.getX() + (client.world.random.nextDouble() - 0.5) * 7.0,
+                        player.getY() + 0.3 + client.world.random.nextDouble() * 2.0,
+                        player.getZ() + (client.world.random.nextDouble() - 0.5) * 7.0,
+                        0, 0, 0);
+            }
         }
     }
 
@@ -658,8 +682,7 @@ public final class CombatController {
                 && tickCount - holdStartTick >= CHARGE_START_TICKS);
     }
 
-    /** Диагональный мощный серп: один большой SWEEP_ATTACK по траектории
-     *  меча — из верхнего правого в нижний левый угол. Редкие но эпичные. */
+    /** Компактный вихрь заряда: меньше серпов, ближе к телу. */
     private static void spawnChargeWhirlwind(MinecraftClient client, ClientPlayerEntity player) {
         if (client.world == null) {
             return;
@@ -668,38 +691,25 @@ public final class CombatController {
         float yaw = (float) Math.toRadians(player.getYaw());
         double rightX = Math.cos(yaw);
         double rightZ = Math.sin(yaw);
-        double lookX = -Math.sin(yaw);
-        double lookZ = Math.cos(yaw);
-        // Энергетическое свечение вокруг тела.
-        double glowR = 0.5 + 0.3 * level;
+        // Свечение — 1 частица.
         client.world.addParticleClient(ParticleTypes.END_ROD,
                 player.getX(), player.getY() + 1.5, player.getZ(),
-                0, 0.2 * level, 0);
-        // Один мощный диагональный серп каждые 5 тиков.
-        if (chargeWindupTicks % 5 == 0) {
-            // Верхний правый → нижний левый.
+                0, 0.15 * level, 0);
+        // Один серп каждые 6 тиков (было 5, было зеркальный).
+        if (chargeWindupTicks % 6 == 0) {
             client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
-                    player.getX() + rightX * 2.5,
-                    player.getY() + 2.2,
-                    player.getZ() + rightZ * 2.5,
-                    -rightX * 1.5, -0.8, -rightZ * 1.5);
-            // Зеркальный: верхний левый → нижний правый (через тик).
+                    player.getX() + rightX * 1.8,
+                    player.getY() + 1.8,
+                    player.getZ() + rightZ * 1.8,
+                    -rightX * 0.8, -0.4, -rightZ * 0.8);
         }
-        if (chargeWindupTicks % 5 == 3) {
-            client.world.addParticleClient(ParticleTypes.SWEEP_ATTACK,
-                    player.getX() - rightX * 2.5,
-                    player.getY() + 2.2,
-                    player.getZ() - rightZ * 2.5,
-                    rightX * 1.5, -0.8, rightZ * 1.5);
-        }
-        // Искры в точке удара.
-        if (chargeWindupTicks % 5 == 0 || chargeWindupTicks % 5 == 3) {
-            for (int i = 0; i < 5; i++) {
-                double spread = client.world.random.nextDouble() * 1.5;
+        // 3 искры в момент серпа.
+        if (chargeWindupTicks % 6 == 0) {
+            for (int i = 0; i < 3; i++) {
                 client.world.addParticleClient(ParticleTypes.CRIT,
-                        player.getX() + (client.world.random.nextDouble() - 0.5) * 3.0,
-                        player.getY() + 0.5 + client.world.random.nextDouble() * 1.5,
-                        player.getZ() + (client.world.random.nextDouble() - 0.5) * 3.0,
+                        player.getX() + (client.world.random.nextDouble() - 0.5) * 2.0,
+                        player.getY() + 0.5 + client.world.random.nextDouble() * 1.2,
+                        player.getZ() + (client.world.random.nextDouble() - 0.5) * 2.0,
                         0, 0, 0);
             }
         }
