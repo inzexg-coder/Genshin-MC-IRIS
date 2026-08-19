@@ -1214,7 +1214,11 @@ public final class CombatController {
                         : comboStep == SwordCombo.CHARGE_INDEX ? chargedSpinTurn(p) : 0f);
         lastCombatRootY = model.getRootPart().originY;
         lastCombatRootPitch = model.getRootPart().pitch;
-        lastCombatRootYaw = model.getRootPart().yaw;
+        // During spin turns (hit3, charged), don't update lastLocoRootYaw
+        // — it would feed the spinning angle back into lerp, causing wild rotation.
+        if (comboStep != 2 && comboStep != SwordCombo.CHARGE_INDEX) {
+            lastCombatRootYaw = model.getRootPart().yaw;
+        }
     }
 
     /** Текущий прогресс удара 0..1 с интерполяцией кадров (как в applyPose). */
