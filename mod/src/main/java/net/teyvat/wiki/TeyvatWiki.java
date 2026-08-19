@@ -59,6 +59,7 @@ public final class TeyvatWiki {
     public static final String ID_HYDRO_SLIME = "hydro_slime";
     public static final String ID_HYDRO_PROJECTILE = "hydro_slime_projectile";
     public static final String ID_COMBAT = "combat";
+    public static final String ID_DULL_BLADE = "dull_blade";
     public static final String ID_DASH = "dash";
     public static final String ID_FALL_DAMAGE = "fall_damage";
     public static final String ID_MORA = "mora";
@@ -184,6 +185,9 @@ public final class TeyvatWiki {
 
     /** Страница, которую открывает подбор предмета (по id предмета). */
     public static String pageForItem(String itemId) {
+        if ("teyvat:dull_blade".equals(itemId)) {
+            return ID_DULL_BLADE;
+        }
         if ("teyvat:mora".equals(itemId)) {
             return ID_MORA;
         }

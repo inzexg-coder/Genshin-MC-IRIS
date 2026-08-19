@@ -104,6 +104,8 @@ public class TeyvatMod implements ModInitializer {
         if (player.getInventory().getStack(0).isEmpty()) {
             player.getInventory().setStack(0, new ItemStack(TeyvatItems.DULL_BLADE));
         }
+        // Открыть запись о мече в Энциклопедии при первом входе.
+        WikiDiscoveries.discover(player, TeyvatWiki.ID_DULL_BLADE);
     }
 
     @Override
