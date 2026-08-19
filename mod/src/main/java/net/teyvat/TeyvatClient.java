@@ -30,6 +30,7 @@ import net.teyvat.client.WaterRippleParticle;
 import net.teyvat.client.WaterMistParticle;
 import net.teyvat.client.TeyvatSlashParticle;
 import net.teyvat.client.CombatController;
+import net.teyvat.client.PlayerCombatAnimations;
 import net.teyvat.client.FirstPersonBody;
 import net.teyvat.client.StaminaController;
 import net.teyvat.client.PickupController;
@@ -93,6 +94,8 @@ public class TeyvatClient implements ClientModInitializer {
         // Рендеры Гидро слайма и его водяного шара.
         EntityRendererRegistry.register(HydroSlimeEntity.TYPE, HydroSlimeEntityRenderer::new);
         EntityRendererRegistry.register(HydroSlimeProjectileEntity.TYPE, HydroSlimeProjectileRenderer::new);
+        // Player Animation Library: боевые анимации.
+        PlayerCombatAnimations.init();
 
         // Кастомный всплеск воды при смерти слайма: кольцо на текстуре water_splash.
         ParticleFactoryRegistry.getInstance().register(TeyvatParticles.WATER_SPLASH,

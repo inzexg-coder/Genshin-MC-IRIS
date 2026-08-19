@@ -2,6 +2,7 @@ package net.teyvat.client;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
+import net.teyvat.client.PlayerCombatAnimations;
 import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.client.render.entity.model.PlayerEntityModel;
 import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
@@ -83,6 +84,8 @@ import java.util.List;
 public final class CombatController {
     /** Текущий удар комбо: 0..HIT_COUNT-1, -1 = атака не идёт. */
     private static int comboStep = -1;
+    /** Предыдущий шаг комбо для отслеживания изменений (PAL анимации). */
+    private static int prevComboStep = -1;
     /** Тики с начала текущего удара. */
     private static int hitTicks;
     /** Счётчик клиентских тиков (для окна комбо от последнего клика). */
@@ -447,6 +450,15 @@ public final class CombatController {
             lastClickTick = -1;
         }
         // Отдача затухает сама: пульс виден пару кадров, затем камера успокаивается.
+        // Player Animation Library: триггер анимации при смене шага комбо.
+        if (comboStep != prevComboStep) {
+            if (comboStep >= 0) {
+                PlayerCombatAnimations.playComboHit(comboStep);
+            } else {
+                PlayerCombatAnimations.stop();
+            }
+            prevComboStep = comboStep;
+        }
         impactKick *= 0.84f;
     }
 
