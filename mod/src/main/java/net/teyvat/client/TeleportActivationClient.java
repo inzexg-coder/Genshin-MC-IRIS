@@ -205,6 +205,7 @@ public final class TeleportActivationClient {
             if (reapplyTimer >= 40) {
                 reapplyTimer = 0;
                 reapplyIfNeeded();
+                spawnTeleportMarkers(client);
             }
 
             // Поиск ближайшей красной плиты
@@ -247,6 +248,27 @@ public final class TeleportActivationClient {
         });
 
         // HUD рендер теперь через InGameHudMixin (HudRenderCallback не работает — mixin отменяет vanilla HUD).
+    }
+
+    /** Спавнит частицы-маркеры над активированными точками телепортации. */
+    private static void spawnTeleportMarkers(MinecraftClient client) {
+        if (client.player == null || client.world == null) return;
+
+        for (long packed : activatedPositions) {
+            BlockPos pos = BlockPos.fromLong(packed);
+            if (!client.player.getBlockPos().isWithinDistance(pos, 64)) continue;
+
+            double x = pos.getX() + 0.5;
+            double y = pos.getY() + 4.0;
+            double z = pos.getZ() + 0.5;
+
+            // Синие искры — вертикальный столб света над колонной
+            client.world.addParticleClient(net.minecraft.particle.ParticleTypes.END_ROD,
+                    x, y, z, 0, 0.05, 0);
+            client.world.addParticleClient(net.minecraft.particle.ParticleTypes.ENCHANT,
+                    x + (Math.random() - 0.5), y + Math.random(), z + (Math.random() - 0.5),
+                    0, 0.02, 0);
+        }
     }
 
     // ──────────────────── HUD rendering ────────────────────

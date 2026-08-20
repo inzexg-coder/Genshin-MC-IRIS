@@ -167,8 +167,10 @@ public class MinimapScreen extends Screen {
 
     private void drawTeleportMarkers(DrawContext ctx, TextRenderer tr, int sw, int sh, double cx, double cz) {
         for (long packed : TeleportActivationClient.getActivatedPositionsRaw()) {
-            int bx = unpackX(packed);
-            int bz = unpackZ(packed);
+            // BlockPos.asLong() использует свой формат (X:26+Y:12+Z:26)
+            BlockPos pos = BlockPos.fromLong(packed);
+            int bx = pos.getX();
+            int bz = pos.getZ();
             int sx = (int) ((bx - cx) * scale + sw / 2.0);
             int sy = (int) ((bz - cz) * scale + sh / 2.0);
             if (sx < -20 || sx > sw + 20 || sy < -20 || sy > sh + 20) continue;
