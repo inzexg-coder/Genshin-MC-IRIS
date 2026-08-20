@@ -32,7 +32,7 @@ public final class TeyvatSpawn {
     private static final Logger LOGGER = LoggerFactory.getLogger("Teyvat");
     private static final Identifier BEACH_BIOME_ID = Identifier.of("teyvat", "teyvat_beach");
     private static final RegistryKey<Biome> BEACH_BIOME = RegistryKey.of(RegistryKeys.BIOME, BEACH_BIOME_ID);
-    private static final Identifier GRASS_BIOME_ID = Identifier.of("teyvat", "teyvat_beach_edge");
+    private static final Identifier GRASS_BIOME_ID = Identifier.of("teyvat", "teyvat_plains");
     private static final RegistryKey<Biome> GRASS_BIOME = RegistryKey.of(RegistryKeys.BIOME, GRASS_BIOME_ID);
     private static final String WELCOME_TAG = "teyvat:welcomed";
 

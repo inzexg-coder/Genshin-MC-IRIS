@@ -129,7 +129,7 @@
               }
             },
             {
-              "biome": "teyvat:teyvat_outskirts",
+              "biome": "teyvat:teyvat_plains",
               "parameters": {
                 "temperature": [
                   -2.0,
