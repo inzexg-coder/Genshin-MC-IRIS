@@ -65,6 +65,9 @@ import net.teyvat.network.QuestStatePayload;
 import net.teyvat.network.PickupRequestPayload;
 import net.teyvat.network.WikiStatePayload;
 import net.teyvat.network.WikiDiscoveryPayload;
+import net.teyvat.network.TeleportActivatePayload;
+import net.teyvat.network.TeleportStatePayload;
+import net.teyvat.server.TeleportActivationManager;
 import net.teyvat.progression.MobLevels;
 import net.teyvat.progression.MobXp;
 import net.teyvat.progression.ProgressionStore;
@@ -142,6 +145,8 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(ResourceGainPayload.ID, ResourceGainPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(AttackResultPayload.ID, AttackResultPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(MobLevelSyncPayload.ID, MobLevelSyncPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(TeleportActivatePayload.ID, TeleportActivatePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(TeleportStatePayload.ID, TeleportStatePayload.CODEC);
         // Shift+N: «О сборке» — только для администраторов мира/сервера.
         ServerPlayNetworking.registerGlobalReceiver(AdminNotesRequestPayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
@@ -204,6 +209,13 @@ public class TeyvatMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(PickupRequestPayload.ID, (payload, context) -> {
             if (context.player() != null) {
                 ItemPickup.onPickupRequest(context.player());
+            }
+        });
+
+        // Q: активация точки телепортации — клиент нажал Q рядом с красной плитой.
+        ServerPlayNetworking.registerGlobalReceiver(TeleportActivatePayload.ID, (payload, context) -> {
+            if (context.player() != null) {
+                TeleportActivationManager.tryActivate(context.player(), payload.pos());
             }
         });
 
@@ -349,6 +361,8 @@ public class TeyvatMod implements ModInitializer {
             ServerPlayNetworking.send(player, new WikiStatePayload(WikiDiscoveries.discoveredIds(player)));
             // Прогрессия: ранг, опыт, примогемы, ростера персонажей.
             ProgressionStore.sync(player);
+            // Активированные точки телепортации: клиент заменит красные блоки на синие.
+            TeleportActivationManager.syncToClient(player);
             // Уровни уже загруженных мобов рядом: ENTITY_LOAD для них уже отработал,
             // поэтому шлём текущие уровни при входе игрока.
             for (ServerWorld world : server.getWorlds()) {

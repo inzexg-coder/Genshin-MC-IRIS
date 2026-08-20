@@ -57,8 +57,11 @@ import net.teyvat.network.WikiStatePayload;
 import net.teyvat.network.WikiDiscoveryPayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.quest.Quests;
+import java.util.HashSet;
 import net.teyvat.network.TravelerChoiceSyncPayload;
 import net.teyvat.client.WikiStateClient;
+import net.teyvat.client.TeleportActivationClient;
+import net.teyvat.network.TeleportStatePayload;
 import org.lwjgl.glfw.GLFW;
 
 public class TeyvatClient implements ClientModInitializer {
@@ -81,6 +84,9 @@ public class TeyvatClient implements ClientModInitializer {
     /** Подобрать предмет с земли: нажатие F (как в Genshin). */
     public static final KeyBinding PICKUP = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.pickup", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F, CATEGORY));
+    /** Активация точки телепортации: рядом с красной точкой → Q → синяя с анимацией. */
+    public static final KeyBinding TELEPORT_ACTIVATE = KeyBindingHelper.registerKeyBinding(
+            new KeyBinding("key.teyvat.teleport_activate", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_Q, CATEGORY));
 
     /** Тики до открытия экрана выбора (ждём, пока мир догрузится). -1 = не запрошено. */
     private static int choiceOpenDelay = -1;
@@ -246,6 +252,15 @@ public class TeyvatClient implements ClientModInitializer {
                     PaimonManager.startIntro();
                 }
             }
+        });
+
+        // Активация точек телепортации: Q-клавиша, HUD-подсказка, анимация, замена блоков.
+        TeleportActivationClient.init(TELEPORT_ACTIVATE);
+
+        // Состояние активации точек от сервера.
+        ClientPlayNetworking.registerGlobalReceiver(TeleportStatePayload.ID, (payload, context) -> {
+            context.client().execute(() -> TeleportActivationClient.setActivatedPositions(
+                    new HashSet<>(payload.positions())));
         });
     }
 }
