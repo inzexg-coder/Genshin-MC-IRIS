@@ -233,6 +233,9 @@ public class TeyvatClient implements ClientModInitializer {
             context.client().execute(() ->
                     QuestStateClient.set(payload.meetPaimon(), payload.tryScroll(), payload.tryZoom(),
                             payload.trySprint(), payload.tryDash(), payload.tryAttack(), payload.tryPickup()));
+            // После загрузки квестов пробуем создать Паймон (при перезаходе startIntro
+            // мог не сработать из-за гонки: choice пришёл раньше quest state).
+            context.client().execute(() -> PaimonManager.startIntro());
         });
 
         // Квест выполнен на сервере (победа над слаймами тренировки): тост

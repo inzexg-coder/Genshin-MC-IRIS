@@ -33,6 +33,9 @@ public class MinimapScreen extends Screen {
 
     /** Пре-рендер чанков: ключ = chunkX<<32|chunkZ → int[256] (16×16 ARGB). */
     private static final Map<Long, int[]> chunkPixels = new ConcurrentHashMap<>();
+    /** Последняя позиция игрока — для сброса кэша при смене чанка. */
+    private int lastPlayerChunkX = Integer.MIN_VALUE;
+    private int lastPlayerChunkZ = Integer.MIN_VALUE;
 
     public MinimapScreen() {
         super(Text.literal("Карта"));
@@ -48,6 +51,15 @@ public class MinimapScreen extends Screen {
         int sw = client.getWindow().getScaledWidth();
         int sh = client.getWindow().getScaledHeight();
         BlockPos playerPos = client.player.getBlockPos();
+
+        // Сброс кэша при переходе в новый чанк — чтобы карта обновилась
+        int pcx = playerPos.getX() >> 4;
+        int pcz = playerPos.getZ() >> 4;
+        if (pcx != lastPlayerChunkX || pcz != lastPlayerChunkZ) {
+            lastPlayerChunkX = pcx;
+            lastPlayerChunkZ = pcz;
+            chunkPixels.clear();
+        }
 
         double centerX = playerPos.getX() + camX;
         double centerZ = playerPos.getZ() + camZ;
@@ -151,12 +163,12 @@ public class MinimapScreen extends Screen {
             int sx = (int) ((bx - cx) * scale + sw / 2.0);
             int sy = (int) ((bz - cz) * scale + sh / 2.0);
             if (sx < -30 || sx > sw + 30 || sy < -30 || sy > sh + 30) continue;
-            // Крупный значок телепортации: синий ромб с белым ядром и золотой обводкой
+            // Крупный значок телепортации: синий ромб с белой обводкой и ядром
             int r = 10; // радиус ромба
-            // Внешняя обводка (золотая)
+            // Внешняя обводка (белая)
             for (int i = -r; i <= r; i++) {
                 int w = r - Math.abs(i);
-                ctx.fill(sx - w - 1, sy + i, sx + w + 1, sy + i + 1, 0xFFE8C86A);
+                ctx.fill(sx - w - 1, sy + i, sx + w + 1, sy + i + 1, 0xFFFFFFFF);
             }
             // Тело ромба (синее)
             for (int i = -r + 1; i <= r - 1; i++) {
@@ -192,10 +204,10 @@ public class MinimapScreen extends Screen {
         int rightX = px + (int) (-Math.sin(rad - 2.5) * r * 0.6);
         int rightY = py + (int) (Math.cos(rad - 2.5) * r * 0.6);
 
-        // Обводка (тёмная)
-        drawLine(ctx, px, py, tipX, tipY, 3, 0xFF1A1A2E);
-        drawLine(ctx, leftX, leftY, tipX, tipY, 3, 0xFF1A1A2E);
-        drawLine(ctx, rightX, rightY, tipX, tipY, 3, 0xFF1A1A2E);
+        // Обводка (белая)
+        drawLine(ctx, px, py, tipX, tipY, 4, 0xFFFFFFFF);
+        drawLine(ctx, leftX, leftY, tipX, tipY, 4, 0xFFFFFFFF);
+        drawLine(ctx, rightX, rightY, tipX, tipY, 4, 0xFFFFFFFF);
 
         // Заливка (золотая)
         drawLine(ctx, px, py, tipX, tipY, 2, 0xFFFFD966);
