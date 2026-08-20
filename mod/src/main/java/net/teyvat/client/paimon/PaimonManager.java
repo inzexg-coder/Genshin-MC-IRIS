@@ -737,8 +737,6 @@ public final class PaimonManager {
         } else if (farewellTimer == 200) {
             DialogueOverlay.end();
             farewellTimer = -1;
-            // Паймон улетает — скрываем сущность
-            remove();
         }
     }
 
