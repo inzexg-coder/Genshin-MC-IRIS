@@ -4,7 +4,8 @@
     "particle": "teyvat:block/teleport_column_capital_red",
     "bottom": "teyvat:block/teleport_column_capital_red",
     "top": "teyvat:block/teleport_column_capital_red",
-    "side": "teyvat:block/teleport_column_capital_red"
+    "side": "teyvat:block/teleport_column_capital_red",
+    "fill": "teyvat:block/teleport_fill_red"
   },
   "elements": [
     {
@@ -27,7 +28,7 @@
             16,
             16
           ],
-          "texture": "#bottom",
+          "texture": "#fill",
           "cullface": "down"
         },
         "up": {
@@ -37,7 +38,8 @@
             16,
             16
           ],
-          "texture": "#top"
+          "texture": "#fill",
+          "cullface": "up"
         },
         "north": {
           "uv": [
@@ -46,7 +48,8 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#fill",
+          "cullface": "north"
         },
         "south": {
           "uv": [
@@ -55,7 +58,8 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#fill",
+          "cullface": "south"
         },
         "west": {
           "uv": [
@@ -64,7 +68,8 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#fill",
+          "cullface": "west"
         },
         "east": {
           "uv": [
@@ -73,7 +78,8 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#fill",
+          "cullface": "east"
         }
       }
     },

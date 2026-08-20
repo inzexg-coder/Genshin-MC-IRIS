@@ -1,3 +1,6 @@
 {
-  "parent": "teyvat:block/teleport_path_thin"
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "teyvat:item/teleport_red"
+  }
 }
