@@ -128,7 +128,7 @@ public final class CombatController {
     /** Тиков восстановления после одиночного удара: поза плавно уходит в
      *  боевую стойку READY_POSE (клинок остаётся горизонтальным — никакого
      *  «дефолтного майнкрафт» с вертикальным мечом). */
-    private static final int RECOVERY_TICKS = 3;
+    private static final int RECOVERY_TICKS = 1;
     /** Тиков смешивания последней позы удара с локомоцией (бег/шаг/АФК). */
     private static final int EXIT_BLEND_TICKS = 6;
 
