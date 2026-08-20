@@ -105,34 +105,34 @@ public final class TeyvatSpawn {
                 found = findBeachSpawn(world, anchor, Math.max(16, cfg.search_radius));
             }
             if (found == null) {
-                // вокруг якоря ничего не нашлось (например, чанки не загружены) —
-                // ищем вокруг точки мирового спавна, она гарантированно загружена
                 BlockPos worldSpawn = world.getSpawnPoint().globalPos().pos();
                 found = findBeachSpawn(world, worldSpawn, Math.max(16, cfg.search_radius));
             }
             pos = found != null ? found : world.getSpawnPoint().globalPos().pos();
         }
-        // Ищем позицию в биоме травы на границе с пляжем
-        BlockPos grassPos = findGrassBorderSpawn(world, pos);
-        BlockPos finalPos;
-        if (grassPos != null) {
-            finalPos = grassPos;
-        } else {
-            finalPos = pos;
-        }
-        float yaw = cfg.yaw >= 0f ? cfg.yaw : autoYaw(world, finalPos);
-        beachSpawn = finalPos;
+
+        // Спавн-точка = на пляже у моря
+        float yaw = cfg.yaw >= 0f ? cfg.yaw : autoYaw(world, pos);
+        beachSpawn = pos;
         beachYaw = yaw;
-        world.setSpawnPoint(WorldProperties.SpawnPoint.create(world.getRegistryKey(), finalPos, yaw, 0f));
-        LOGGER.info("Точка телепортации: x={}, y={}, z={}, yaw={}", finalPos.getX(), finalPos.getY(), finalPos.getZ(), yaw);
-        // Строим только если точки ещё нет (проверяем плиту в центре)
-        BlockState centerBlock = world.getBlockState(finalPos);
-        if (!centerBlock.isOf(TeyvatBlocks.TELEPORT_SLAB_RED) && !centerBlock.isOf(TeyvatBlocks.TELEPORT_SLAB_BLUE)) {
-            buildTeleportPoint(world, finalPos);
+        world.setSpawnPoint(WorldProperties.SpawnPoint.create(world.getRegistryKey(), pos, yaw, 0f));
+        LOGGER.info("Спавн-точка (пляж): x={}, y={}, z={}, yaw={}", pos.getX(), pos.getY(), pos.getZ(), yaw);
+
+        // Точка телепортации = на границе с равнинами (строим ОДИН раз)
+        BlockPos grassPos = findGrassBorderSpawn(world, pos);
+        if (grassPos != null) {
+            BlockState centerBlock = world.getBlockState(grassPos);
+            if (!centerBlock.isOf(TeyvatBlocks.TELEPORT_SLAB_RED) && !centerBlock.isOf(TeyvatBlocks.TELEPORT_SLAB_BLUE)) {
+                buildTeleportPoint(world, grassPos);
+                LOGGER.info("Построена точка телепортации: x={}, y={}, z={}", grassPos.getX(), grassPos.getY(), grassPos.getZ());
+            } else {
+                LOGGER.info("Точка телепортации уже существует");
+            }
         } else {
-            LOGGER.info("Точка телепортации уже существует, пропускаем постройку");
+            LOGGER.warn("Не удалось найти равнины для точки телепортации!");
         }
-        return finalPos;
+
+        return pos;
     }
 
     /**
