@@ -315,11 +315,17 @@ public class MinimapScreen extends Screen {
         try {
             int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
             BlockPos pos = new BlockPos(x, y, z);
+
+            // Океан: если высота поверхности ниже уровня моря → это вода
+            if (y < 62) {
+                return 0xFF1A3D7A;
+            }
+
             Block block = world.getBlockState(pos.down()).getBlock();
             String biome = world.getBiome(pos).getKey().map(k -> k.getValue().getPath()).orElse("");
 
+            // Дополнительная проверка на воду (озёра, реки выше уровня моря)
             if (!world.getFluidState(pos).isEmpty()) {
-                // Океан — всегда тёмно-синий (один цвет, без градиента)
                 return 0xFF1A3D7A;
             }
 

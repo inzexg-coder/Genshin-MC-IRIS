@@ -18,20 +18,13 @@ import net.teyvat.quest.Quests;
 public final class BeachBoundary {
     private BeachBoundary() {}
 
-    /** Центр пляжа — фиксируется при первом тике (спавн-точка мира). */
-    private static BlockPos beachCenter = null;
-
     public static void register() {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             if ((server.getTicks() % 5) != 0) {
                 return;
             }
             for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                try {
-                    check(player);
-                } catch (Exception e) {
-                    // ошибка не должна ломать тик сервера
-                }
+                check(player);
             }
         });
     }
@@ -48,25 +41,18 @@ public final class BeachBoundary {
     }
 
     private static void check(ServerPlayerEntity player) {
+        // Барьер работает ТОЛЬКО если есть хоть один незавершённый квест
+        if (tutorialDone(player)) {
+            return;
+        }
         TeyvatConfig.Tutorial cfg = TeyvatConfig.get().tutorial;
         if (cfg == null || !cfg.lock_beach) {
             return;
         }
-        if (tutorialDone(player)) {
+        if (!(player.getEntityWorld() instanceof ServerWorld serverWorld)) {
             return;
         }
-        // Фиксируем центр один раз (при первом тике после запуска сервера)
-        if (beachCenter == null) {
-            if (player.getEntityWorld() instanceof ServerWorld serverWorld) {
-                beachCenter = serverWorld.getSpawnPoint().globalPos().pos();
-            } else {
-                return;
-            }
-        }
-        BlockPos center = beachCenter;
-        if (center == null) {
-            return;
-        }
+        BlockPos center = serverWorld.getSpawnPoint().globalPos().pos();
         Vec3d pos = new Vec3d(player.getX(), player.getY(), player.getZ());
         double dx = pos.x - (center.getX() + 0.5);
         double dz = pos.z - (center.getZ() + 0.5);
