@@ -261,14 +261,15 @@ public class TeyvatClient implements ClientModInitializer {
         // Активация точек телепортации: Q-клавиша, HUD-подсказка, анимация, замена блоков.
         TeleportActivationClient.init();
 
-        // Отключаем выброс предмета по Q (vanilla DROP_ITEM): переназначаем на неиспользуемую клавишу.
-        // Это гарантированно предотвращает выброс, т.к. handleKeyInput проверяет boundKey.
+        // Отключаем выброс предмета по Q (vanilla DROP_ITEM): переназначаем на UNKNOWN.
         ClientTickEvents.END_CLIENT_TICK.register(c -> {
-            if (c.options != null && c.options.dropKey != null && dropKeyFixed == false) {
-                c.options.dropKey.setBoundKey(InputUtil.fromTranslationKey("key.keyboard.grave_accent"));
-                c.options.write();
-                dropKeyFixed = true;
-            }
+            try {
+                if (!dropKeyFixed && c.options != null && c.options.dropKey != null) {
+                    c.options.dropKey.setBoundKey(InputUtil.UNKNOWN_KEY);
+                    c.options.write();
+                    dropKeyFixed = true;
+                }
+            } catch (Exception ignored) {}
             // X: пропуск обучения
             if (SKIP_TRAINING.wasPressed() && c.player != null && c.getNetworkHandler() != null) {
                 ClientPlayNetworking.send(new SkipTrainingPayload());

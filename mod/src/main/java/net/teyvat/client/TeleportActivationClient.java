@@ -155,6 +155,11 @@ public final class TeleportActivationClient {
 
     /** Вызывается из TeyvatClient.onInitializeClient(). */
     public static void init() {
+        try { init0(); } catch (Exception e) {
+            net.teyvat.TeyvatMod.LOGGER.error("TeleportActivationClient init failed", e);
+        }
+    }
+    private static void init0() {
         // === Tick-обработчик ===
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null) return;
@@ -286,6 +291,9 @@ public final class TeleportActivationClient {
 
     /** Мягкие частицы свечения вокруг активированных синих блоков (ambient). */
     private static void spawnAmbientGlow(MinecraftClient client) {
+        try { spawnAmbientGlow0(client); } catch (Exception ignored) {}
+    }
+    private static void spawnAmbientGlow0(MinecraftClient client) {
         if (client.player == null || client.world == null) return;
         BlockPos playerPos = client.player.getBlockPos();
 
