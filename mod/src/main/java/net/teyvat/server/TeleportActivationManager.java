@@ -9,6 +9,9 @@ import net.teyvat.TeyvatBlocks;
 import net.teyvat.network.TeleportStatePayload;
 import net.teyvat.server.WikiDiscoveries;
 import net.teyvat.wiki.TeyvatWiki;
+import net.teyvat.progression.ProgressionStore;
+import net.teyvat.network.ExpGainPayload;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import java.util.ArrayList;
 import java.util.List;

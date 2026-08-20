@@ -167,6 +167,7 @@ public final class PaimonManager {
     private static boolean attackPromptShown;
     /** Отправлен ли запрос на спавн слаймов (чтобы не дублировать при повторе урока). */
     private static boolean attackSpawnRequested;
+    private static int farewellTimer = -1;
     /** Таймер мини-урока про подбор предметов: -1 = не идёт, 0 = запущен после атаки. */
     private static int pickupTutorTicks = -1;
     /** Показано ли уведомление «есть новое задание» урока про подбор. */
@@ -382,6 +383,7 @@ public final class PaimonManager {
                 queueTutorial(TUTORIAL_PICKUP);
             }
             tickPickupTutorial();
+            tickFarewell();
         }
 
         Vec3d target;
@@ -612,11 +614,14 @@ public final class PaimonManager {
         DialogueOverlay.end();
     }
 
-    /** Квест про подбор выполнен (первый успешный F-подбор): урок завершается. */
+    /** Квест про подбор выполнен (первый успешный F-подбор): урок завершается.
+     *  Пайimon прощается и выпускает игрока в мир. */
     public static void onPickupQuestCompleted() {
         pickupTutorTicks = -1;
         pickupPromptShown = false;
         DialogueOverlay.end();
+        // Прощание Паймон — запускаем через небольшую задержку
+        farewellTimer = 20;
     }
 
     /** Мини-урок про бег: Паймон рассказывает про двойной W и выносливость,
@@ -718,6 +723,22 @@ public final class PaimonManager {
             pickupPromptShown = true;
             announceNewQuest("«" + Quests.TRY_PICKUP_TITLE + "»");
             DialogueOverlay.end();
+        }
+    }
+
+    /** Прощание Паймон после прохождения всех заданий: говорит «Удачи!» и выпускает в мир. */
+    private static void tickFarewell() {
+        if (farewellTimer < 0) return;
+        farewellTimer++;
+        if (farewellTimer == 1) {
+            DialogueOverlay.show("Паймон", "Ты справился со всем! Паймон уверена, что ты готов к путешествию.");
+        } else if (farewellTimer == 100) {
+            DialogueOverlay.show("Паймон", "Удачи, Путешественник! Мир Тейвата ждёт тебя!");
+        } else if (farewellTimer == 200) {
+            DialogueOverlay.end();
+            farewellTimer = -1;
+            // Паймон улетает — скрываем сущность
+            remove();
         }
     }
 

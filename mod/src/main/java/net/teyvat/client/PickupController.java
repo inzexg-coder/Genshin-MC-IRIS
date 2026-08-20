@@ -9,6 +9,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.TypeFilter;
 import net.minecraft.util.math.Box;
 import net.teyvat.TeyvatClient;
+import net.teyvat.quest.Quests;
+import net.teyvat.client.paimon.PaimonManager;
 import net.teyvat.network.PickupRequestPayload;
 
 import java.util.ArrayList;
@@ -84,6 +86,11 @@ public final class PickupController {
     }
 
     private static void handleKey(MinecraftClient client) {
+        // F заблокирован пока Паймон не объявила задание про подбор
+        if (!PaimonManager.isQuestAnnounced(Quests.TRY_PICKUP)) {
+            holdTicks = 0;
+            return;
+        }
         if (TeyvatClient.PICKUP.wasPressed()) {
             sendRequest();
             return;
