@@ -125,7 +125,13 @@ public final class TeyvatSpawn {
         beachYaw = yaw;
         world.setSpawnPoint(WorldProperties.SpawnPoint.create(world.getRegistryKey(), finalPos, yaw, 0f));
         LOGGER.info("Точка телепортации: x={}, y={}, z={}, yaw={}", finalPos.getX(), finalPos.getY(), finalPos.getZ(), yaw);
-        buildTeleportPoint(world, finalPos);
+        // Строим только если точки ещё нет (проверяем плиту в центре)
+        BlockState centerBlock = world.getBlockState(finalPos);
+        if (!centerBlock.isOf(TeyvatBlocks.TELEPORT_SLAB_RED) && !centerBlock.isOf(TeyvatBlocks.TELEPORT_SLAB_BLUE)) {
+            buildTeleportPoint(world, finalPos);
+        } else {
+            LOGGER.info("Точка телепортации уже существует, пропускаем постройку");
+        }
         return finalPos;
     }
 
