@@ -624,6 +624,26 @@ public final class PaimonManager {
         farewellTimer = 20;
     }
 
+    /** Пропустить всё обучение (клавиша X): остановить все уроки, диалоги и тосты. */
+    public static void skipAllTraining() {
+        tutorTicks = -1;
+        tutorPromptShown = false;
+        zoomTutorTicks = -1;
+        zoomPromptShown = false;
+        sprintTutorTicks = -1;
+        sprintPromptShown = false;
+        dashTutorTicks = -1;
+        dashPromptShown = false;
+        attackTutorTicks = -1;
+        attackPromptShown = false;
+        pickupTutorTicks = -1;
+        pickupPromptShown = false;
+        queuedTutorial = -1;
+        questReportTimer = -1;
+        farewellTimer = -1;
+        DialogueOverlay.end();
+    }
+
     /** Мини-урок про бег: Паймон рассказывает про двойной W и выносливость,
      *  затем всплывает уведомление о новом задании. Повторяется при перезаходе,
      *  пока квест не выполнен. */
