@@ -15,6 +15,7 @@ import net.minecraft.world.biome.Biome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import net.minecraft.world.border.WorldBorder;
+import net.teyvat.TeyvatBlocks;
 import net.teyvat.config.TeyvatConfig;
 import net.teyvat.worldgen.TeyvatOceanEdge;
 import net.teyvat.worldgen.TeyvatXEdge;
@@ -114,6 +115,7 @@ public final class TeyvatSpawn {
         beachYaw = yaw;
         world.setSpawnPoint(WorldProperties.SpawnPoint.create(world.getRegistryKey(), pos, yaw, 0f));
         LOGGER.info("Пляжный спавн: x={}, y={}, z={}, yaw={} (море на севере, суша позади)", pos.getX(), pos.getY(), pos.getZ(), yaw);
+        buildTeleportPoint(world, pos);
         return pos;
     }
 
@@ -349,4 +351,105 @@ public final class TeyvatSpawn {
         }
         return bestYaw;
     }
+
+    /**
+
+     * Строит точку телепортации в указанной позиции.
+
+     * Структура (вид сверху):
+
+     *   path path path path path
+
+     *   path thin  thin  thin  path
+
+     *   path thin  slab  thin  path
+
+     *   path thin  thin  thin  path
+
+     *   path path path path path
+
+     * Над плитой: base → shaft → capital (красная колонна).
+
+     */
+
+    public static void buildTeleportPoint(ServerWorld world, BlockPos center) {
+
+        int x = center.getX();
+
+        int y = center.getY();
+
+        int z = center.getZ();
+
+        
+
+        // Очищаем пространство над точкой (5x5x5)
+
+        for (int dx = -2; dx <= 2; dx++) {
+
+            for (int dz = -2; dz <= 2; dz++) {
+
+                for (int dy = 1; dy <= 4; dy++) {
+
+                    world.setBlockState(new BlockPos(x + dx, y + dy, z + dz), Blocks.AIR.getDefaultState());
+
+                }
+
+            }
+
+        }
+
+        
+
+        // Слой 0: каменная кладка (5x5)
+
+        for (int dx = -2; dx <= 2; dx++) {
+
+            for (int dz = -2; dz <= 2; dz++) {
+
+                world.setBlockState(new BlockPos(x + dx, y, z + dz), TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+
+            }
+
+        }
+
+        
+
+        // Слой 0: тонкое теснение (3x3 внутри)
+
+        for (int dx = -1; dx <= 1; dx++) {
+
+            for (int dz = -1; dz <= 1; dz++) {
+
+                world.setBlockState(new BlockPos(x + dx, y, z + dz), TeyvatBlocks.TELEPORT_PATH_THIN.getDefaultState());
+
+            }
+
+        }
+
+        
+
+        // Слой 0: красная плита в центре
+
+        world.setBlockState(new BlockPos(x, y, z), TeyvatBlocks.TELEPORT_SLAB_RED.getDefaultState());
+
+        
+
+        // Слой 1: основание колонны
+
+        world.setBlockState(new BlockPos(x, y + 1, z), TeyvatBlocks.TELEPORT_COLUMN_BASE_RED.getDefaultState());
+
+        
+
+        // Слой 2: ствол колонны
+
+        world.setBlockState(new BlockPos(x, y + 2, z), TeyvatBlocks.TELEPORT_COLUMN_SHAFT_RED.getDefaultState());
+
+        
+
+        // Слой 3: капитель колонны
+
+        world.setBlockState(new BlockPos(x, y + 3, z), TeyvatBlocks.TELEPORT_COLUMN_CAPITAL_RED.getDefaultState());
+
+    }
+
 }
