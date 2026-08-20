@@ -1,3 +1,6 @@
 {
-  "parent": "teyvat:block/teleport_column_capital_blue"
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "teyvat:item/teleport_column_capital_blue"
+  }
 }

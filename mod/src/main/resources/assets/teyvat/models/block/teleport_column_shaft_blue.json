@@ -4,9 +4,85 @@
     "particle": "teyvat:block/teleport_column_shaft_blue",
     "side": "teyvat:block/teleport_column_shaft_blue",
     "top": "teyvat:block/teleport_column_shaft_blue",
-    "bottom": "teyvat:block/teleport_column_shaft_blue"
+    "bottom": "teyvat:block/teleport_column_shaft_blue",
+    "fill": "teyvat:block/teleport_fill_blue"
   },
   "elements": [
+    {
+      "from": [
+        0,
+        0,
+        0
+      ],
+      "to": [
+        16,
+        16,
+        16
+      ],
+      "shade": false,
+      "faces": {
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#fill",
+          "cullface": "down"
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#fill",
+          "cullface": "up"
+        },
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#fill",
+          "cullface": "north"
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#fill",
+          "cullface": "south"
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#fill",
+          "cullface": "west"
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": "#fill",
+          "cullface": "east"
+        }
+      }
+    },
     {
       "from": [
         5,
