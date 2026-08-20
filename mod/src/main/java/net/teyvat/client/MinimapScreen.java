@@ -150,14 +150,26 @@ public class MinimapScreen extends Screen {
             int bz = unpackZ(packed);
             int sx = (int) ((bx - cx) * scale + sw / 2.0);
             int sy = (int) ((bz - cz) * scale + sh / 2.0);
-            if (sx < -20 || sx > sw + 20 || sy < -20 || sy > sh + 20) continue;
-            int s = 5;
-            ctx.fill(sx - s, sy, sx + s, sy + 1, 0xFF44AAFF);
-            ctx.fill(sx - s + 1, sy - 1, sx + s - 1, sy + 2, 0xFF44AAFF);
-            ctx.fill(sx - s + 2, sy - 2, sx + s - 2, sy + 3, 0xFF44AAFF);
-            ctx.fill(sx - 1, sy - s, sx + 1, sy + s, 0xFF88DDFF);
-            ctx.fill(sx - 2, sy - s + 1, sx + 2, sy + s - 1, 0xFF88DDFF);
-            ctx.fill(sx - 1, sy - 1, sx + 1, sy + 1, 0xFFFFFFFF);
+            if (sx < -30 || sx > sw + 30 || sy < -30 || sy > sh + 30) continue;
+            // Крупный значок телепортации: синий ромб с белым ядром и золотой обводкой
+            int r = 10; // радиус ромба
+            // Внешняя обводка (золотая)
+            for (int i = -r; i <= r; i++) {
+                int w = r - Math.abs(i);
+                ctx.fill(sx - w - 1, sy + i, sx + w + 1, sy + i + 1, 0xFFE8C86A);
+            }
+            // Тело ромба (синее)
+            for (int i = -r + 1; i <= r - 1; i++) {
+                int w = (r - 1) - Math.abs(i);
+                ctx.fill(sx - w, sy + i, sx + w, sy + i + 1, 0xFF3388DD);
+            }
+            // Внутреннее свечение (голубое)
+            for (int i = -r / 2; i <= r / 2; i++) {
+                int w = (r / 2) - Math.abs(i);
+                ctx.fill(sx - w, sy + i, sx + w, sy + i + 1, 0xFF66BBFF);
+            }
+            // Ядро (белое)
+            ctx.fill(sx - 2, sy - 2, sx + 2, sy + 2, 0xFFFFFFFF);
         }
     }
 
@@ -166,13 +178,52 @@ public class MinimapScreen extends Screen {
         int py = sh / 2;
         float yaw = client.player != null ? client.player.getYaw() : 0;
         double rad = Math.toRadians(yaw);
-        int dx = (int) (-Math.sin(rad) * 8);
-        int dz = (int) (Math.cos(rad) * 8);
-        ctx.fill(px + dx - 1, py + dz - 1, px + dx + 1, py + dz + 1, 0xFFFFD966);
-        ctx.fill(px - 3, py, px + 3, py + 1, 0xFFE8C86A);
-        ctx.fill(px - 2, py - 1, px + 2, py + 2, 0xFFE8C86A);
-        ctx.fill(px - 1, py - 2, px + 1, py + 3, 0xFFFFD966);
-        ctx.fill(px - 1, py - 1, px + 1, py + 1, 0xFFFFFFFF);
+
+        // Крупный маркер игрока: золотая стрелка с белым ядром и тёмной обводкой
+        int r = 12; // размер стрелки
+
+        // Направление взгляда — линия от центра
+        int tipX = px + (int) (-Math.sin(rad) * r);
+        int tipY = py + (int) (Math.cos(rad) * r);
+
+        // Стрелка: треугольник из трёх линий
+        int leftX = px + (int) (-Math.sin(rad + 2.5) * r * 0.6);
+        int leftY = py + (int) (Math.cos(rad + 2.5) * r * 0.6);
+        int rightX = px + (int) (-Math.sin(rad - 2.5) * r * 0.6);
+        int rightY = py + (int) (Math.cos(rad - 2.5) * r * 0.6);
+
+        // Обводка (тёмная)
+        drawLine(ctx, px, py, tipX, tipY, 3, 0xFF1A1A2E);
+        drawLine(ctx, leftX, leftY, tipX, tipY, 3, 0xFF1A1A2E);
+        drawLine(ctx, rightX, rightY, tipX, tipY, 3, 0xFF1A1A2E);
+
+        // Заливка (золотая)
+        drawLine(ctx, px, py, tipX, tipY, 2, 0xFFFFD966);
+        drawLine(ctx, leftX, leftY, tipX, tipY, 2, 0xFFE8C86A);
+        drawLine(ctx, rightX, rightY, tipX, tipY, 2, 0xFFE8C86A);
+
+        // Ядро (белый круг)
+        for (int dy = -3; dy <= 3; dy++) {
+            int w = 3 - Math.abs(dy);
+            ctx.fill(px - w, py + dy, px + w + 1, py + dy + 1, 0xFFFFFFFF);
+        }
+    }
+
+    /** Рисует толстую линию между двумя точками. */
+    private static void drawLine(DrawContext ctx, int x0, int y0, int x1, int y1, int thickness, int color) {
+        int dx = Math.abs(x1 - x0);
+        int dy = Math.abs(y1 - y0);
+        int sx = x0 < x1 ? 1 : -1;
+        int sy = y0 < y1 ? 1 : -1;
+        int err = dx - dy;
+        int half = thickness / 2;
+        while (true) {
+            ctx.fill(x0 - half, y0 - half, x0 + half + 1, y0 + half + 1, color);
+            if (x0 == x1 && y0 == y1) break;
+            int e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x0 += sx; }
+            if (e2 < dx) { err += dx; y0 += sy; }
+        }
     }
 
     private void drawCompass(DrawContext ctx, TextRenderer tr, int sw, int sh) {
