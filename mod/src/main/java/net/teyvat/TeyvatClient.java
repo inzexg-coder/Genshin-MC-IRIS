@@ -91,6 +91,7 @@ public class TeyvatClient implements ClientModInitializer {
 
 
     private static boolean dropKeyFixed = false;
+    private static boolean xWasDown = false;
 
     /** Тики до открытия экрана выбора (ждём, пока мир догрузится). -1 = не запрошено. */
     private static int choiceOpenDelay = -1;
@@ -261,18 +262,26 @@ public class TeyvatClient implements ClientModInitializer {
         // Активация точек телепортации: Q-клавиша, HUD-подсказка, анимация, замена блоков.
         TeleportActivationClient.init();
 
-        // Отключаем выброс предмета по Q (vanilla DROP_ITEM): переназначаем на UNKNOWN.
+        // X: пропуск обучения — raw GLFW (wasPressed() не работает с vanilla keybindings).
+        // Также подавляем vanilla Q drop через переназначение клавиши.
         ClientTickEvents.END_CLIENT_TICK.register(c -> {
-            try {
-                if (!dropKeyFixed && c.options != null && c.options.dropKey != null) {
+            if (c.player == null || c.world == null) return;
+            long w = c.getWindow().getHandle();
+            // X key — raw check
+            boolean xDown = org.lwjgl.glfw.GLFW.glfwGetKey(w, org.lwjgl.glfw.GLFW.GLFW_KEY_X) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+            if (xDown && !xWasDown) {
+                if (c.getNetworkHandler() != null) {
+                    ClientPlayNetworking.send(new SkipTrainingPayload());
+                }
+            }
+            xWasDown = xDown;
+            // Disable vanilla Q drop (rebind once)
+            if (!dropKeyFixed && c.options != null && c.options.dropKey != null) {
+                try {
                     c.options.dropKey.setBoundKey(InputUtil.UNKNOWN_KEY);
                     c.options.write();
                     dropKeyFixed = true;
-                }
-            } catch (Exception ignored) {}
-            // X: пропуск обучения
-            if (SKIP_TRAINING.wasPressed() && c.player != null && c.getNetworkHandler() != null) {
-                ClientPlayNetworking.send(new SkipTrainingPayload());
+                } catch (Exception ignored) {}
             }
         });
 
