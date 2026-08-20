@@ -147,8 +147,11 @@ public final class TeleportActivationClient {
 
     // ──────────────────── registration ────────────────────
 
+    /** Состояние клавиши Q для отслеживания нажатия (vanilla Q = drop item消費了wasPressed). */
+    private static boolean qWasDown = false;
+
     /** Вызывается из TeyvatClient.onInitializeClient(). */
-    public static void init(KeyBinding activateKey) {
+    public static void init() {
         // === Tick-обработчик ===
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null) return;
@@ -163,8 +166,16 @@ public final class TeleportActivationClient {
             // Поиск ближайшей красной плиты
             nearestRedSlab = findNearestRedSlab(client);
 
-            // Нажатие Q → отправка запроса на сервер
-            if (activateKey.wasPressed() && nearestRedSlab != null) {
+            // Прямая проверка GLFW: Q нажата → отправка запроса на сервер.
+            // Нельзя использовать KeyBinding.wasPressed() — vanilla DROP_ITEM на Q
+            // потребляет нажатие до нашего обработчика.
+            long window = client.getWindow().getHandle();
+            boolean qDown = org.lwjgl.glfw.GLFW.glfwGetKey(window, org.lwjgl.glfw.GLFW.GLFW_KEY_Q)
+                    == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+            boolean qJustPressed = qDown && !qWasDown;
+            qWasDown = qDown;
+
+            if (qJustPressed && nearestRedSlab != null) {
                 if (!isActivated(nearestRedSlab)
                         && client.player.getBlockPos().isWithinDistance(nearestRedSlab, INTERACT_RANGE)) {
                     ClientPlayNetworking.send(new TeleportActivatePayload(nearestRedSlab));

@@ -34,6 +34,8 @@ public final class TeyvatSpawn {
     private static final RegistryKey<Biome> BEACH_BIOME = RegistryKey.of(RegistryKeys.BIOME, BEACH_BIOME_ID);
     private static final Identifier GRASS_BIOME_ID = Identifier.of("teyvat", "teyvat_plains");
     private static final RegistryKey<Biome> GRASS_BIOME = RegistryKey.of(RegistryKeys.BIOME, GRASS_BIOME_ID);
+    private static final Identifier EDGE_BIOME_ID = Identifier.of("teyvat", "teyvat_beach_edge");
+    private static final RegistryKey<Biome> EDGE_BIOME = RegistryKey.of(RegistryKeys.BIOME, EDGE_BIOME_ID);
     private static final String WELCOME_TAG = "teyvat:welcomed";
 
     private static BlockPos beachSpawn;
@@ -398,10 +400,64 @@ public final class TeyvatSpawn {
      * Сканирует от пляжной точки в ЮЖНОМ направлении (от моря к суше),
      * пока не найдёт блок в биоме равнин.
      */
+    /**
+     * Находит границу пляжа и ставит точку телепортации в 5 блоках от неё в равнинах.
+     * Сканирует по оси Z от пляжной позиции, находит последний блок пляжа (beach/beach_edge)
+     * и первый блок равнин — это граница. Затем идёт 5 блоков в сторону равнин.
+     */
     private static BlockPos findGrassBorderSpawn(ServerWorld world, BlockPos beachPos) {
         int bx = beachPos.getX();
         int bz = beachPos.getZ();
-        // Идём от пляжа на юг (z+) пока не найдём plains
+        BlockPos lastBeach = null;
+
+        // Сканируем по Z от пляжа вперёд (от моря к суше), шаг 1 блок
+        for (int dz = 0; dz <= 200; dz++) {
+            int cx = bx;
+            int cz = bz + dz;
+            BlockPos cand = new BlockPos(cx, 0, cz);
+            if (!world.isChunkLoaded(cx >> 4, cz >> 4)) {
+                continue;
+            }
+            boolean isBeach = world.getBiome(cand).matchesKey(BEACH_BIOME)
+                    || world.getBiome(cand).matchesKey(EDGE_BIOME);
+            boolean isGrass = world.getBiome(cand).matchesKey(GRASS_BIOME);
+
+            if (isBeach) {
+                lastBeach = new BlockPos(cx, 0, cz);
+            }
+
+            // Граница: предыдущий блок — пляж, текущий — равнины
+            if (lastBeach != null && isGrass) {
+                // Нашли границу! Теперь идём 5 блоков вперёд в равнинах
+                int targetZ = cz + 5;
+                int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, targetZ);
+                BlockPos top = new BlockPos(cx, topY, targetZ);
+
+                // Проверяем что блок пригоден
+                if (!world.getFluidState(top).isEmpty() || !world.getFluidState(top.up()).isEmpty()) {
+                    // Ищем ближайший пригодный блок рядом
+                    for (int offset = -2; offset <= 2; offset++) {
+                        int tryZ = targetZ + offset;
+                        int tryY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, tryZ);
+                        BlockPos tryTop = new BlockPos(cx, tryY, tryZ);
+                        if (world.getFluidState(tryTop).isEmpty()
+                                && world.getFluidState(tryTop.up()).isEmpty()
+                                && world.getBlockState(tryTop.down()).isFullCube(world, tryTop.down())) {
+                            top = tryTop;
+                            break;
+                        }
+                    }
+                }
+
+                BlockState below = world.getBlockState(top.down());
+                if (below.isFullCube(world, top.down())) {
+                    LOGGER.info("Граница пляжа: x={}, z={}. Точка телепортации: x={}, z={} (5 блоков в равнинах)",
+                            bx, lastBeach.getZ(), cx, top.getZ());
+                    return top;
+                }
+            }
+        }
+        // Фолбэк: оригинальный метод
         for (int dz = 0; dz <= 60; dz += 4) {
             int cx = bx;
             int cz = bz + dz;
@@ -412,7 +468,6 @@ public final class TeyvatSpawn {
             if (!world.getBiome(cand).matchesKey(GRASS_BIOME)) {
                 continue;
             }
-            // Нашли равнины — берём верхний блок
             int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, cz);
             BlockPos top = new BlockPos(cx, topY, cz);
             if (!world.getFluidState(top).isEmpty() || !world.getFluidState(top.up()).isEmpty()) {
@@ -422,30 +477,7 @@ public final class TeyvatSpawn {
             if (!below.isFullCube(world, top.down())) {
                 continue;
             }
-            LOGGER.info("Равнины найдены: x={}, z={}, dz={} от пляжа", cx, cz, dz);
-            return top;
-        }
-        // Идём на юг крупнее
-        for (int dz = 60; dz <= 200; dz += 16) {
-            int cx = bx;
-            int cz = bz + dz;
-            BlockPos cand = new BlockPos(cx, 0, cz);
-            if (!world.isChunkLoaded(cx >> 4, cz >> 4)) {
-                world.getChunk(cx >> 4, cz >> 4); // загрузить чанк
-            }
-            if (!world.getBiome(cand).matchesKey(GRASS_BIOME)) {
-                continue;
-            }
-            int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, cz);
-            BlockPos top = new BlockPos(cx, topY, cz);
-            if (!world.getFluidState(top).isEmpty() || !world.getFluidState(top.up()).isEmpty()) {
-                continue;
-            }
-            BlockState below = world.getBlockState(top.down());
-            if (!below.isFullCube(world, top.down())) {
-                continue;
-            }
-            LOGGER.info("Равнины найдены (дальний поиск): x={}, z={}, dz={}", cx, cz, dz);
+            LOGGER.info("Равнины найдены (фолбэк): x={}, z={}, dz={}", cx, cz, dz);
             return top;
         }
         return null;
