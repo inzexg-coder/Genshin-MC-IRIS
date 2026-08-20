@@ -48,11 +48,11 @@
   "block.teyvat.teleport_path": "Каменная кладка с теснением",
   "block.teyvat.teleport_path_thin": "Каменная кладка с тонким теснением",
   "block.teyvat.teleport_slab_red": "Красный светильник",
-  "block.teyvat.teleport_slab_blue": "Синий светильник",
+  "block.teyvat.teleport_slab_blue": "Активированный светильник",
   "block.teyvat.teleport_column_base_red": "Основание колонны (красное)",
-  "block.teyvat.teleport_column_base_blue": "Основание колонны (синее)",
+  "block.teyvat.teleport_column_base_blue": "Основание колонны (активированное)",
   "block.teyvat.teleport_column_shaft_red": "Ствол колонны (красный)",
-  "block.teyvat.teleport_column_shaft_blue": "Ствол колонны (синий)",
+  "block.teyvat.teleport_column_shaft_blue": "Ствол колонны (активированный)",
   "block.teyvat.teleport_column_capital_red": "Капитель колонны (красная)",
-  "block.teyvat.teleport_column_capital_blue": "Капитель колонны (синяя)"
+  "block.teyvat.teleport_column_capital_blue": "Капитель колонны (активированная)"
 }
