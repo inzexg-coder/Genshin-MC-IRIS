@@ -69,6 +69,7 @@ public final class TeyvatWiki {
     public static final String ID_SLIME_SECRETIONS = "slime_secretions";
     public static final String ID_SLIME_CONCENTRATE = "slime_concentrate";
     public static final String ID_PICKUP = "pickup";
+    public static final String ID_TELEPORT = "teleport_waypoint";
 
     private static final Logger LOGGER = LoggerFactory.getLogger("teyvat-wiki");
 

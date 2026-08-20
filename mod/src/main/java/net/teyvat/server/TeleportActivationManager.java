@@ -7,6 +7,8 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.teyvat.TeyvatBlocks;
 import net.teyvat.network.TeleportStatePayload;
+import net.teyvat.server.WikiDiscoveries;
+import net.teyvat.wiki.TeyvatWiki;
 
 import java.util.ArrayList;
 import java.util.List;
