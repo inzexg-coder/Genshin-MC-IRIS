@@ -129,11 +129,11 @@ public final class TeleportActivationClient {
         if (current.contains(SlabBlock.TYPE) && swapped.contains(SlabBlock.TYPE)) {
             swapped = swapped.with(SlabBlock.TYPE, current.get(SlabBlock.TYPE));
         }
-        world.setBlockState(pos, swapped, 0);
+        world.setBlockState(pos, swapped, 3);
     }
 
     private static void swapSimple(ClientWorld world, BlockPos pos, net.minecraft.block.Block target) {
-        world.setBlockState(pos, target.getDefaultState(), 0);
+        world.setBlockState(pos, target.getDefaultState(), 3);
     }
 
     /** Применить замены ко всем активированным позициям. */
@@ -223,6 +223,10 @@ public final class TeleportActivationClient {
                 if (!isActivated(nearestRedSlab)
                         && client.player.getBlockPos().isWithinDistance(nearestRedSlab, INTERACT_RANGE)) {
                     pendingActivation = nearestRedSlab;
+                    // Оптимистичное обновление: сразу красим в синий (не ждём сервер)
+                    animationTimer = ANIMATION_TICKS;
+                    notificationTimer = NOTIFICATION_TICKS;
+                    swapToBlue(nearestRedSlab);
                     ClientPlayNetworking.send(new TeleportActivatePayload(nearestRedSlab));
                 }
             }

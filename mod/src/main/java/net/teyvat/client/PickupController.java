@@ -90,7 +90,7 @@ public final class PickupController {
         // F заблокирован только до того, как Паймон объявила задание про подбор.
         // После объявления (даже если квест ещё не завершён) и после выполнения — F работает.
         // Проверяем isCompleted первым: если квест выполнен (локально или с сервера) — всегда разрешаем.
-        if (QuestStateClient.isCompleted(Quests.TRY_PICKUP)) {
+        if (QuestStateClient.isCompleted(Quests.TRY_PICKUP) || QuestStateClient.isCompleted(Quests.MEET_PAIMON)) {
             // Квест выполнен — F всегда работает, независимо от состояния урока.
         } else if (!PaimonManager.isQuestAnnounced(Quests.TRY_PICKUP)) {
             // Квест ещё не объявлен — блокируем.
