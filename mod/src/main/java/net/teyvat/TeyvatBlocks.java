@@ -62,12 +62,12 @@ public final class TeyvatBlocks {
     public static final Block TELEPORT_PATH_THIN = block("teleport_path_thin");
     public static final Block TELEPORT_SLAB_RED = register("teleport_slab_red", new SlabBlock(settings("teleport_slab_red").nonOpaque().luminance(state -> 8)));
     public static final Block TELEPORT_SLAB_BLUE = register("teleport_slab_blue", new SlabBlock(settings("teleport_slab_blue").nonOpaque().luminance(state -> 8)));
-    public static final Block TELEPORT_COLUMN_BASE_RED = register("teleport_column_base_red", new Block(settings("teleport_column_base_red").nonOpaque().luminance(state -> 10)));
-    public static final Block TELEPORT_COLUMN_BASE_BLUE = register("teleport_column_base_blue", new Block(settings("teleport_column_base_blue").nonOpaque().luminance(state -> 10)));
-    public static final Block TELEPORT_COLUMN_SHAFT_RED = register("teleport_column_shaft_red", new Block(settings("teleport_column_shaft_red").nonOpaque().luminance(state -> 10)));
-    public static final Block TELEPORT_COLUMN_SHAFT_BLUE = register("teleport_column_shaft_blue", new Block(settings("teleport_column_shaft_blue").nonOpaque().luminance(state -> 10)));
-    public static final Block TELEPORT_COLUMN_CAPITAL_RED = register("teleport_column_capital_red", new Block(settings("teleport_column_capital_red").nonOpaque().luminance(state -> 12)));
-    public static final Block TELEPORT_COLUMN_CAPITAL_BLUE = register("teleport_column_capital_blue", new Block(settings("teleport_column_capital_blue").nonOpaque().luminance(state -> 12)));
+    public static final Block TELEPORT_COLUMN_BASE_RED = register("teleport_column_base_red", new Block(settings("teleport_column_base_red").luminance(state -> 15)));
+    public static final Block TELEPORT_COLUMN_BASE_BLUE = register("teleport_column_base_blue", new Block(settings("teleport_column_base_blue").luminance(state -> 15)));
+    public static final Block TELEPORT_COLUMN_SHAFT_RED = register("teleport_column_shaft_red", new Block(settings("teleport_column_shaft_red").luminance(state -> 15)));
+    public static final Block TELEPORT_COLUMN_SHAFT_BLUE = register("teleport_column_shaft_blue", new Block(settings("teleport_column_shaft_blue").luminance(state -> 15)));
+    public static final Block TELEPORT_COLUMN_CAPITAL_RED = register("teleport_column_capital_red", new Block(settings("teleport_column_capital_red").luminance(state -> 15)));
+    public static final Block TELEPORT_COLUMN_CAPITAL_BLUE = register("teleport_column_capital_blue", new Block(settings("teleport_column_capital_blue").luminance(state -> 15)));
 
     // ---- stairs / slabs ----
     public static final Block MARBLE_STAIRS = stairs("marble_stairs", MARBLE);
