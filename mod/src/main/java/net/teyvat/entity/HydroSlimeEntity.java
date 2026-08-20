@@ -52,7 +52,7 @@ public class HydroSlimeEntity extends HostileEntity {
     public static final EntityType<HydroSlimeEntity> TYPE = Registry.register(
             Registries.ENTITY_TYPE, TYPE_ID,
             EntityType.Builder.create(HydroSlimeEntity::new, SpawnGroup.MONSTER)
-                    .dimensions(0.6f, 0.6f)
+                    .dimensions(0.9f, 0.65f)
                     .maxTrackingRange(64)
                     .build(RegistryKey.of(RegistryKeys.ENTITY_TYPE, TYPE_ID)));
 
