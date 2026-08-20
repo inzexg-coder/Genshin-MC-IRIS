@@ -80,9 +80,9 @@ public class HydroSlimeEntity extends HostileEntity {
     public static DefaultAttributeContainer createAttributes() {
         return HostileEntity.createHostileAttributes()
                 .add(EntityAttributes.MAX_HEALTH, 58.0)        // Genshin Lv1: 58 HP
-                .add(EntityAttributes.MOVEMENT_SPEED, 0.22)
-                .add(EntityAttributes.ATTACK_DAMAGE, 15.0)     // Genshin Lv1: ATK 15 (Bump = 100% ATK)
-                .add(EntityAttributes.FOLLOW_RANGE, 18.0)
+                .add(EntityAttributes.MOVEMENT_SPEED, 0.18)
+                .add(EntityAttributes.ATTACK_DAMAGE, 8.0)     // Genshin Lv1: ATK 15 (Bump = 100% ATK)
+                .add(EntityAttributes.FOLLOW_RANGE, 12.0)
                 .build();
     }
 
@@ -145,7 +145,7 @@ public class HydroSlimeEntity extends HostileEntity {
                     target.damage(serverWorld,
                             serverWorld.getDamageSources().mobAttack(this),
                             (float) this.getAttributeValue(EntityAttributes.ATTACK_DAMAGE));
-                    this.bumpCooldown = 20; // 1 сек между bump-ами
+                    this.bumpCooldown = 40; // 1 сек между bump-ами
                 }
             }
         }
@@ -373,7 +373,7 @@ public class HydroSlimeEntity extends HostileEntity {
         @Override
         public void start() {
             this.slime.hop();
-            this.slime.hopCooldown = 8 + this.slime.random.nextInt(16);
+            this.slime.hopCooldown = 15 + this.slime.random.nextInt(25);
         }
     }
 }

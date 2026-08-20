@@ -117,7 +117,7 @@ public final class CombatController {
     /** ID отслеживаемой цели во время комбо (-1 = нет цели). */
     private static int trackedTargetId = -1;
     /** Тики суперброни после попадания: обычные атаки не прерываются. */
-    private static final int COMBO_SUPER_ARMOR_TICKS = 3;
+    private static final int COMBO_SUPER_ARMOR_TICKS = 10;
     /** Тик последнего обновления цели (чтоб не искать каждые 0.5 тика). */
     private static int targetUpdateTick = -1;
 
