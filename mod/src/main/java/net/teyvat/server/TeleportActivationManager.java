@@ -53,6 +53,11 @@ public final class TeleportActivationManager {
         // Активируем
         player.addCommandTag(tag(slabPos));
         LOGGER.info("Игрок {} активировал точку телепортации на {}", player.getName().getString(), slabPos);
+        // Вики: открываем запись о точке телепортации
+        WikiDiscoveries.discover(player, TeyvatWiki.ID_TELEPORT);
+        // Опыт приключений за активацию
+        ProgressionStore.addArExp(player, 50);
+        ServerPlayNetworking.send(player, new ExpGainPayload(50, false));
         // Отправляем обновлённое состояние клиенту
         ServerPlayNetworking.send(player, new TeleportStatePayload(new ArrayList<>(getActivatedPositions(player))));
         // Эффекты частиц для активирующего игрока

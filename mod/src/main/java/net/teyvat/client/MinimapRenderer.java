@@ -44,6 +44,10 @@ public final class MinimapRenderer {
 
     public static boolean isVisible() { return isOpen; }
 
+    public static boolean isExplored(int cx, int cz) {
+        return exploredChunks.contains(pack(cx, cz));
+    }
+
     public static void explore(ChunkPos pos) {
         long key = pack(pos.x, pos.z);
         if (exploredChunks.add(key)) {

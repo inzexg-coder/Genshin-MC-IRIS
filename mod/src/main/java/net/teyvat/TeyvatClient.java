@@ -62,6 +62,7 @@ import net.teyvat.network.TravelerChoiceSyncPayload;
 import net.teyvat.client.WikiStateClient;
 import net.teyvat.client.TeleportActivationClient;
 import net.teyvat.client.MinimapRenderer;
+import net.teyvat.client.MinimapScreen;
 import net.teyvat.network.TeleportStatePayload;
 import net.teyvat.network.SkipTrainingPayload;
 import net.teyvat.network.MinimapSyncPayload;
@@ -281,9 +282,9 @@ public class TeyvatClient implements ClientModInitializer {
                 }
             }
             xWasDown = xDown;
-            // M — toggle миникарты
-            if (MINIMAP.wasPressed()) {
-                MinimapRenderer.toggle();
+            // M — открывает полноэкранную миникарту
+            if (MINIMAP.wasPressed() && c.currentScreen == null) {
+                c.setScreen(new MinimapScreen());
             }
             // Периодически отправляем новые чанки на сервер (раз в 100 тиков)
             if (c.world.getTime() % 100 == 0 && c.getNetworkHandler() != null) {

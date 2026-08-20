@@ -16,6 +16,8 @@ import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.mob.SlimeEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.teyvat.combat.SwordCombo;
+import net.teyvat.server.WikiDiscoveries;
+import net.teyvat.wiki.TeyvatWiki;
 import net.teyvat.entity.HydroSlimeEntity;
 import net.teyvat.network.AttackResultPayload;
 
@@ -84,6 +86,7 @@ public final class PlayerCombat {
         float base = (float) player.getAttributeValue(EntityAttributes.ATTACK_DAMAGE);
         float mult = SwordCombo.MULTIPLIERS[hitIndex];
         if (hitIndex == SwordCombo.CHARGE_INDEX) {
+                WikiDiscoveries.discover(player, TeyvatWiki.ID_COMBAT_CHARGED);
             float lv = Math.max(0f, Math.min(1f, chargeLevel));
             mult *= SwordCombo.CHARGE_MIN_MULT + (1f - SwordCombo.CHARGE_MIN_MULT) * lv;
         }
