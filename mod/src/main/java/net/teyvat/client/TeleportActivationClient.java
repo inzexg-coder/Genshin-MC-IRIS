@@ -2,7 +2,6 @@ package net.teyvat.client;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.block.SlabBlock;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
@@ -34,6 +33,10 @@ public final class TeleportActivationClient {
 
     /** Ближайшая неактивированная красная плита (для подсказки). */
     private static BlockPos nearestRedSlab = null;
+
+    /** Таймер всплывающего уведомления. */
+    private static int notificationTimer = 0;
+    private static final int NOTIFICATION_TICKS = 80;
 
     /** Плавность появления/исчезновения подсказки. */
     private static float hintAlpha = 0.0f;
@@ -68,13 +71,9 @@ public final class TeleportActivationClient {
             // Полная перезаливка (при входе в мир)
             applyAllSwaps();
         }
-        // Уведомление о новой активации
+        // Уведомление о новой активации (на экране)
         if (hasNew) {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client.player != null) {
-                client.player.sendMessage(
-                    net.minecraft.text.Text.literal("§b✦ §fТочка телепортации активирована!"), false);
-            }
+            notificationTimer = NOTIFICATION_TICKS;
         }
     }
 
@@ -215,6 +214,10 @@ public final class TeleportActivationClient {
             if (animationTimer > 0) {
                 animationTimer--;
             }
+            // Таймер уведомления
+            if (notificationTimer > 0) {
+                notificationTimer--;
+            }
 
             // Периодические частицы свечения на активированных синих плитах
             if (client.world.getTime() % 20 == 0) {
@@ -222,30 +225,37 @@ public final class TeleportActivationClient {
             }
         });
 
-        // === HUD-рендер ===
-        HudRenderCallback.EVENT.register((context, tickCounter) -> {
-            MinecraftClient client = MinecraftClient.getInstance();
-            if (client.player == null || client.world == null) return;
-            if (client.options.hudHidden) return;
-
-            // Подсказка [Q] при приближении к неактивированной точке
-            if (nearestRedSlab != null
-                    && client.player.getBlockPos().isWithinDistance(nearestRedSlab, HINT_RANGE)
-                    && !client.player.isSneaking()
-                    && client.currentScreen == null) {
-                renderHint(context, client);
-            }
-
-            // Анимация: синяя вспышка на экране при активации
-            if (animationTimer > 0) {
-                renderActivationFlash(context, client);
-            }
-        });
+        // HUD рендер теперь через InGameHudMixin (HudRenderCallback не работает — mixin отменяет vanilla HUD).
     }
 
     // ──────────────────── HUD rendering ────────────────────
 
-    private static void renderHint(DrawContext ctx, MinecraftClient client) {
+    /** Вызывается из InGameHudMixin — подсказка Q + анимация активации + уведомление. */
+    public static void renderHint(DrawContext ctx) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player == null || client.world == null) return;
+        if (client.options.hudHidden) return;
+
+        // Подсказка [Q] при приближении к неактивированной точке
+        if (nearestRedSlab != null
+                && client.player.getBlockPos().isWithinDistance(nearestRedSlab, HINT_RANGE)
+                && !client.player.isSneaking()
+                && client.currentScreen == null) {
+            renderHintTab(ctx, client);
+        }
+
+        // Анимация: синяя вспышка на экране при активации
+        if (animationTimer > 0) {
+            renderActivationFlash(ctx, client);
+        }
+
+        // Всплывающее уведомление об активации
+        if (notificationTimer > 0) {
+            renderNotification(ctx, client);
+        }
+    }
+
+    private static void renderHintTab(DrawContext ctx, MinecraftClient client) {
         TextRenderer tr = client.textRenderer;
         int sw = client.getWindow().getScaledWidth();
         int sh = client.getWindow().getScaledHeight();
@@ -288,6 +298,45 @@ public final class TeleportActivationClient {
         int bx = x + tabW - badgeW - 4;
         ctx.fill(bx, y + 3, bx + badgeW, y + tabH - 3, badgeCol);
         ctx.drawText(tr, badge, bx + (badgeW - tr.getWidth(badge)) / 2, y + 6, badgeTextCol, true);
+    }
+
+    /** Всплывающее уведомление внизу экрана. */
+    private static void renderNotification(DrawContext ctx, MinecraftClient client) {
+        float progress = (float) notificationTimer / NOTIFICATION_TICKS;
+        float alpha;
+        if (notificationTimer > NOTIFICATION_TICKS - 15) {
+            // Появление
+            alpha = (float)(NOTIFICATION_TICKS - notificationTimer) / 15f;
+        } else if (notificationTimer < 20) {
+            // Затухание
+            alpha = (float) notificationTimer / 20f;
+        } else {
+            alpha = 1.0f;
+        }
+        alpha = Math.max(0, Math.min(1, alpha));
+
+        TextRenderer tr = client.textRenderer;
+        int sw = client.getWindow().getScaledWidth();
+        int sh = client.getWindow().getScaledHeight();
+        String msg = "✦ Точка телепортации активирована!";
+        int textW = tr.getWidth(msg);
+        int a = (int)(alpha * 255);
+
+        int x = (sw - textW) / 2;
+        int y = sh / 2 + 55;
+
+        // Фон
+        int pad = 6;
+        ctx.fill(x - pad, y - pad, x + textW + pad, y + tr.fontHeight + pad,
+                (int)(alpha * 180) << 24 | 0x0E1320);
+        // Золотая рамка
+        ctx.fill(x - pad, y - pad, x + textW + pad, y - pad + 1,
+                (int)(alpha * 220) << 24 | 0xE8C86A);
+        ctx.fill(x - pad, y + tr.fontHeight + pad - 1, x + textW + pad, y + tr.fontHeight + pad,
+                (int)(alpha * 220) << 24 | 0xE8C86A);
+        // Текст
+        ctx.drawTextWithShadow(tr, Text.literal(msg), x, y,
+                (a << 24) | 0x44DDFF);
     }
 
     private static void renderActivationFlash(DrawContext ctx, MinecraftClient client) {
