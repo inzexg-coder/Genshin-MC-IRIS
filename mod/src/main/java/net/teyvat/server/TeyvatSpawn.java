@@ -123,12 +123,11 @@ public final class TeyvatSpawn {
         // Точка телепортации = на границе с равнинами (строим ОДИН раз)
         BlockPos grassPos = findGrassBorderSpawn(world, pos);
         if (grassPos != null) {
-            BlockState centerBlock = world.getBlockState(grassPos);
-            if (!centerBlock.isOf(TeyvatBlocks.TELEPORT_SLAB_RED) && !centerBlock.isOf(TeyvatBlocks.TELEPORT_SLAB_BLUE)) {
+            if (!teleportExistsNear(world, grassPos, 12)) {
                 buildTeleportPoint(world, grassPos);
                 LOGGER.info("Построена точка телепортации: x={}, y={}, z={}", grassPos.getX(), grassPos.getY(), grassPos.getZ());
             } else {
-                LOGGER.info("Точка телепортации уже существует");
+                LOGGER.info("Точка телепортации уже существует поблизости");
             }
         } else {
             LOGGER.warn("Не удалось найти равнины для точки телепортации!");
@@ -481,6 +480,22 @@ public final class TeyvatSpawn {
             return top;
         }
         return null;
+    }
+
+    /** Проверяет, есть ли уже точка телепортации в радиусе radius от center. */
+    private static boolean teleportExistsNear(ServerWorld world, BlockPos center, int radius) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dy = -2; dy <= 5; dy++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    BlockPos check = center.add(dx, dy, dz);
+                    BlockState state = world.getBlockState(check);
+                    if (state.isOf(TeyvatBlocks.TELEPORT_SLAB_RED) || state.isOf(TeyvatBlocks.TELEPORT_SLAB_BLUE)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
     /**

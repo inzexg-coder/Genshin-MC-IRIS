@@ -35,6 +35,9 @@ public final class TeleportActivationClient {
     /** Ближайшая неактивированная красная плита (для подсказки). */
     private static BlockPos nearestRedSlab = null;
 
+    /** Плавность появления/исчезновения подсказки. */
+    private static float hintAlpha = 0.0f;
+
     /** Таймер анимации активации (тики обратного отсчёта). */
     private static int animationTimer = 0;
     private static final int ANIMATION_TICKS = 30;
@@ -221,23 +224,44 @@ public final class TeleportActivationClient {
         int sw = client.getWindow().getScaledWidth();
         int sh = client.getWindow().getScaledHeight();
 
-        // Пульсация прозрачности
-        float pulse = (float) (Math.sin((double)client.world.getTime() * 0.12) * 0.25 + 0.75);
-        int alpha = (int) (pulse * 255);
+        // Плавное появление/исчезновение
+        float target = nearestRedSlab != null ? 1.0f : 0.0f;
+        hintAlpha += (target - hintAlpha) * 0.2f;
+        if (hintAlpha < 0.02f) return;
 
-        String label = "[Q] Активировать";
+        int a = (int) (255 * hintAlpha);
+
+        // Вкладка в стиле подбора предметов (внизу по центру)
+        String label = "Активировать";
+        String badge = "Q";
         int textW = tr.getWidth(label);
-        int x = (sw - textW) / 2;
-        int y = sh / 2 + 40;
+        int badgeW = 22;
+        int tabW = 18 + 6 + textW + 12 + badgeW;
+        int tabH = 20;
+        int x = sw / 2 - tabW / 2;
+        int bottomY = sh - 34;
+        int y = bottomY - tabH - 4;
 
-        // Полупрозрачный фон
-        int pad = 6;
-        ctx.fill(x - pad, y - pad, x + textW + pad, y + tr.fontHeight + pad,
-                ((int) (pulse * 100) << 24) | 0x00000000);
+        // Фон вкладки (тёмно-синий с золотой рамкой)
+        int panelCol = (a * 0xC2 / 255) << 24 | 0x0E1320;
+        int borderCol = (a * 0xDC / 255) << 24 | 0xE8C86A;
+        int textCol = (a << 24) | 0xFFE8D9A0;
+        int badgeCol = (a << 24) | 0xE8C86A;
+        int badgeTextCol = (a << 24) | 0x1B2338;
 
-        // Текст с тенью
-        ctx.drawTextWithShadow(tr, Text.literal(label), x, y,
-                0x00FFAA | ((int) (pulse * 200) << 24));
+        // Панель
+        ctx.fill(x, y, x + tabW, y + tabH, panelCol);
+        ctx.fill(x, y, x + tabW, y + 1, borderCol);
+        ctx.fill(x, y + tabH - 1, x + tabW, y + tabH, borderCol);
+        // Иконка (маленький квадрат — символ телепорта)
+        ctx.fill(x + 4, y + 4, x + 14, y + 16, (a << 24) | 0x44AAFF);
+        ctx.fill(x + 6, y + 6, x + 12, y + 14, (a << 24) | 0x88DDFF);
+        // Текст
+        ctx.drawText(tr, label, x + 20, y + 6, textCol, true);
+        // Бейдж [Q]
+        int bx = x + tabW - badgeW - 4;
+        ctx.fill(bx, y + 3, bx + badgeW, y + tabH - 3, badgeCol);
+        ctx.drawText(tr, badge, bx + (badgeW - tr.getWidth(badge)) / 2, y + 6, badgeTextCol, true);
     }
 
     private static void renderActivationFlash(DrawContext ctx, MinecraftClient client) {

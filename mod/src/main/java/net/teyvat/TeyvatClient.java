@@ -255,6 +255,15 @@ public class TeyvatClient implements ClientModInitializer {
         // Активация точек телепортации: Q-клавиша, HUD-подсказка, анимация, замена блоков.
         TeleportActivationClient.init();
 
+        // Отключаем выброс предмета по Q (vanilla DROP_ITEM):
+        // Q используется для активации точек телепортации.
+        ClientTickEvents.END_CLIENT_TICK.register(c -> {
+            if (c.options != null && c.options.dropKey != null) {
+                // Сбрасываем pressTime чтобы Q не выбрасывал предмет
+                while (c.options.dropKey.wasPressed()) {}
+            }
+        });
+
         // Состояние активации точек от сервера.
         ClientPlayNetworking.registerGlobalReceiver(TeleportStatePayload.ID, (payload, context) -> {
             context.client().execute(() -> TeleportActivationClient.setActivatedPositions(
