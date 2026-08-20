@@ -9,6 +9,7 @@ import net.teyvat.client.NotificationStack;
 import net.teyvat.client.PickupController;
 import net.teyvat.client.StaminaOverlay;
 import net.teyvat.client.TeleportActivationClient;
+import net.teyvat.client.MinimapRenderer;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -27,5 +28,6 @@ public abstract class InGameHudMixin {
         NotificationStack.render(context);
         PickupController.render(context);
         TeleportActivationClient.renderHint(context);
+        MinimapRenderer.render(context);
     }
 }

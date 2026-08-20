@@ -84,6 +84,11 @@ public final class TeleportActivationClient {
         }
     }
 
+    /** Сырые данные для миникарты. */
+    public static Set<Long> getActivatedPositionsRaw() {
+        return new HashSet<>(activatedPositions);
+    }
+
     public static boolean isActivated(BlockPos pos) {
         return activatedPositions.contains(pos.asLong());
     }

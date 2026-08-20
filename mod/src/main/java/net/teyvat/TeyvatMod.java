@@ -68,6 +68,8 @@ import net.teyvat.network.WikiDiscoveryPayload;
 import net.teyvat.network.TeleportActivatePayload;
 import net.teyvat.network.TeleportStatePayload;
 import net.teyvat.network.SkipTrainingPayload;
+import net.teyvat.network.MinimapSyncPayload;
+import net.teyvat.network.MinimapExplorePayload;
 import net.teyvat.server.TeleportActivationManager;
 import net.teyvat.progression.MobLevels;
 import net.teyvat.progression.MobXp;
@@ -149,6 +151,8 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(TeleportActivatePayload.ID, TeleportActivatePayload.CODEC);
         PayloadTypeRegistry.playC2S().register(SkipTrainingPayload.ID, SkipTrainingPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TeleportStatePayload.ID, TeleportStatePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(MinimapSyncPayload.ID, MinimapSyncPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(MinimapExplorePayload.ID, MinimapExplorePayload.CODEC);
         // Shift+N: «О сборке» — только для администраторов мира/сервера.
         ServerPlayNetworking.registerGlobalReceiver(AdminNotesRequestPayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
@@ -218,6 +222,19 @@ public class TeyvatMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(TeleportActivatePayload.ID, (payload, context) -> {
             if (context.player() != null) {
                 TeleportActivationManager.tryActivate(context.player(), payload.pos());
+            }
+        });
+
+        // Миникарта: клиент прислал новые исследованные чанки — сохраняем в теги.
+        ServerPlayNetworking.registerGlobalReceiver(MinimapExplorePayload.ID, (payload, context) -> {
+            if (context.player() != null) {
+                ServerPlayerEntity p = context.player();
+                for (long[] cz : payload.chunks()) {
+                    String tag = "teyvat:map_" + cz[0] + "_" + cz[1];
+                    if (!p.getCommandTags().contains(tag)) {
+                        p.addCommandTag(tag);
+                    }
+                }
             }
         });
 
@@ -389,6 +406,16 @@ public class TeyvatMod implements ModInitializer {
             ProgressionStore.sync(player);
             // Активированные точки телепортации: клиент заменит красные блоки на синие.
             TeleportActivationManager.syncToClient(player);
+            // Миникарта: отправляем список исследованных чанков
+            for (String tag : player.getCommandTags()) {
+                if (tag.startsWith("teyvat:map_")) {
+                    // Теги уже есть — клиент загрузит их
+                }
+            }
+            ServerPlayNetworking.send(player, new net.teyvat.network.MinimapSyncPayload(
+                    new java.util.ArrayList<>(player.getCommandTags().stream()
+                            .filter(t -> t.startsWith("teyvat:map_"))
+                            .toList())));
             // Уровни уже загруженных мобов рядом: ENTITY_LOAD для них уже отработал,
             // поэтому шлём текущие уровни при входе игрока.
             for (ServerWorld world : server.getWorlds()) {

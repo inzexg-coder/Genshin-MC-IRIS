@@ -61,8 +61,11 @@ import java.util.HashSet;
 import net.teyvat.network.TravelerChoiceSyncPayload;
 import net.teyvat.client.WikiStateClient;
 import net.teyvat.client.TeleportActivationClient;
+import net.teyvat.client.MinimapRenderer;
 import net.teyvat.network.TeleportStatePayload;
 import net.teyvat.network.SkipTrainingPayload;
+import net.teyvat.network.MinimapSyncPayload;
+import net.teyvat.network.MinimapExplorePayload;
 import org.lwjgl.glfw.GLFW;
 
 public class TeyvatClient implements ClientModInitializer {
@@ -82,6 +85,9 @@ public class TeyvatClient implements ClientModInitializer {
     /** Свободная камера (удержание или переключатель — режим в config/teyvat.json → camera.free_look_mode). */
     public static final KeyBinding FREE_CAM = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.camera", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY));
+    /** Миникарта: M (переключатель). */
+    public static final KeyBinding MINIMAP = KeyBindingHelper.registerKeyBinding(
+            new KeyBinding("key.teyvat.minimap", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_M, CATEGORY));
     /** Пропуск обучения: X (одноразово). */
     public static final KeyBinding SKIP_TRAINING = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.skip_training", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_X, CATEGORY));
@@ -275,6 +281,17 @@ public class TeyvatClient implements ClientModInitializer {
                 }
             }
             xWasDown = xDown;
+            // M — toggle миникарты
+            if (MINIMAP.wasPressed()) {
+                MinimapRenderer.toggle();
+            }
+            // Периодически отправляем новые чанки на сервер (раз в 100 тиков)
+            if (c.world.getTime() % 100 == 0 && c.getNetworkHandler() != null) {
+                java.util.List<long[]> newChunks = MinimapRenderer.getAndClearNewChunks();
+                if (!newChunks.isEmpty()) {
+                    ClientPlayNetworking.send(new MinimapExplorePayload(newChunks));
+                }
+            }
             // Disable vanilla Q drop (rebind once)
             if (!dropKeyFixed && c.options != null && c.options.dropKey != null) {
                 try {
@@ -286,6 +303,10 @@ public class TeyvatClient implements ClientModInitializer {
         });
 
         // Состояние активации точек от сервера.
+        ClientPlayNetworking.registerGlobalReceiver(MinimapSyncPayload.ID, (payload, context) -> {
+            context.client().execute(() -> MinimapRenderer.loadExplored(
+                    new java.util.HashSet<>(payload.mapTags())));
+        });
         ClientPlayNetworking.registerGlobalReceiver(TeleportStatePayload.ID, (payload, context) -> {
             context.client().execute(() -> TeleportActivationClient.setActivatedPositions(
                     new HashSet<>(payload.positions())));
