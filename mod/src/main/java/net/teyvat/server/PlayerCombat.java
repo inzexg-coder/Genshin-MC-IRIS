@@ -12,7 +12,11 @@ import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.entity.mob.SlimeEntity;
+import net.minecraft.entity.passive.AnimalEntity;
 import net.teyvat.combat.SwordCombo;
+import net.teyvat.entity.HydroSlimeEntity;
 import net.teyvat.network.AttackResultPayload;
 
 import java.util.ArrayList;
@@ -112,6 +116,7 @@ public final class PlayerCombat {
 
                 // Weight: тяжёлые мобы получают меньше кнокбека
                 float weight = target.getMaxHealth() / 200f; // 200 HP = вес 1.0
+                weight *= knockbackWeightMultiplier(target);
                 weight = Math.max(0.3f, Math.min(3.0f, weight));
                 kbStrength /= weight;
 
@@ -182,6 +187,15 @@ public final class PlayerCombat {
             return true;
         });
         STAGGER.putAll(updates);
+    }
+
+    /** Множитель веса по типу моба: маленькие и хрупкие мобы тяжелее
+     *  для кнокбека (получают меньше отбрасывания), как в Genshin. */
+    private static float knockbackWeightMultiplier(LivingEntity entity) {
+        if (entity instanceof HydroSlimeEntity) return 2.5f;  // Слаймы: почти не отлетают
+        if (entity instanceof SlimeEntity)       return 2.5f;  // Ванильные слаймы
+        if (entity instanceof AnimalEntity)      return 1.8f;  // Животные: чуть тяжелее
+        return 1.0f;                                            // Остальные: базовый вес
     }
 
     /** Игрок вышел: забываем его тайминги. */

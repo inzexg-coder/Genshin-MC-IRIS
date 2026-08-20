@@ -114,6 +114,13 @@ public final class CombatController {
      *  Если ЛКМ не отпустить в течение CHARGE_START_TICKS, начнётся заряд. */
     private static int holdStartTick = -1;
 
+    /** ID отслеживаемой цели во время комбо (-1 = нет цели). */
+    private static int trackedTargetId = -1;
+    /** Тики суперброни после попадания: обычные атаки не прерываются. */
+    private static final int COMBO_SUPER_ARMOR_TICKS = 3;
+    /** Тик последнего обновления цели (чтоб не искать каждые 0.5 тика). */
+    private static int targetUpdateTick = -1;
+
     /** Тиков удержания ЛКМ после удара, после которых начинается заряд
      *  (~0.5 сек). Быстрый тап (отпустили раньше) — обычный удар комбо. */
     private static final int CHARGE_START_TICKS = 6;
@@ -228,6 +235,19 @@ public final class CombatController {
             finalCooldownTicks = 0;
             exitBlendTicks = 0;
         }
+        // === Target tracking: ищем ближайшего врага во время комбо ===
+        if (comboStep >= 0 && comboStep < SwordCombo.HIT_COUNT) {
+            if (tickCount != targetUpdateTick) {
+                targetUpdateTick = tickCount;
+                updateTrackedTarget(client);
+            }
+            // Auto-aim: поворачиваемся к цели (кроме spin-ударов)
+            if (comboStep != 2 && comboStep != SwordCombo.CHARGE_INDEX && trackedTargetId >= 0) {
+                faceTrackedTarget(client);
+            }
+        } else if (comboStep < 0 && recoveryTicks <= 0) {
+            trackedTargetId = -1;
+        }
         // --- Заряженная атака: тап — мгновенный удар комбо; если ЛКМ не
         // отпускать, после удара начинается накопление (3 сек). Отпускание
         // в любой момент — спин с уроном по уровню заряда; не отпускать —
@@ -318,12 +338,7 @@ public final class CombatController {
                 }
             } else {
                 hitTicks++;
-                // Кинокамера-орбита (/cinema orbit): герой доворачивается к ближайшему
-                // врагу, чтобы каждый удар шёл в его сторону — для съёмки боя со стороны.
-                // Во время spin turn (hit3, charged) аим отключён — иначе дёргания.
-                if (comboStep != 2 && comboStep != SwordCombo.CHARGE_INDEX) {
-                    faceNearestEnemyDuringCinema(client);
-                }
+                // Auto-aim handled by target tracking block above
                 if (hitTicks == 1) {
                     // Шаг вперёд с началом удара (часть LUNGE_STRENGTH): серия
                     // продвигает героя с каждым ударом, как в Genshin.
@@ -761,6 +776,52 @@ public final class CombatController {
         client.player.setHeadYaw(smoothed);
     }
 
+    /** Обновить отслеживаемую цель: ближайший враг в направлении атаки. */
+    private static void updateTrackedTarget(MinecraftClient client) {
+        LivingEntity current = (trackedTargetId >= 0) ? client.world.getEntityById(trackedTargetId) instanceof LivingEntity le ? le : null : null;
+        // Если текущая цель жива и рядом — оставляем её
+        if (current != null && current.isAlive() && current.squaredDistanceTo(client.player) < 64.0) {
+            return;
+        }
+        // Ищем новую цель: ближайший враг в радиусе
+        LivingEntity nearest = nearestEnemy(client);
+        if (nearest != null) {
+            trackedTargetId = nearest.getId();
+        } else {
+            trackedTargetId = -1;
+        }
+    }
+
+    /** Плавно поворачиваем игрока к отслеживаемой цели. */
+    private static void faceTrackedTarget(MinecraftClient client) {
+        if (trackedTargetId < 0 || client.world == null || client.player == null) return;
+        Entity target = client.world.getEntityById(trackedTargetId);
+        if (target == null || !target.isAlive()) return;
+        double dx = target.getX() - client.player.getX();
+        double dz = target.getZ() - client.player.getZ();
+        if (dx * dx + dz * dz < 1.0E-8) return;
+        float desiredYaw = (float) Math.toDegrees(-Math.atan2(dx, dz));
+        float smoothed = MathHelper.lerpAngleDegrees(0.25f, client.player.getYaw(), desiredYaw);
+        client.player.setYaw(smoothed);
+        client.player.setBodyYaw(smoothed);
+        client.player.setHeadYaw(smoothed);
+    }
+
+    /** Направление лунжа: к отслеживаемой цели, иначе по yaw игрока. */
+    private static float lungeYaw(ClientPlayerEntity player) {
+        if (trackedTargetId >= 0 && player.getEntityWorld() != null) {
+            Entity target = player.getEntityWorld().getEntityById(trackedTargetId);
+            if (target != null && target.isAlive()) {
+                double dx = target.getX() - player.getX();
+                double dz = target.getZ() - player.getZ();
+                if (dx * dx + dz * dz > 1.0E-8) {
+                    return (float) Math.atan2(-dx, dz);
+                }
+            }
+        }
+        return (float) Math.toRadians(player.getYaw());
+    }
+
     /** Ближайший живой враг в радиусе CINEMA_TARGET_RANGE (без игроков, Паймон
      *  и мирных животных). Возвращает null, если таких рядом нет. */
     private static LivingEntity nearestEnemy(MinecraftClient client) {
@@ -887,7 +948,7 @@ public final class CombatController {
         if (strength <= 0f) {
             return;
         }
-        float yaw = (float) Math.toRadians(player.getYaw());
+        float yaw = lungeYaw(player);
         Vec3d v = player.getVelocity();
         player.setVelocity(v.x - Math.sin(yaw) * strength, v.y, v.z + Math.cos(yaw) * strength);
         player.velocityModified = true;
@@ -901,7 +962,7 @@ public final class CombatController {
         if (strength <= 0f && up <= 0f) {
             return;
         }
-        float yaw = (float) Math.toRadians(player.getYaw());
+        float yaw = lungeYaw(player);
         Vec3d v = player.getVelocity();
         player.setVelocity(v.x - Math.sin(yaw) * strength, v.y + up, v.z + Math.cos(yaw) * strength);
         player.velocityModified = true;
@@ -962,8 +1023,15 @@ public final class CombatController {
      * Игрок получил урон — прерываем комбо (как в Genshin).
      */
     public static void onPlayerHurt() {
-        // Super Armor: во время выпуска заряженной атаки не прерываемся
+        // Super Armor: заряженная атака полностью неуязвима
         if (comboStep == SwordCombo.CHARGE_INDEX) {
+            return;
+        }
+        // Super Armor: во время активного кадра обычной атаки не прерываемся
+        // (как в Genshin —普通攻击 имеет суперброню на тике урона)
+        if (comboStep >= 0 && comboStep < SwordCombo.HIT_COUNT
+                && hitTicks >= SwordCombo.DAMAGE_TICKS[comboStep] - COMBO_SUPER_ARMOR_TICKS
+                && hitTicks <= SwordCombo.DAMAGE_TICKS[comboStep] + COMBO_SUPER_ARMOR_TICKS) {
             return;
         }
         if (comboStep >= 0 || charging) {
@@ -976,6 +1044,7 @@ public final class CombatController {
         charging = false;
         chargeTicks = 0;
         holdStartTick = -1;
+        trackedTargetId = -1;
         if (!wasActive) {
             return false;
         }
