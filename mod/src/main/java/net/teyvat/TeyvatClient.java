@@ -270,6 +270,7 @@ public class TeyvatClient implements ClientModInitializer {
             // X key — raw check
             boolean xDown = org.lwjgl.glfw.GLFW.glfwGetKey(w, org.lwjgl.glfw.GLFW.GLFW_KEY_X) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
             if (xDown && !xWasDown) {
+                c.player.sendMessage(net.minecraft.text.Text.literal("§eX нажата!"), false);
                 if (c.getNetworkHandler() != null) {
                     ClientPlayNetworking.send(new SkipTrainingPayload());
                 }
