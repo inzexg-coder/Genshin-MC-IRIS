@@ -112,20 +112,21 @@ public final class TeyvatSpawn {
             }
             pos = found != null ? found : world.getSpawnPoint().globalPos().pos();
         }
-        float yaw = cfg.yaw >= 0f ? cfg.yaw : autoYaw(world, pos);
-        beachSpawn = pos;
-        beachYaw = yaw;
-        world.setSpawnPoint(WorldProperties.SpawnPoint.create(world.getRegistryKey(), pos, yaw, 0f));
-        LOGGER.info("Пляжный спавн: x={}, y={}, z={}, yaw={} (море на севере, суша позади)", pos.getX(), pos.getY(), pos.getZ(), yaw);
-        // Строим точку телепортации в биоме травы на границе с пляжем
+        // Ищем позицию в биоме травы на границе с пляжем
         BlockPos grassPos = findGrassBorderSpawn(world, pos);
+        BlockPos finalPos;
         if (grassPos != null) {
-            buildTeleportPoint(world, grassPos);
+            finalPos = grassPos;
         } else {
-            // Fallback: строим на найденной пляжной точке
-            buildTeleportPoint(world, pos);
+            finalPos = pos;
         }
-        return pos;
+        float yaw = cfg.yaw >= 0f ? cfg.yaw : autoYaw(world, finalPos);
+        beachSpawn = finalPos;
+        beachYaw = yaw;
+        world.setSpawnPoint(WorldProperties.SpawnPoint.create(world.getRegistryKey(), finalPos, yaw, 0f));
+        LOGGER.info("Точка телепортации: x={}, y={}, z={}, yaw={}", finalPos.getX(), finalPos.getY(), finalPos.getZ(), yaw);
+        buildTeleportPoint(world, finalPos);
+        return finalPos;
     }
 
     /**
@@ -436,37 +437,43 @@ public final class TeyvatSpawn {
         int y = center.getY();
         int z = center.getZ();
 
-        // Очищаем пространство над точкой (5x5x5)
-        for (int dx = -2; dx <= 2; dx++) {
-            for (int dz = -2; dz <= 2; dz++) {
+        // Очищаем пространство над точкой
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
                 for (int dy = 1; dy <= 4; dy++) {
                     world.setBlockState(new BlockPos(x + dx, y + dy, z + dz), Blocks.AIR.getDefaultState());
                 }
             }
         }
 
-        // Копаем ямку на 1 блок (5x5)
-        for (int dx = -2; dx <= 2; dx++) {
-            for (int dz = -2; dz <= 2; dz++) {
-                world.setBlockState(new BlockPos(x + dx, y - 1, z + dz), Blocks.AIR.getDefaultState());
+        // Копаем ямку на 1 блок под ромбом
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                if (Math.abs(dx) + Math.abs(dz) <= 3) {
+                    world.setBlockState(new BlockPos(x + dx, y - 1, z + dz), Blocks.AIR.getDefaultState());
+                }
             }
         }
 
-        // y-1: каменная кладка (5x5) — в ямке
-        for (int dx = -2; dx <= 2; dx++) {
-            for (int dz = -2; dz <= 2; dz++) {
-                world.setBlockState(new BlockPos(x + dx, y - 1, z + dz), TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+        // y-1: каменная кладка — ромб r=3 (|dx|+|dz| <= 3)
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                if (Math.abs(dx) + Math.abs(dz) <= 3) {
+                    world.setBlockState(new BlockPos(x + dx, y - 1, z + dz), TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+                }
             }
         }
 
-        // y-1: тонкое теснение (3x3 внутри) — в ямке
+        // y-1: тонкое теснение — ромб r=1 (|dx|+|dz| <= 1)
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
-                world.setBlockState(new BlockPos(x + dx, y - 1, z + dz), TeyvatBlocks.TELEPORT_PATH_THIN.getDefaultState());
+                if (Math.abs(dx) + Math.abs(dz) <= 1) {
+                    world.setBlockState(new BlockPos(x + dx, y - 1, z + dz), TeyvatBlocks.TELEPORT_PATH_THIN.getDefaultState());
+                }
             }
         }
 
-        // y: красная плита в центре — на уровне земли
+        // y: красная плита в центре
         world.setBlockState(new BlockPos(x, y, z), TeyvatBlocks.TELEPORT_SLAB_RED.getDefaultState());
 
         // y+1: основание колонны
