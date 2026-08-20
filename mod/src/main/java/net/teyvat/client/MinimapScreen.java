@@ -313,25 +313,22 @@ public class MinimapScreen extends Screen {
     /** Вычисление цвета блока — вызывается только при пре-рендере чанка. */
     private static int computeBlockColor(World world, int x, int z) {
         try {
-            // OCEAN_FLOOR игнорирует воду → возвращает уровень дна
-            int floorY = world.getTopY(Heightmap.Type.OCEAN_FLOOR, x, z);
             // WORLD_SURFACE возвращает верхний непустой блок (включая воду)
             int surfaceY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
 
-            // Если дно ниже уровня моря → вода (любой глубины, включая 1 блок у пляжа)
-            if (floorY < 62) {
+            // Верхний непустой блок (вода или суша)
+            BlockPos surfacePos = new BlockPos(x, surfaceY - 1, z);
+
+            // Если верхний блок — вода → это вода (любая глубина)
+            if (!world.getFluidState(surfacePos).isEmpty()) {
                 return 0xFF1A3D7A;
             }
 
+            // Суша — берём блок под поверхностью
+            int floorY = surfaceY;
             BlockPos pos = new BlockPos(x, floorY, z);
             Block block = world.getBlockState(pos.down()).getBlock();
             String biome = world.getBiome(pos).getKey().map(k -> k.getValue().getPath()).orElse("");
-
-            // Дополнительная проверка на воду (озёра выше уровня моря)
-            if (!world.getFluidState(new BlockPos(x, surfaceY - 1, z)).isEmpty()) {
-                return 0xFF1A3D7A;
-            }
-
             int shadeY = floorY;
 
             int base;
