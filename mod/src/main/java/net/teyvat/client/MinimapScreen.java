@@ -313,21 +313,26 @@ public class MinimapScreen extends Screen {
     /** Вычисление цвета блока — вызывается только при пре-рендере чанка. */
     private static int computeBlockColor(World world, int x, int z) {
         try {
-            int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
-            BlockPos pos = new BlockPos(x, y, z);
+            // OCEAN_FLOOR игнорирует воду → возвращает уровень дна
+            int floorY = world.getTopY(Heightmap.Type.OCEAN_FLOOR, x, z);
+            // WORLD_SURFACE возвращает верхний непустой блок (включая воду)
+            int surfaceY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
 
-            // Океан: высота дна на уровне моря или ниже → вода (включая мелководье у пляжа)
-            if (y <= 62) {
+            // Если дно ниже уровня моря → вода (любой глубины, включая 1 блок у пляжа)
+            if (floorY < 62) {
                 return 0xFF1A3D7A;
             }
 
+            BlockPos pos = new BlockPos(x, floorY, z);
             Block block = world.getBlockState(pos.down()).getBlock();
             String biome = world.getBiome(pos).getKey().map(k -> k.getValue().getPath()).orElse("");
 
-            // Дополнительная проверка на воду (озёра, реки выше уровня моря)
-            if (!world.getFluidState(pos).isEmpty()) {
+            // Дополнительная проверка на воду (озёра выше уровня моря)
+            if (!world.getFluidState(new BlockPos(x, surfaceY - 1, z)).isEmpty()) {
                 return 0xFF1A3D7A;
             }
+
+            int shadeY = floorY;
 
             int base;
             if (block == Blocks.SAND || block == Blocks.SANDSTONE) base = 0xFFE8DCA8;
@@ -346,7 +351,7 @@ public class MinimapScreen extends Screen {
                 else if (name.contains("planks")) base = 0xFF9C7F57;
                 else base = grassColor(biome);
             }
-            return shade(base, y);
+            return shade(base, shadeY);
         } catch (Exception e) {
             return 0xFF333333;
         }

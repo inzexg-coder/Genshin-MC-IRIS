@@ -47,6 +47,8 @@ public final class TeleportActivationClient {
 
     /** Таймер для повторного нанесения синих блоков (после загрузки чанков). */
     private static int reapplyTimer = 0;
+    /** Позиция которую игрок активировал прямо сейчас (для гарантированной анимации). */
+    private static BlockPos pendingActivation = null;
 
     private TeleportActivationClient() {}
 
@@ -74,6 +76,15 @@ public final class TeleportActivationClient {
         // Уведомление о новой активации (на экране)
         if (hasNew) {
             notificationTimer = NOTIFICATION_TICKS;
+        }
+        // Гарантированная анимация для текущей активации игрока
+        if (pendingActivation != null) {
+            if (activatedPositions.contains(pendingActivation.asLong())) {
+                animationTimer = ANIMATION_TICKS;
+                swapToBlue(pendingActivation);
+                notificationTimer = NOTIFICATION_TICKS;
+            }
+            pendingActivation = null;
         }
     }
 
@@ -211,6 +222,7 @@ public final class TeleportActivationClient {
             if (qJustPressed && nearestRedSlab != null) {
                 if (!isActivated(nearestRedSlab)
                         && client.player.getBlockPos().isWithinDistance(nearestRedSlab, INTERACT_RANGE)) {
+                    pendingActivation = nearestRedSlab;
                     ClientPlayNetworking.send(new TeleportActivatePayload(nearestRedSlab));
                 }
             }
