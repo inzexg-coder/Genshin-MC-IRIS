@@ -36,6 +36,8 @@ public class MinimapScreen extends Screen {
     /** Последняя позиция игрока — для сброса кэша при смене чанка. */
     private int lastPlayerChunkX = Integer.MIN_VALUE;
     private int lastPlayerChunkZ = Integer.MIN_VALUE;
+    /** Таймер периодического обновления кэша (тики). */
+    private int refreshTimer = 0;
 
     public MinimapScreen() {
         super(Text.literal("Карта"));
@@ -61,6 +63,13 @@ public class MinimapScreen extends Screen {
             chunkPixels.clear();
         }
 
+        // Периодическое обновление: раз в 40 тиков (2 сек) сбрасываем кэш чанков рядом
+        refreshTimer++;
+        if (refreshTimer >= 40) {
+            refreshTimer = 0;
+            chunkPixels.clear();
+        }
+
         double centerX = playerPos.getX() + camX;
         double centerZ = playerPos.getZ() + camZ;
 
@@ -68,7 +77,7 @@ public class MinimapScreen extends Screen {
 
         drawChunks(ctx, client.world, sw, sh, centerX, centerZ);
         drawTeleportMarkers(ctx, tr, sw, sh, centerX, centerZ);
-        drawPlayerMarker(ctx, sw, sh, client);
+        drawPlayerMarker(ctx, sw, sh, client, centerX, centerZ);
         drawCompass(ctx, tr, sw, sh);
 
         ctx.drawTextWithShadow(tr, "Карта Тейвата", 10, 8, 0xFFE8C86A);
@@ -185,9 +194,11 @@ public class MinimapScreen extends Screen {
         }
     }
 
-    private void drawPlayerMarker(DrawContext ctx, int sw, int sh, MinecraftClient client) {
-        int px = sw / 2;
-        int py = sh / 2;
+    /** Маркер игрока — рисуется в мировой позиции (двигается при перетаскивании карты). */
+    private void drawPlayerMarker(DrawContext ctx, int sw, int sh, MinecraftClient client, double cx, double cz) {
+        BlockPos playerPos = client.player.getBlockPos();
+        int px = (int) ((playerPos.getX() + 0.5 - cx) * scale + sw / 2.0);
+        int py = (int) ((playerPos.getZ() + 0.5 - cz) * scale + sh / 2.0);
         float yaw = client.player != null ? client.player.getYaw() : 0;
         double rad = Math.toRadians(yaw);
 
@@ -308,10 +319,8 @@ public class MinimapScreen extends Screen {
             String biome = world.getBiome(pos).getKey().map(k -> k.getValue().getPath()).orElse("");
 
             if (!world.getFluidState(pos).isEmpty()) {
-                int depth = y - world.getSeaLevel();
-                if (depth < -8) return shade(0xFF1A3D7A, y);
-                if (depth < -3) return shade(0xFF2255AA, y);
-                return shade(0xFF2E6BC4, y);
+                // Океан — всегда тёмно-синий (один цвет, без градиента)
+                return 0xFF1A3D7A;
             }
 
             int base;
