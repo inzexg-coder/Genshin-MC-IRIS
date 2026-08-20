@@ -37,6 +37,8 @@ public class MinimapScreen extends Screen {
 
     /** Кэш цветов блоков: ключ = worldX * 100000 + worldZ. */
     private final Map<Long, Integer> colorCache = new HashMap<>();
+    /** Кэш высот для затенения: ключ = chunkX * 100000 + chunkZ → средняя высота. */
+    private final Map<Long, Integer> heightCache = new HashMap<>();
 
     public MinimapScreen() {
         super(Text.literal("Карта"));
@@ -219,47 +221,86 @@ public class MinimapScreen extends Screen {
     public void removed() {
         super.removed();
         colorCache.clear();
+        heightCache.clear();
     }
 
+    /** Цвет блока на карте — как ванильная карта: цвет биома + затенение по высоте. */
     private int getBlockColor(World world, int x, int z) {
         try {
             int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
             BlockPos pos = new BlockPos(x, y, z);
 
-            if (!world.getFluidState(pos).isEmpty()) return 0xFF2255AA;
-            if (y <= world.getSeaLevel() - 2) return 0xFF1A4488;
-
             Block block = world.getBlockState(pos.down()).getBlock();
-            if (block == Blocks.SAND) return 0xFFE8D5A0;
-            if (block == Blocks.GRAVEL) return 0xFF999988;
-            if (block == Blocks.GRASS_BLOCK) {
-                String biome = world.getBiome(pos).getKey().map(k -> k.getValue().getPath()).orElse("");
-                return switch (biome) {
-                    case "teyvat_beach", "teyvat_beach_edge" -> 0xFFE0D090;
-                    case "teyvat_plains" -> 0xFF5B8C3A;
-                    case "teyvat_lake" -> 0xFF3A7A5C;
-                    case "teyvat_rocky_sea" -> 0xFF707068;
-                    default -> 0xFF5B8C3A;
-                };
-            }
-            if (block instanceof LeavesBlock) return 0xFF2D6B1E;
-            if (block == Blocks.STONE) return 0xFF808080;
-            if (block == TeyvatBlocks.TELEPORT_SLAB_RED) return 0xFFFF4444;
-            if (block == TeyvatBlocks.TELEPORT_SLAB_BLUE) return 0xFF44AAFF;
-            String name = net.minecraft.registry.Registries.BLOCK.getId(block).getPath();
-            if (name.contains("marble")) return 0xFFD4C8B8;
-
             String biome = world.getBiome(pos).getKey().map(k -> k.getValue().getPath()).orElse("");
-            return switch (biome) {
-                case "teyvat_beach" -> 0xFFE8D5A0;
-                case "teyvat_plains" -> 0xFF5B8C3A;
-                case "teyvat_lake" -> 0xFF3A7A9A;
-                case "teyvat_rocky_sea" -> 0xFF707068;
-                default -> 0xFF5B8C3A;
-            };
+
+            // Вода — по глубине
+            if (!world.getFluidState(pos).isEmpty()) {
+                int depth = y - world.getSeaLevel();
+                if (depth < -8) return shade(0xFF1A3D7A, y);
+                if (depth < -3) return shade(0xFF2255AA, y);
+                return shade(0xFF2E6BC4, y);
+            }
+
+            // Цвет по блоку поверхности + биому
+            int base;
+            if (block == Blocks.WATER) { base = 0xFF2E6BC4; }
+            else if (block == Blocks.SAND || block == Blocks.SANDSTONE) { base = 0xFFE8DCA8; }
+            else if (block == Blocks.GRAVEL) { base = 0xFF8F8F86; }
+            else if (block == Blocks.STONE || block == Blocks.COBBLESTONE) { base = 0xFF7E7E7E; }
+            else if (block instanceof LeavesBlock) { base = 0xFF3A7A28; }
+            else if (block == Blocks.GRASS_BLOCK) { base = grassColor(biome); }
+            else if (block == Blocks.DIRT || block == Blocks.COARSE_DIRT) { base = 0xFF866043; }
+            else if (block == Blocks.PODZOL) { base = 0xFF5B4433; }
+            else if (block == Blocks.SNOW || block == Blocks.SNOW_BLOCK || block == Blocks.ICE) { base = 0xFFF0F5FA; }
+            else if (block == Blocks.CLAY) { base = 0xFFA0A6B4; }
+            else if (block == Blocks.OBSIDIAN) { base = 0xFF150821; }
+            else if (block == TeyvatBlocks.TELEPORT_SLAB_RED) { base = 0xFFCC3333; }
+            else if (block == TeyvatBlocks.TELEPORT_SLAB_BLUE) { base = 0xFF3388DD; }
+            else {
+                String name = net.minecraft.registry.Registries.BLOCK.getId(block).getPath();
+                if (name.contains("marble")) base = 0xFFDDD5C8;
+                else if (name.contains("log") || name.contains("wood")) base = 0xFF6B4E2E;
+                else if (name.contains("planks")) base = 0xFF9C7F57;
+                else if (name.contains("grass")) base = grassColor(biome);
+                else if (name.contains("flower") || name.contains("tulip")) base = 0xFFD4A040;
+                else if (name.contains("tall") || name.contains("fern")) base = grassColor(biome);
+                else base = grassColor(biome);
+            }
+
+            return shade(base, y);
         } catch (Exception e) {
             return 0xFF333333;
         }
+    }
+
+    /** Цвет травы в зависимости от биома (как ванильная карта). */
+    private static int grassColor(String biome) {
+        return switch (biome) {
+            case "teyvat_beach", "teyvat_beach_edge" -> 0xFFD4C87A;
+            case "teyvat_plains" -> 0xFF91BD59;
+            case "teyvat_lake" -> 0xFF6BA85A;
+            case "teyvat_outskirts" -> 0xFF86B05A;
+            case "teyvat_rocky_sea" -> 0xFF8A9A6A;
+            default -> 0xFF91BD59;
+        };
+    }
+
+    /** Затенение по высоте: выше уровня моря — светлее, ниже — темнее. */
+    private static int shade(int argb, int y) {
+        int seaLevel = 63;
+        float factor = 1.0f;
+        if (y > seaLevel) {
+            factor = Math.min(1.25f, 1.0f + (y - seaLevel) * 0.008f);
+        } else if (y < seaLevel) {
+            factor = Math.max(0.55f, 1.0f - (seaLevel - y) * 0.02f);
+        }
+        int r = (int) (((argb >> 16) & 0xFF) * factor);
+        int g = (int) (((argb >> 8) & 0xFF) * factor);
+        int b = (int) ((argb & 0xFF) * factor);
+        r = Math.min(255, r);
+        g = Math.min(255, g);
+        b = Math.min(255, b);
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
     }
 
     private static int unpackX(long key) { return (int) (key >> 32); }
