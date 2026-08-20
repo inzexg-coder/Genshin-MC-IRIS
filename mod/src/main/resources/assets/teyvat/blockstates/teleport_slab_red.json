@@ -1,7 +1,13 @@
 {
   "variants": {
-    "": {
+    "type=bottom": {
       "model": "teyvat:block/teleport_slab_red"
+    },
+    "type=double": {
+      "model": "teyvat:block/teleport_slab_red_double"
+    },
+    "type=top": {
+      "model": "teyvat:block/teleport_slab_red_top"
     }
   }
 }

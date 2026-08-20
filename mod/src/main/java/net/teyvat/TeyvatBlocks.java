@@ -60,8 +60,8 @@ public final class TeyvatBlocks {
     // ---- teleport structure blocks ----
     public static final Block TELEPORT_PATH = block("teleport_path");
     public static final Block TELEPORT_PATH_THIN = block("teleport_path_thin");
-    public static final Block TELEPORT_SLAB_RED = register("teleport_slab_red", new Block(settings("teleport_slab_red").nonOpaque().luminance(state -> 8)));
-    public static final Block TELEPORT_SLAB_BLUE = register("teleport_slab_blue", new Block(settings("teleport_slab_blue").nonOpaque().luminance(state -> 8)));
+    public static final Block TELEPORT_SLAB_RED = register("teleport_slab_red", new SlabBlock(settings("teleport_slab_red").nonOpaque().luminance(state -> 8)));
+    public static final Block TELEPORT_SLAB_BLUE = register("teleport_slab_blue", new SlabBlock(settings("teleport_slab_blue").nonOpaque().luminance(state -> 8)));
     public static final Block TELEPORT_COLUMN_BASE_RED = register("teleport_column_base_red", new Block(settings("teleport_column_base_red").nonOpaque().luminance(state -> 10)));
     public static final Block TELEPORT_COLUMN_BASE_BLUE = register("teleport_column_base_blue", new Block(settings("teleport_column_base_blue").nonOpaque().luminance(state -> 10)));
     public static final Block TELEPORT_COLUMN_SHAFT_RED = nonOpaque("teleport_column_shaft_red");
