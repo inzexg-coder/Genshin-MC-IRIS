@@ -50,12 +50,32 @@ public final class TeleportActivationClient {
     // ──────────────────── state ────────────────────
 
     public static void setActivatedPositions(Set<BlockPos> positions) {
+        // Находим новые позиции (которых ещё не было)
+        Set<Long> old = new HashSet<>(activatedPositions);
         activatedPositions.clear();
+        boolean hasNew = false;
         for (BlockPos pos : positions) {
-            activatedPositions.add(pos.asLong());
+            long packed = pos.asLong();
+            activatedPositions.add(packed);
+            if (!old.contains(packed)) {
+                hasNew = true;
+                // Запускаем анимацию для новой точки
+                animationTimer = ANIMATION_TICKS;
+                swapToBlue(pos);
+            }
         }
-        // Полная перезаливка визуала
-        applyAllSwaps();
+        if (!hasNew && !activatedPositions.isEmpty()) {
+            // Полная перезаливка (при входе в мир)
+            applyAllSwaps();
+        }
+        // Уведомление о новой активации
+        if (hasNew) {
+            MinecraftClient client = MinecraftClient.getInstance();
+            if (client.player != null) {
+                client.player.sendMessage(
+                    net.minecraft.text.Text.literal("§b✦ §fТочка телепортации активирована!"), false);
+            }
+        }
     }
 
     public static void addActivatedPosition(BlockPos pos) {
@@ -131,10 +151,11 @@ public final class TeleportActivationClient {
         double bestDist = Double.MAX_VALUE;
 
         for (int dx = -SCAN_RANGE; dx <= SCAN_RANGE; dx++) {
-            for (int dy = -3; dy <= 5; dy++) {
+            for (int dy = -5; dy <= 8; dy++) {
                 for (int dz = -SCAN_RANGE; dz <= SCAN_RANGE; dz++) {
                     BlockPos check = playerPos.add(dx, dy, dz);
                     var state = client.world.getBlockState(check);
+                    // Ищем КРАСНУЮ плиту (неактивированную)
                     if (state.isOf(TeyvatBlocks.TELEPORT_SLAB_RED) && !isActivated(check)) {
                         double dist = playerPos.getSquaredDistance(check);
                         if (dist < bestDist) {
