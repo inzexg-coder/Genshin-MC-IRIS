@@ -32,6 +32,8 @@ public final class TeyvatSpawn {
     private static final Logger LOGGER = LoggerFactory.getLogger("Teyvat");
     private static final Identifier BEACH_BIOME_ID = Identifier.of("teyvat", "teyvat_beach");
     private static final RegistryKey<Biome> BEACH_BIOME = RegistryKey.of(RegistryKeys.BIOME, BEACH_BIOME_ID);
+    private static final Identifier GRASS_BIOME_ID = Identifier.of("teyvat", "teyvat_grassland");
+    private static final RegistryKey<Biome> GRASS_BIOME = RegistryKey.of(RegistryKeys.BIOME, GRASS_BIOME_ID);
     private static final String WELCOME_TAG = "teyvat:welcomed";
 
     private static BlockPos beachSpawn;
@@ -115,7 +117,14 @@ public final class TeyvatSpawn {
         beachYaw = yaw;
         world.setSpawnPoint(WorldProperties.SpawnPoint.create(world.getRegistryKey(), pos, yaw, 0f));
         LOGGER.info("Пляжный спавн: x={}, y={}, z={}, yaw={} (море на севере, суша позади)", pos.getX(), pos.getY(), pos.getZ(), yaw);
-        buildTeleportPoint(world, pos);
+        // Строим точку телепортации в биоме травы на границе с пляжем
+        BlockPos grassPos = findGrassBorderSpawn(world, pos);
+        if (grassPos != null) {
+            buildTeleportPoint(world, grassPos);
+        } else {
+            // Fallback: строим на найденной пляжной точке
+            buildTeleportPoint(world, pos);
+        }
         return pos;
     }
 
@@ -372,84 +381,102 @@ public final class TeyvatSpawn {
 
      */
 
+
+    /**
+     * Ищет позицию в биоме травы рядом с указанной точкой на пляже.
+     * Сканирует кольцом радиусом 3-8 блоков, ищет траву с хорошим рельефом.
+     */
+    private static BlockPos findGrassBorderSpawn(ServerWorld world, BlockPos beachPos) {
+        BlockPos best = null;
+        int bestScore = -1;
+        // Сканируем кольцом от центра пляжа
+        for (int r = 3; r <= 10; r++) {
+            for (int angle = 0; angle < 16; angle++) {
+                double rad = angle * Math.PI * 2.0 / 16.0;
+                int cx = beachPos.getX() + (int) Math.round(Math.cos(rad) * r);
+                int cz = beachPos.getZ() + (int) Math.round(Math.sin(rad) * r);
+                BlockPos cand = new BlockPos(cx, 0, cz);
+                if (!world.isChunkLoaded(cx >> 4, cz >> 4)) {
+                    continue;
+                }
+                // Должен быть в биоме травы
+                if (!world.getBiome(cand).matchesKey(GRASS_BIOME)) {
+                    continue;
+                }
+                int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, cz);
+                BlockPos top = new BlockPos(cx, topY, cz);
+                // Проверяем что над головой空气
+                if (!world.getFluidState(top).isEmpty() || !world.getFluidState(top.up()).isEmpty()) {
+                    continue;
+                }
+                // Проверяем что под ногами твёрдый блок
+                BlockState below = world.getBlockState(top.down());
+                if (!below.isFullCube(world, top.down())) {
+                    continue;
+                }
+                // Оценка: ровность + рядом с пляжем
+                int score = 10 - r; // чем ближе к пляжу, тем лучше
+                if (score > bestScore) {
+                    bestScore = score;
+                    best = top;
+                }
+            }
+            if (best != null) break;
+        }
+        return best;
+    }
+
+    /**
+     * Строит точку телепортации.
+     * center — позиция поверх земли в биоме травы.
+     * Кладка — в ямке (y-1), плита на уровне земли (y), колонна над ней.
+     */
     public static void buildTeleportPoint(ServerWorld world, BlockPos center) {
-
         int x = center.getX();
-
         int y = center.getY();
-
         int z = center.getZ();
 
-        
-
         // Очищаем пространство над точкой (5x5x5)
-
         for (int dx = -2; dx <= 2; dx++) {
-
             for (int dz = -2; dz <= 2; dz++) {
-
                 for (int dy = 1; dy <= 4; dy++) {
-
                     world.setBlockState(new BlockPos(x + dx, y + dy, z + dz), Blocks.AIR.getDefaultState());
-
                 }
-
             }
-
         }
 
-        
-
-        // Слой 0: каменная кладка (5x5)
-
+        // Копаем ямку на 1 блок (5x5)
         for (int dx = -2; dx <= 2; dx++) {
-
             for (int dz = -2; dz <= 2; dz++) {
-
-                world.setBlockState(new BlockPos(x + dx, y, z + dz), TeyvatBlocks.TELEPORT_PATH.getDefaultState());
-
+                world.setBlockState(new BlockPos(x + dx, y - 1, z + dz), Blocks.AIR.getDefaultState());
             }
-
         }
 
-        
+        // y-1: каменная кладка (5x5) — в ямке
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
+                world.setBlockState(new BlockPos(x + dx, y - 1, z + dz), TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+            }
+        }
 
-        // Слой 0: тонкое теснение (3x3 внутри)
-
+        // y-1: тонкое теснение (3x3 внутри) — в ямке
         for (int dx = -1; dx <= 1; dx++) {
-
             for (int dz = -1; dz <= 1; dz++) {
-
-                world.setBlockState(new BlockPos(x + dx, y, z + dz), TeyvatBlocks.TELEPORT_PATH_THIN.getDefaultState());
-
+                world.setBlockState(new BlockPos(x + dx, y - 1, z + dz), TeyvatBlocks.TELEPORT_PATH_THIN.getDefaultState());
             }
-
         }
 
-        
-
-        // Слой 0: красная плита в центре
-
+        // y: красная плита в центре — на уровне земли
         world.setBlockState(new BlockPos(x, y, z), TeyvatBlocks.TELEPORT_SLAB_RED.getDefaultState());
 
-        
-
-        // Слой 1: основание колонны
-
+        // y+1: основание колонны
         world.setBlockState(new BlockPos(x, y + 1, z), TeyvatBlocks.TELEPORT_COLUMN_BASE_RED.getDefaultState());
 
-        
-
-        // Слой 2: ствол колонны
-
+        // y+2: ствол колонны
         world.setBlockState(new BlockPos(x, y + 2, z), TeyvatBlocks.TELEPORT_COLUMN_SHAFT_RED.getDefaultState());
 
-        
-
-        // Слой 3: капитель колонны
-
+        // y+3: капитель колонны
         world.setBlockState(new BlockPos(x, y + 3, z), TeyvatBlocks.TELEPORT_COLUMN_CAPITAL_RED.getDefaultState());
-
     }
 
 }
