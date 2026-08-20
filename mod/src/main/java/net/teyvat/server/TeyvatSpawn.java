@@ -387,44 +387,62 @@ public final class TeyvatSpawn {
      * Ищет позицию в биоме травы рядом с указанной точкой на пляже.
      * Сканирует кольцом радиусом 3-8 блоков, ищет траву с хорошим рельефом.
      */
+    /**
+     * Ищет позицию в биоме teyvat_plains на границе с пляжем.
+     * Сканирует от пляжной точки в ЮЖНОМ направлении (от моря к суше),
+     * пока не найдёт блок в биоме равнин.
+     */
     private static BlockPos findGrassBorderSpawn(ServerWorld world, BlockPos beachPos) {
-        BlockPos best = null;
-        int bestScore = -1;
-        // Сканируем кольцом от центра пляжа
-        for (int r = 3; r <= 10; r++) {
-            for (int angle = 0; angle < 16; angle++) {
-                double rad = angle * Math.PI * 2.0 / 16.0;
-                int cx = beachPos.getX() + (int) Math.round(Math.cos(rad) * r);
-                int cz = beachPos.getZ() + (int) Math.round(Math.sin(rad) * r);
-                BlockPos cand = new BlockPos(cx, 0, cz);
-                if (!world.isChunkLoaded(cx >> 4, cz >> 4)) {
-                    continue;
-                }
-                // Должен быть в биоме травы
-                if (!world.getBiome(cand).matchesKey(GRASS_BIOME)) {
-                    continue;
-                }
-                int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, cz);
-                BlockPos top = new BlockPos(cx, topY, cz);
-                // Проверяем что над головой空气
-                if (!world.getFluidState(top).isEmpty() || !world.getFluidState(top.up()).isEmpty()) {
-                    continue;
-                }
-                // Проверяем что под ногами твёрдый блок
-                BlockState below = world.getBlockState(top.down());
-                if (!below.isFullCube(world, top.down())) {
-                    continue;
-                }
-                // Оценка: ровность + рядом с пляжем
-                int score = 10 - r; // чем ближе к пляжу, тем лучше
-                if (score > bestScore) {
-                    bestScore = score;
-                    best = top;
-                }
+        int bx = beachPos.getX();
+        int bz = beachPos.getZ();
+        // Идём от пляжа на юг (z+) пока не найдём plains
+        for (int dz = 0; dz <= 60; dz += 4) {
+            int cx = bx;
+            int cz = bz + dz;
+            BlockPos cand = new BlockPos(cx, 0, cz);
+            if (!world.isChunkLoaded(cx >> 4, cz >> 4)) {
+                continue;
             }
-            if (best != null) break;
+            if (!world.getBiome(cand).matchesKey(GRASS_BIOME)) {
+                continue;
+            }
+            // Нашли равнины — берём верхний блок
+            int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, cz);
+            BlockPos top = new BlockPos(cx, topY, cz);
+            if (!world.getFluidState(top).isEmpty() || !world.getFluidState(top.up()).isEmpty()) {
+                continue;
+            }
+            BlockState below = world.getBlockState(top.down());
+            if (!below.isFullCube(world, top.down())) {
+                continue;
+            }
+            LOGGER.info("Равнины найдены: x={}, z={}, dz={} от пляжа", cx, cz, dz);
+            return top;
         }
-        return best;
+        // Идём на юг крупнее
+        for (int dz = 60; dz <= 200; dz += 16) {
+            int cx = bx;
+            int cz = bz + dz;
+            BlockPos cand = new BlockPos(cx, 0, cz);
+            if (!world.isChunkLoaded(cx >> 4, cz >> 4)) {
+                world.getChunk(cx >> 4, cz >> 4); // загрузить чанк
+            }
+            if (!world.getBiome(cand).matchesKey(GRASS_BIOME)) {
+                continue;
+            }
+            int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, cz);
+            BlockPos top = new BlockPos(cx, topY, cz);
+            if (!world.getFluidState(top).isEmpty() || !world.getFluidState(top.up()).isEmpty()) {
+                continue;
+            }
+            BlockState below = world.getBlockState(top.down());
+            if (!below.isFullCube(world, top.down())) {
+                continue;
+            }
+            LOGGER.info("Равнины найдены (дальний поиск): x={}, z={}, dz={}", cx, cz, dz);
+            return top;
+        }
+        return null;
     }
 
     /**
