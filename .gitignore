@@ -1,7 +1,6 @@
 mod/.gradle/
 mod/build/
 mod/run/
-*.md
 docs/
 
 __pycache__/

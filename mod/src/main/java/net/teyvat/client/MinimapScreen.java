@@ -39,6 +39,8 @@ public class MinimapScreen extends Screen {
     private final Map<Long, Integer> colorCache = new HashMap<>();
     /** Кэш высот для затенения: ключ = chunkX * 100000 + chunkZ → средняя высота. */
     private final Map<Long, Integer> heightCache = new HashMap<>();
+    /** Максимальное число блоков за кадр (защита от фриза). */
+    private static final int MAX_BLOCKS_PER_FRAME = 40000;
 
     public MinimapScreen() {
         super(Text.literal("Карта"));
@@ -63,31 +65,7 @@ public class MinimapScreen extends Screen {
         // Фон
         ctx.fill(0, 0, sw, sh, 0xFF080C14);
 
-        // Рисуем исследованную территорию (1 пиксель = 1 блок при scale=1)
-        int halfW = (int) Math.ceil(sw / 2 / scale) + 2;
-        int halfH = (int) Math.ceil(sh / 2 / scale) + 2;
-
-        for (int dx = -halfW; dx <= halfW; dx++) {
-            for (int dz = -halfH; dz <= halfH; dz++) {
-                int wx = (int) centerX + dx;
-                int wz = (int) centerZ + dz;
-                int cx = wx >> 4;
-                int cz = wz >> 4;
-
-                if (!MinimapRenderer.isExplored(cx, cz)) continue;
-
-                int sx = (int) ((wx - centerX) * scale + sw / 2.0);
-                int sy = (int) ((wz - centerZ) * scale + sh / 2.0);
-                int size = (int) Math.ceil(scale);
-                if (size < 1) size = 1;
-
-                if (sx + size < 0 || sx > sw || sy + size < 0 || sy > sh) continue;
-
-                long key = ((long) wx << 32) | (wz & 0xFFFFFFFFL);
-                int color = colorCache.computeIfAbsent(key, k -> getBlockColor(world, wx, wz));
-                ctx.fill(sx, sy, sx + size, sy + size, color);
-            }
-        }
+        drawTerrain(ctx, world, sw, sh, centerX, centerZ);
 
         // Маркеры телепортации (активированные — синие, неактивированные не показываем)
         drawTeleportMarkers(ctx, tr, sw, sh, centerX, centerZ);
@@ -106,6 +84,44 @@ public class MinimapScreen extends Screen {
         // Подсказка внизу
         String hint = "WASD / мышь — перемещение · Колёсико — масштаб · Esc — закрыть";
         ctx.drawTextWithShadow(tr, hint, 10, sh - 16, 0x80FFFFFF);
+    }
+
+    private void drawTerrain(DrawContext ctx, World world, int sw, int sh, double centerX, double centerZ) {
+        // Шаг сетки: при малом зуме рисуем через несколько блоков (чанковый режим)
+        int step = scale < 0.5 ? 4 : scale < 1.0 ? 2 : 1;
+        int halfW = (int) Math.ceil(sw / 2 / scale / step) + 2;
+        int halfH = (int) Math.ceil(sh / 2 / scale / step) + 2;
+
+        int drawn = 0;
+        for (int dx = -halfW; dx <= halfW && drawn < MAX_BLOCKS_PER_FRAME; dx++) {
+            for (int dz = -halfH; dz <= halfH && drawn < MAX_BLOCKS_PER_FRAME; dz++) {
+                int wx = (int) centerX + dx * step;
+                int wz = (int) centerZ + dz * step;
+                int cx = wx >> 4;
+                int cz = wz >> 4;
+
+                if (!MinimapRenderer.isExplored(cx, cz)) continue;
+
+                int sx = (int) ((wx - centerX) * scale + sw / 2.0);
+                int sy = (int) ((wz - centerZ) * scale + sh / 2.0);
+                int size = (int) Math.ceil(scale * step);
+                if (size < 1) size = 1;
+
+                if (sx + size < 0 || sx > sw || sy + size < 0 || sy > sh) continue;
+
+                long key = ((long) wx << 32) | (wz & 0xFFFFFFFFL);
+                int color;
+                Integer cached = colorCache.get(key);
+                if (cached != null) {
+                    color = cached;
+                } else {
+                    color = getBlockColor(world, wx, wz);
+                    colorCache.put(key, color);
+                }
+                ctx.fill(sx, sy, sx + size, sy + size, color);
+                drawn++;
+            }
+        }
     }
 
     private void drawTeleportMarkers(DrawContext ctx, TextRenderer tr, int sw, int sh, double cx, double cz) {
