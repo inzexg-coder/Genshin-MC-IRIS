@@ -15,9 +15,10 @@
       ],
       "to": [
         16,
-        2,
+        16,
         16
       ],
+      "shade": false,
       "faces": {
         "down": {
           "uv": [
@@ -36,59 +37,55 @@
             16,
             16
           ],
-          "texture": "#top"
+          "texture": "#bottom"
         },
         "north": {
           "uv": [
             0,
-            14,
+            0,
             16,
             16
           ],
-          "texture": "#side",
-          "cullface": "north"
+          "texture": "#bottom"
         },
         "south": {
           "uv": [
             0,
-            14,
+            0,
             16,
             16
           ],
-          "texture": "#side",
-          "cullface": "south"
+          "texture": "#bottom"
         },
         "west": {
           "uv": [
             0,
-            14,
+            0,
             16,
             16
           ],
-          "texture": "#side",
-          "cullface": "west"
+          "texture": "#bottom"
         },
         "east": {
           "uv": [
             0,
-            14,
+            0,
             16,
             16
           ],
-          "texture": "#side",
-          "cullface": "east"
+          "texture": "#bottom"
         }
       }
     },
     {
       "from": [
         4,
-        2,
+        0,
         4
       ],
       "to": [
         12,
-        8,
+        6,
         12
       ],
       "faces": {
@@ -99,41 +96,42 @@
             12,
             12
           ],
-          "texture": "#bottom"
+          "texture": "#bottom",
+          "cullface": "down"
         },
         "north": {
           "uv": [
             4,
-            8,
+            10,
             12,
-            14
+            16
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             4,
-            8,
+            10,
             12,
-            14
+            16
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             4,
-            8,
+            10,
             12,
-            14
+            16
           ],
           "texture": "#side"
         },
         "east": {
           "uv": [
             4,
-            8,
+            10,
             12,
-            14
+            16
           ],
           "texture": "#side"
         }
@@ -142,12 +140,12 @@
     {
       "from": [
         2,
-        8,
+        6,
         2
       ],
       "to": [
         14,
-        13,
+        12,
         14
       ],
       "faces": {
@@ -163,36 +161,36 @@
         "north": {
           "uv": [
             2,
-            3,
+            4,
             14,
-            8
+            10
           ],
           "texture": "#side"
         },
         "south": {
           "uv": [
             2,
-            3,
+            4,
             14,
-            8
+            10
           ],
           "texture": "#side"
         },
         "west": {
           "uv": [
             2,
-            3,
+            4,
             14,
-            8
+            10
           ],
           "texture": "#side"
         },
         "east": {
           "uv": [
             2,
-            3,
+            4,
             14,
-            8
+            10
           ],
           "texture": "#side"
         }
@@ -201,7 +199,7 @@
     {
       "from": [
         1,
-        13,
+        12,
         1
       ],
       "to": [
@@ -225,7 +223,7 @@
             1,
             0,
             15,
-            3
+            4
           ],
           "texture": "#side"
         },
@@ -234,7 +232,7 @@
             1,
             0,
             15,
-            3
+            4
           ],
           "texture": "#side"
         },
@@ -243,7 +241,7 @@
             1,
             0,
             15,
-            3
+            4
           ],
           "texture": "#side"
         },
@@ -252,7 +250,7 @@
             1,
             0,
             15,
-            3
+            4
           ],
           "texture": "#side"
         }

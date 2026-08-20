@@ -2,9 +2,9 @@
   "parent": "minecraft:block/block",
   "textures": {
     "particle": "teyvat:block/teleport_column_shaft_blue",
-    "bottom": "teyvat:block/teleport_column_shaft_blue",
+    "side": "teyvat:block/teleport_column_shaft_blue",
     "top": "teyvat:block/teleport_column_shaft_blue",
-    "side": "teyvat:block/teleport_column_shaft_blue"
+    "bottom": "teyvat:block/teleport_column_shaft_blue"
   },
   "elements": [
     {
@@ -18,6 +18,7 @@
         16,
         16
       ],
+      "shade": false,
       "faces": {
         "down": {
           "uv": [
@@ -36,8 +37,7 @@
             16,
             16
           ],
-          "texture": "#top",
-          "cullface": "up"
+          "texture": "#bottom"
         },
         "north": {
           "uv": [
@@ -46,7 +46,7 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#bottom"
         },
         "south": {
           "uv": [
@@ -55,7 +55,7 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#bottom"
         },
         "west": {
           "uv": [
@@ -64,13 +64,83 @@
             16,
             16
           ],
-          "texture": "#side"
+          "texture": "#bottom"
         },
         "east": {
           "uv": [
             0,
             0,
             16,
+            16
+          ],
+          "texture": "#bottom"
+        }
+      }
+    },
+    {
+      "from": [
+        5,
+        0,
+        5
+      ],
+      "to": [
+        11,
+        16,
+        11
+      ],
+      "faces": {
+        "down": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#bottom",
+          "cullface": "down"
+        },
+        "up": {
+          "uv": [
+            5,
+            5,
+            11,
+            11
+          ],
+          "texture": "#top",
+          "cullface": "up"
+        },
+        "north": {
+          "uv": [
+            5,
+            0,
+            11,
+            16
+          ],
+          "texture": "#side"
+        },
+        "south": {
+          "uv": [
+            5,
+            0,
+            11,
+            16
+          ],
+          "texture": "#side"
+        },
+        "west": {
+          "uv": [
+            5,
+            0,
+            11,
+            16
+          ],
+          "texture": "#side"
+        },
+        "east": {
+          "uv": [
+            5,
+            0,
+            11,
             16
           ],
           "texture": "#side"
