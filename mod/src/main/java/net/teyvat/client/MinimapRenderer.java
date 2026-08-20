@@ -168,7 +168,9 @@ public final class MinimapRenderer {
         ctx.drawTextWithShadow(tr, hint, mapX + MAP_SIZE / 2 - hintW / 2, mapY + MAP_SIZE + pad + 3, 0x80FFFFFF);
     }
 
-    private static void updateExplored(MinecraftClient client) {
+    /** Сканирует загруженные чанки вокруг игрока и отмечает новые как исследованные.
+     *  Вызывается из клиентского тика (TeyvatClient) и из MinimapScreen. */
+    public static void updateExplored(MinecraftClient client) {
         if (client.world == null || client.player == null) return;
         int px = client.player.getBlockPos().getX() >> 4;
         int pz = client.player.getBlockPos().getZ() >> 4;

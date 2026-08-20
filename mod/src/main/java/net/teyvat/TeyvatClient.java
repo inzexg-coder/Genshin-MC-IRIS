@@ -286,6 +286,8 @@ public class TeyvatClient implements ClientModInitializer {
             if (MINIMAP.wasPressed() && c.currentScreen == null) {
                 c.setScreen(new MinimapScreen());
             }
+            // Отслеживаем исследованные чанки каждый тик (для карты)
+            MinimapRenderer.updateExplored(c);
             // Периодически отправляем новые чанки на сервер (раз в 100 тиков)
             if (c.world.getTime() % 100 == 0 && c.getNetworkHandler() != null) {
                 java.util.List<long[]> newChunks = MinimapRenderer.getAndClearNewChunks();

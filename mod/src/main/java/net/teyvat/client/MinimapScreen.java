@@ -83,7 +83,7 @@ public class MinimapScreen extends Screen {
 
                 if (sx + size < 0 || sx > sw || sy + size < 0 || sy > sh) continue;
 
-                long key = (long) wx * 100000L + wz;
+                long key = ((long) wx << 32) | (wz & 0xFFFFFFFFL);
                 int color = colorCache.computeIfAbsent(key, k -> getBlockColor(world, wx, wz));
                 ctx.fill(sx, sy, sx + size, sy + size, color);
             }
