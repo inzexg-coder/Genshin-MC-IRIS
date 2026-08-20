@@ -316,8 +316,8 @@ public class MinimapScreen extends Screen {
             int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
             BlockPos pos = new BlockPos(x, y, z);
 
-            // Океан: если высота поверхности ниже уровня моря → это вода
-            if (y < 62) {
+            // Океан: высота дна на уровне моря или ниже → вода (включая мелководье у пляжа)
+            if (y <= 62) {
                 return 0xFF1A3D7A;
             }
 

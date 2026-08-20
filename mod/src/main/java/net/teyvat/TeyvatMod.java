@@ -242,6 +242,7 @@ public class TeyvatMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(SkipTrainingPayload.ID, (payload, context) -> {
             if (context.player() != null) {
                 ServerPlayerEntity p = context.player();
+                BeachBoundary.markSkipped(p.getUuid());
                 TeyvatQuests.complete(p, Quests.MEET_PAIMON);
                 TeyvatQuests.complete(p, Quests.TRY_SCROLL);
                 TeyvatQuests.complete(p, Quests.TRY_ZOOM);
