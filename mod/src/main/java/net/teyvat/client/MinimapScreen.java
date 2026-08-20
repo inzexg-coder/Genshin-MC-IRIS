@@ -171,9 +171,9 @@ public class MinimapScreen extends Screen {
             int bz = unpackZ(packed);
             int sx = (int) ((bx - cx) * scale + sw / 2.0);
             int sy = (int) ((bz - cz) * scale + sh / 2.0);
-            if (sx < -30 || sx > sw + 30 || sy < -30 || sy > sh + 30) continue;
-            // Крупный значок телепортации: синий ромб с белой обводкой и ядром
-            int r = 10; // радиус ромба
+            if (sx < -20 || sx > sw + 20 || sy < -20 || sy > sh + 20) continue;
+            // Значок телепортации: синий ромб с белой обводкой
+            int r = 7;
             // Внешняя обводка (белая)
             for (int i = -r; i <= r; i++) {
                 int w = r - Math.abs(i);
@@ -184,13 +184,8 @@ public class MinimapScreen extends Screen {
                 int w = (r - 1) - Math.abs(i);
                 ctx.fill(sx - w, sy + i, sx + w, sy + i + 1, 0xFF3388DD);
             }
-            // Внутреннее свечение (голубое)
-            for (int i = -r / 2; i <= r / 2; i++) {
-                int w = (r / 2) - Math.abs(i);
-                ctx.fill(sx - w, sy + i, sx + w, sy + i + 1, 0xFF66BBFF);
-            }
-            // Ядро (белое)
-            ctx.fill(sx - 2, sy - 2, sx + 2, sy + 2, 0xFFFFFFFF);
+            // Ядро (белая точка)
+            ctx.fill(sx - 1, sy - 1, sx + 1, sy + 1, 0xFFFFFFFF);
         }
     }
 
@@ -202,34 +197,24 @@ public class MinimapScreen extends Screen {
         float yaw = client.player != null ? client.player.getYaw() : 0;
         double rad = Math.toRadians(yaw);
 
-        // Крупный маркер игрока: золотая стрелка с белым ядром и тёмной обводкой
-        int r = 12; // размер стрелки
-
-        // Направление взгляда — линия от центра
+        // Компактная стрелка игрока (радиус 5px)
+        int r = 5;
         int tipX = px + (int) (-Math.sin(rad) * r);
         int tipY = py + (int) (Math.cos(rad) * r);
+        int leftX = px + (int) (-Math.sin(rad + 2.5) * r * 0.7);
+        int leftY = py + (int) (Math.cos(rad + 2.5) * r * 0.7);
+        int rightX = px + (int) (-Math.sin(rad - 2.5) * r * 0.7);
+        int rightY = py + (int) (Math.cos(rad - 2.5) * r * 0.7);
 
-        // Стрелка: треугольник из трёх линий
-        int leftX = px + (int) (-Math.sin(rad + 2.5) * r * 0.6);
-        int leftY = py + (int) (Math.cos(rad + 2.5) * r * 0.6);
-        int rightX = px + (int) (-Math.sin(rad - 2.5) * r * 0.6);
-        int rightY = py + (int) (Math.cos(rad - 2.5) * r * 0.6);
+        // Белая обводка
+        drawLine(ctx, px, py, tipX, tipY, 3, 0xFFFFFFFF);
+        drawLine(ctx, leftX, leftY, tipX, tipY, 3, 0xFFFFFFFF);
+        drawLine(ctx, rightX, rightY, tipX, tipY, 3, 0xFFFFFFFF);
 
-        // Обводка (белая)
-        drawLine(ctx, px, py, tipX, tipY, 4, 0xFFFFFFFF);
-        drawLine(ctx, leftX, leftY, tipX, tipY, 4, 0xFFFFFFFF);
-        drawLine(ctx, rightX, rightY, tipX, tipY, 4, 0xFFFFFFFF);
-
-        // Заливка (золотая)
-        drawLine(ctx, px, py, tipX, tipY, 2, 0xFFFFD966);
-        drawLine(ctx, leftX, leftY, tipX, tipY, 2, 0xFFE8C86A);
-        drawLine(ctx, rightX, rightY, tipX, tipY, 2, 0xFFE8C86A);
-
-        // Ядро (белый круг)
-        for (int dy = -3; dy <= 3; dy++) {
-            int w = 3 - Math.abs(dy);
-            ctx.fill(px - w, py + dy, px + w + 1, py + dy + 1, 0xFFFFFFFF);
-        }
+        // Золотая заливка
+        drawLine(ctx, px, py, tipX, tipY, 1, 0xFFE8C86A);
+        drawLine(ctx, leftX, leftY, tipX, tipY, 1, 0xFFE8C86A);
+        drawLine(ctx, rightX, rightY, tipX, tipY, 1, 0xFFE8C86A);
     }
 
     /** Рисует толстую линию между двумя точками. */

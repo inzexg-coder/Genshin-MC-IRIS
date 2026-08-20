@@ -174,7 +174,7 @@ public final class MinimapRenderer {
         if (client.world == null || client.player == null) return;
         int px = client.player.getBlockPos().getX() >> 4;
         int pz = client.player.getBlockPos().getZ() >> 4;
-        int radius = 64;
+        int radius = 2;
         for (int cx = px - radius; cx <= px + radius; cx++) {
             for (int cz = pz - radius; cz <= pz + radius; cz++) {
                 if (client.world.isChunkLoaded(cx, cz)) {
