@@ -410,13 +410,15 @@ public final class TeyvatSpawn {
         BlockPos lastBeach = null;
 
         // Сканируем по Z от пляжа вперёд (от моря к суше), шаг 1 блок
+        // Принудительно загружаем чанки чтобы биомы определялись точно
         for (int dz = 0; dz <= 200; dz++) {
             int cx = bx;
             int cz = bz + dz;
-            BlockPos cand = new BlockPos(cx, 0, cz);
+            // Гарантируем загрузку чанка
             if (!world.isChunkLoaded(cx >> 4, cz >> 4)) {
-                continue;
+                world.getChunk(cx >> 4, cz >> 4);
             }
+            BlockPos cand = new BlockPos(cx, 0, cz);
             boolean isBeach = world.getBiome(cand).matchesKey(BEACH_BIOME)
                     || world.getBiome(cand).matchesKey(EDGE_BIOME);
             boolean isGrass = world.getBiome(cand).matchesKey(GRASS_BIOME);
@@ -425,16 +427,13 @@ public final class TeyvatSpawn {
                 lastBeach = new BlockPos(cx, 0, cz);
             }
 
-            // Граница: предыдущий блок — пляж, текущий — равнины
             if (lastBeach != null && isGrass) {
-                // Нашли границу! Теперь идём 5 блоков вперёд в равнинах
+                // Граница найдена! 5 блоков вперёд в равнинах
                 int targetZ = cz + 5;
                 int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, targetZ);
                 BlockPos top = new BlockPos(cx, topY, targetZ);
 
-                // Проверяем что блок пригоден
                 if (!world.getFluidState(top).isEmpty() || !world.getFluidState(top.up()).isEmpty()) {
-                    // Ищем ближайший пригодный блок рядом
                     for (int offset = -2; offset <= 2; offset++) {
                         int tryZ = targetZ + offset;
                         int tryY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, tryZ);
@@ -450,33 +449,27 @@ public final class TeyvatSpawn {
 
                 BlockState below = world.getBlockState(top.down());
                 if (below.isFullCube(world, top.down())) {
-                    LOGGER.info("Граница пляжа: x={}, z={}. Точка телепортации: x={}, z={} (5 блоков в равнинах)",
-                            bx, lastBeach.getZ(), cx, top.getZ());
+                    LOGGER.info("Граница пляжа: z={}. Точка телепортации: x={}, z={}",
+                            lastBeach.getZ(), cx, top.getZ());
                     return top;
                 }
             }
         }
-        // Фолбэк: оригинальный метод
+        // Фолбэк
         for (int dz = 0; dz <= 60; dz += 4) {
             int cx = bx;
             int cz = bz + dz;
-            BlockPos cand = new BlockPos(cx, 0, cz);
             if (!world.isChunkLoaded(cx >> 4, cz >> 4)) {
-                continue;
+                world.getChunk(cx >> 4, cz >> 4);
             }
-            if (!world.getBiome(cand).matchesKey(GRASS_BIOME)) {
-                continue;
-            }
+            BlockPos cand = new BlockPos(cx, 0, cz);
+            if (!world.getBiome(cand).matchesKey(GRASS_BIOME)) continue;
             int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, cz);
             BlockPos top = new BlockPos(cx, topY, cz);
-            if (!world.getFluidState(top).isEmpty() || !world.getFluidState(top.up()).isEmpty()) {
-                continue;
-            }
+            if (!world.getFluidState(top).isEmpty() || !world.getFluidState(top.up()).isEmpty()) continue;
             BlockState below = world.getBlockState(top.down());
-            if (!below.isFullCube(world, top.down())) {
-                continue;
-            }
-            LOGGER.info("Равнины найдены (фолбэк): x={}, z={}, dz={}", cx, cz, dz);
+            if (!below.isFullCube(world, top.down())) continue;
+            LOGGER.info("Равнины (фолбэк): x={}, z={}", cx, cz);
             return top;
         }
         return null;
@@ -485,11 +478,16 @@ public final class TeyvatSpawn {
     /** Проверяет, есть ли уже точка телепортации в радиусе radius от center. */
     private static boolean teleportExistsNear(ServerWorld world, BlockPos center, int radius) {
         for (int dx = -radius; dx <= radius; dx++) {
-            for (int dy = -2; dy <= 5; dy++) {
+            for (int dy = -3; dy <= 6; dy++) {
                 for (int dz = -radius; dz <= radius; dz++) {
                     BlockPos check = center.add(dx, dy, dz);
                     BlockState state = world.getBlockState(check);
-                    if (state.isOf(TeyvatBlocks.TELEPORT_SLAB_RED) || state.isOf(TeyvatBlocks.TELEPORT_SLAB_BLUE)) {
+                    if (state.isOf(TeyvatBlocks.TELEPORT_SLAB_RED)
+                            || state.isOf(TeyvatBlocks.TELEPORT_SLAB_BLUE)
+                            || state.isOf(TeyvatBlocks.TELEPORT_COLUMN_BASE_RED)
+                            || state.isOf(TeyvatBlocks.TELEPORT_COLUMN_BASE_BLUE)
+                            || state.isOf(TeyvatBlocks.TELEPORT_COLUMN_CAPITAL_RED)
+                            || state.isOf(TeyvatBlocks.TELEPORT_COLUMN_CAPITAL_BLUE)) {
                         return true;
                     }
                 }

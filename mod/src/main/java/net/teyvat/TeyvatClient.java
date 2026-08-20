@@ -62,6 +62,7 @@ import net.teyvat.network.TravelerChoiceSyncPayload;
 import net.teyvat.client.WikiStateClient;
 import net.teyvat.client.TeleportActivationClient;
 import net.teyvat.network.TeleportStatePayload;
+import net.teyvat.network.SkipTrainingPayload;
 import org.lwjgl.glfw.GLFW;
 
 public class TeyvatClient implements ClientModInitializer {
@@ -81,10 +82,15 @@ public class TeyvatClient implements ClientModInitializer {
     /** Свободная камера (удержание или переключатель — режим в config/teyvat.json → camera.free_look_mode). */
     public static final KeyBinding FREE_CAM = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.camera", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_V, CATEGORY));
+    /** Пропуск обучения: X (одноразово). */
+    public static final KeyBinding SKIP_TRAINING = KeyBindingHelper.registerKeyBinding(
+            new KeyBinding("key.teyvat.skip_training", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_X, CATEGORY));
     /** Подобрать предмет с земли: нажатие F (как в Genshin). */
     public static final KeyBinding PICKUP = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.pickup", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_F, CATEGORY));
 
+
+    private static boolean dropKeyFixed = false;
 
     /** Тики до открытия экрана выбора (ждём, пока мир догрузится). -1 = не запрошено. */
     private static int choiceOpenDelay = -1;
@@ -255,12 +261,17 @@ public class TeyvatClient implements ClientModInitializer {
         // Активация точек телепортации: Q-клавиша, HUD-подсказка, анимация, замена блоков.
         TeleportActivationClient.init();
 
-        // Отключаем выброс предмета по Q (vanilla DROP_ITEM):
-        // Q используется для активации точек телепортации.
+        // Отключаем выброс предмета по Q (vanilla DROP_ITEM): переназначаем на неиспользуемую клавишу.
+        // Это гарантированно предотвращает выброс, т.к. handleKeyInput проверяет boundKey.
         ClientTickEvents.END_CLIENT_TICK.register(c -> {
-            if (c.options != null && c.options.dropKey != null) {
-                // Сбрасываем pressTime чтобы Q не выбрасывал предмет
-                while (c.options.dropKey.wasPressed()) {}
+            if (c.options != null && c.options.dropKey != null && dropKeyFixed == false) {
+                c.options.dropKey.setBoundKey(InputUtil.fromTranslationKey("key.keyboard.grave_accent"));
+                c.options.write();
+                dropKeyFixed = true;
+            }
+            // X: пропуск обучения
+            if (SKIP_TRAINING.wasPressed() && c.player != null && c.getNetworkHandler() != null) {
+                ClientPlayNetworking.send(new SkipTrainingPayload());
             }
         });
 

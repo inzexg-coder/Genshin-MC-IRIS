@@ -27,7 +27,7 @@ import java.util.Set;
 public final class TeleportActivationClient {
     private static final int INTERACT_RANGE = 5;
     private static final int HINT_RANGE = 7;
-    private static final int SCAN_RANGE = 7;
+    private static final int SCAN_RANGE = 12;
 
     /** Активированные позиции (запакованные long). */
     private static final Set<Long> activatedPositions = new HashSet<>();

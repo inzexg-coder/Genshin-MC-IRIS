@@ -67,6 +67,7 @@ import net.teyvat.network.WikiStatePayload;
 import net.teyvat.network.WikiDiscoveryPayload;
 import net.teyvat.network.TeleportActivatePayload;
 import net.teyvat.network.TeleportStatePayload;
+import net.teyvat.network.SkipTrainingPayload;
 import net.teyvat.server.TeleportActivationManager;
 import net.teyvat.progression.MobLevels;
 import net.teyvat.progression.MobXp;
@@ -146,6 +147,7 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playS2C().register(AttackResultPayload.ID, AttackResultPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(MobLevelSyncPayload.ID, MobLevelSyncPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(TeleportActivatePayload.ID, TeleportActivatePayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(SkipTrainingPayload.ID, SkipTrainingPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TeleportStatePayload.ID, TeleportStatePayload.CODEC);
         // Shift+N: «О сборке» — только для администраторов мира/сервера.
         ServerPlayNetworking.registerGlobalReceiver(AdminNotesRequestPayload.ID, (payload, context) -> {
@@ -216,6 +218,30 @@ public class TeyvatMod implements ModInitializer {
         ServerPlayNetworking.registerGlobalReceiver(TeleportActivatePayload.ID, (payload, context) -> {
             if (context.player() != null) {
                 TeleportActivationManager.tryActivate(context.player(), payload.pos());
+            }
+        });
+
+        // X: пропуск обучения — сервер отмечает все задания выполненными.
+        ServerPlayNetworking.registerGlobalReceiver(SkipTrainingPayload.ID, (payload, context) -> {
+            if (context.player() != null) {
+                ServerPlayerEntity p = context.player();
+                TeyvatQuests.complete(p, Quests.MEET_PAIMON);
+                TeyvatQuests.complete(p, Quests.TRY_SCROLL);
+                TeyvatQuests.complete(p, Quests.TRY_ZOOM);
+                TeyvatQuests.complete(p, Quests.TRY_SPRINT);
+                TeyvatQuests.complete(p, Quests.TRY_DASH);
+                TeyvatQuests.complete(p, Quests.TRY_ATTACK);
+                TeyvatQuests.complete(p, Quests.TRY_PICKUP);
+                // Отправляем обновлённое состояние квестов клиенту
+                ServerPlayNetworking.send(p, new QuestStatePayload(
+                        TeyvatQuests.isCompleted(p, Quests.MEET_PAIMON),
+                        TeyvatQuests.isCompleted(p, Quests.TRY_SCROLL),
+                        TeyvatQuests.isCompleted(p, Quests.TRY_ZOOM),
+                        TeyvatQuests.isCompleted(p, Quests.TRY_SPRINT),
+                        TeyvatQuests.isCompleted(p, Quests.TRY_DASH),
+                        TeyvatQuests.isCompleted(p, Quests.TRY_ATTACK),
+                        TeyvatQuests.isCompleted(p, Quests.TRY_PICKUP)));
+                p.sendMessage(Text.literal("§b[Teyvat] §fОбучение пропущено! Добро пожаловать в Тейват!"), false);
             }
         });
 
