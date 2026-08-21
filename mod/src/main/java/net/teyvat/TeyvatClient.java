@@ -60,6 +60,7 @@ import net.teyvat.quest.Quests;
 import java.util.HashSet;
 import net.teyvat.network.TravelerChoiceSyncPayload;
 import net.teyvat.client.WikiStateClient;
+import net.teyvat.player.TravelerProfile;
 import net.teyvat.client.TeleportActivationClient;
 import net.teyvat.client.MinimapRenderer;
 import net.teyvat.client.MinimapScreen;
@@ -105,6 +106,7 @@ public class TeyvatClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        TravelerProfile.setClientChoiceLookup(TravelerChoiceClient::get);
         // Рендер клиентской Паймон.
         EntityRendererRegistry.register(PaimonEntity.TYPE, PaimonEntityRenderer::new);
         // Рендеры Гидро слайма и его водяного шара.

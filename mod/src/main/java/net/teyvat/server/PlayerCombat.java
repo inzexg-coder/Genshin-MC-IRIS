@@ -20,6 +20,7 @@ import net.teyvat.server.WikiDiscoveries;
 import net.teyvat.wiki.TeyvatWiki;
 import net.teyvat.entity.HydroSlimeEntity;
 import net.teyvat.network.AttackResultPayload;
+import net.teyvat.player.TravelerProfile;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -84,7 +85,8 @@ public final class PlayerCombat {
                         && !(e instanceof ArmorStandEntity));
 
         float base = (float) player.getAttributeValue(EntityAttributes.ATTACK_DAMAGE);
-        float mult = SwordCombo.MULTIPLIERS[hitIndex];
+        float mult = SwordCombo.MULTIPLIERS[hitIndex]
+                * TravelerProfile.fromPlayer(player).attackDamageMultiplier(hitIndex);
         if (hitIndex == SwordCombo.CHARGE_INDEX) {
                 WikiDiscoveries.discover(player, TeyvatWiki.ID_COMBAT_CHARGED);
             float lv = Math.max(0f, Math.min(1f, chargeLevel));

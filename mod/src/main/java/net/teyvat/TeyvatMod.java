@@ -74,6 +74,7 @@ import net.teyvat.server.TeleportActivationManager;
 import net.teyvat.progression.MobLevels;
 import net.teyvat.progression.MobXp;
 import net.teyvat.progression.ProgressionStore;
+import net.teyvat.player.TravelerProfile;
 import net.teyvat.quest.Quests;
 import net.teyvat.network.TravelerChoiceSyncPayload;
 import net.teyvat.server.WikiDiscoveries;
@@ -178,6 +179,7 @@ public class TeyvatMod implements ModInitializer {
             }
             player.addCommandTag(CHOICE_TAG_PREFIX + choice);
             TRAVELER_CHOICES.put(player.getUuid(), choice);
+            TravelerProfile.fromChoice(choice).applyAttributes(player);
             // Первый персонаж в ростере — выбранный путешественник.
             ProgressionStore.seedTraveler(player, choice);
             for (ServerPlayerEntity other : player.getEntityWorld().getServer().getPlayerManager().getPlayerList()) {
@@ -377,6 +379,7 @@ public class TeyvatMod implements ModInitializer {
             }
             if (existing != null) {
                 TRAVELER_CHOICES.put(player.getUuid(), existing);
+                TravelerProfile.fromChoice(existing).applyAttributes(player);
                 ServerPlayNetworking.send(player, new TravelerChoiceSyncPayload(player.getUuid(), existing));
                 for (ServerPlayerEntity other : server.getPlayerManager().getPlayerList()) {
                     if (!other.getUuid().equals(player.getUuid())) {
@@ -437,7 +440,10 @@ public class TeyvatMod implements ModInitializer {
                 TeyvatSpawn.welcome(handler.getPlayer(), server));
 
         // После смерти/респавна меч снова оказывается в первом слоте.
-        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> ensureStarterSword(newPlayer));
+        ServerPlayerEvents.AFTER_RESPAWN.register((oldPlayer, newPlayer, alive) -> {
+            ensureStarterSword(newPlayer);
+            TravelerProfile.fromPlayer(newPlayer).applyAttributes(newPlayer);
+        });
 
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> {
             TRAVELER_CHOICES.remove(handler.getPlayer().getUuid());

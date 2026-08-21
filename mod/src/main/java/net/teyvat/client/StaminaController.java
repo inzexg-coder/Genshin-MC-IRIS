@@ -8,6 +8,7 @@ import net.minecraft.particle.ParticleTypes;
 import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.Vec3d;
 import net.teyvat.TeyvatClient;
+import net.teyvat.player.TravelerProfile;
 
 /**
  * Выносливость как в Genshin. Бег тратит стамину и включается только
@@ -212,7 +213,8 @@ public final class StaminaController {
 
     /** Скорость рывка по профилю. Вертикаль сохраняется. */
     private static void applyDashVelocity(ClientPlayerEntity player) {
-        double speed = DASH_PEAK_SPEED * dashFactor();
+        double speed = DASH_PEAK_SPEED * dashFactor()
+                * TravelerProfile.fromPlayer(player).dashSpeedMultiplier();
         Vec3d v = player.getVelocity();
         player.setVelocity(dashDir.x * speed, v.y, dashDir.z * speed);
         player.velocityModified = true;

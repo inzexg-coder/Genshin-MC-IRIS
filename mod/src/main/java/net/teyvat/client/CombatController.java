@@ -21,6 +21,7 @@ import net.minecraft.util.math.Vec3d;
 import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.combat.SwordCombo;
 import net.teyvat.network.PlayerAttackPayload;
+import net.teyvat.player.TravelerProfile;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -216,6 +217,12 @@ public final class CombatController {
     private CombatController() {}
 
     /** Вызывается каждый клиентский тик (END_CLIENT_TICK). */
+    private static TravelerProfile travelerProfile(MinecraftClient client) {
+        return client.player == null
+                ? TravelerProfile.UNCHOSEN
+                : TravelerProfile.fromPlayer(client.player);
+    }
+
     public static void tick() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.player == null || client.world == null || client.isPaused()) {
@@ -354,7 +361,8 @@ public final class CombatController {
                     spawnSlashEffects(client, client.player);
                     applyLunge(client.player);
                 }
-                if (hitTicks >= SwordCombo.DURATION_TICKS[comboStep]) {
+                if (hitTicks >= travelerProfile(client).normalAttackDurationTicks(
+                        SwordCombo.DURATION_TICKS[comboStep])) {
                     if (comboStep == SwordCombo.HIT_COUNT - 1) {
                         // После пятого удара — обязательная пауза ~1 сек: клики
                         // в неё глотаются (onAttackClick), серия сбрасывается —
