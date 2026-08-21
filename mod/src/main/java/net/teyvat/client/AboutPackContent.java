@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 /** Вся информация о моде для экрана «О сборке»: вкладка о сборке и набор «Селестия». */
-public final class TravelerNotesContent {
+public final class AboutPackContent {
     public static final int C_HEADER = 0xFFFFE9A8;
     public static final int C_BODY = 0xFFE8E4D8;
     public static final int C_GOLD = 0xFFE8C86A;
@@ -19,7 +19,7 @@ public final class TravelerNotesContent {
     public record CraftGrid(String title, String[] pattern, Map<Character, Slot> keys, String result, int resultCount) {}
     public record BlockEntry(String id, String name, List<String> description, List<CraftGrid> crafts) {}
 
-    private TravelerNotesContent() {}
+    private AboutPackContent() {}
 
     private static Line h(String t) { return new Line(t, C_HEADER, false); }
     private static Line g(String t) { return new Line(t, C_GOLD, false); }

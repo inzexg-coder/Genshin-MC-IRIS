@@ -14,13 +14,13 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import net.minecraft.util.Util;
 import net.teyvat.client.TravelerChoiceClient;
 import net.teyvat.client.TravelerChoiceScreen;
 import net.teyvat.client.CameraController;
 import net.teyvat.client.CinemaCommand;
 import net.teyvat.client.CinematicShots;
 import net.teyvat.client.ZoomController;
-import net.teyvat.client.TravelerNotesScreen;
 import net.teyvat.client.AboutPackScreen;
 import net.teyvat.client.HealthOverlay;
 import net.teyvat.client.NotificationStack;
@@ -76,8 +76,10 @@ public class TeyvatClient implements ClientModInitializer {
     private static final KeyBinding.Category CATEGORY =
             KeyBinding.Category.create(Identifier.of(TeyvatMod.MOD_ID, "main"));
 
-    public static final KeyBinding OPEN_NOTES = KeyBindingHelper.registerKeyBinding(
-            new KeyBinding("key.teyvat.notes", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N, CATEGORY));
+    private static final String WIKI_URL = "https://github.com/inzexg-coder/Genshin-MC-IRIS/blob/main/WIKI.md";
+
+    public static final KeyBinding OPEN_WIKI = KeyBindingHelper.registerKeyBinding(
+            new KeyBinding("key.teyvat.wiki", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_N, CATEGORY));
     /** Зум по кнопке: удержание клавиши плавно приближает камеру (вместо подзорной трубы). */
     public static final KeyBinding ZOOM = KeyBindingHelper.registerKeyBinding(
             new KeyBinding("key.teyvat.zoom", InputUtil.Type.KEYSYM, GLFW.GLFW_KEY_C, CATEGORY));
@@ -133,7 +135,7 @@ public class TeyvatClient implements ClientModInitializer {
         // Первое лицо «глазами модельки»: собственное тело + разрез-дуга меча.
         WorldRenderEvents.BEFORE_ENTITIES.register(FirstPersonBody::render);
 
-        // Клавиша открывает заметки в любом режиме игры (клиентская сторона).
+        // Клавиша N открывает внешнюю вики в системном браузере.
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ZoomController.tick();
             CameraController.tick();
@@ -142,16 +144,8 @@ public class TeyvatClient implements ClientModInitializer {
             PickupController.tick();
             // Комбо атак путешественника: ведёт тайминги ударов и шлёт урон серверу.
             CombatController.tick();
-            while (OPEN_NOTES.wasPressed()) {
-                // Заметки открываются в самом верхнем слое — поверх любого экрана,
-                // кроме уже открытых заметок и обязательного выбора персонажа.
-                if (client.currentScreen instanceof TravelerNotesScreen
-                        || client.currentScreen instanceof TravelerChoiceScreen) {
-                    continue;
-                }
-                // «О сборке» отключено — заметки теперь энциклопедия. Код экрана
-                // и серверный путь сохранены (AdminNotesRequestPayload/NotesOpenPayload).
-                client.setScreen(new TravelerNotesScreen());
+            while (OPEN_WIKI.wasPressed()) {
+                Util.getOperatingSystem().open(WIKI_URL);
             }
             if (choiceOpenDelay >= 0) {
                 choiceOpenDelay--;

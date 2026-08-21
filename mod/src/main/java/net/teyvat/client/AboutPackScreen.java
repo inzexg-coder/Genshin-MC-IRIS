@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
-import static net.teyvat.client.TravelerNotesContent.*;
+import static net.teyvat.client.AboutPackContent.*;
 
 /**
  * «О сборке»: две вкладки — «О сборке» и «Селестия» (блоки от простого

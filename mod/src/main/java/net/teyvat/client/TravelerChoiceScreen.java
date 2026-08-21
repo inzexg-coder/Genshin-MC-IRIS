@@ -24,8 +24,8 @@ import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
-import static net.teyvat.client.TravelerNotesContent.C_GOLD;
-import static net.teyvat.client.TravelerNotesContent.C_HINT;
+import static net.teyvat.client.AboutPackContent.C_GOLD;
+import static net.teyvat.client.AboutPackContent.C_HINT;
 
 /**
  * Экран первого входа: фон-скриншот целиком на весь экран (без кадрирования) и выбор
