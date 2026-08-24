@@ -344,6 +344,8 @@ public class MinimapScreen extends Screen {
     private static int grassColor(String biome) {
         return switch (biome) {
             case "teyvat_beach", "teyvat_beach_edge" -> 0xFFD4C87A;
+            case "dragon_ridge" -> 0xFF7E9269;
+            case "dragon_ridge_path" -> 0xFFB59B65;
             case "teyvat_plains" -> 0xFF91BD59;
             case "teyvat_lake" -> 0xFF6BA85A;
             case "teyvat_outskirts" -> 0xFF86B05A;

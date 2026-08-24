@@ -72,8 +72,8 @@
               "biome": "teyvat:teyvat_beach",
               "parameters": {
                 "temperature": [
-                  0.5,
-                  2.0
+                  0.9,
+                  1.1
                 ],
                 "humidity": [
                   -1.0,
@@ -102,8 +102,8 @@
               "biome": "teyvat:teyvat_beach_edge",
               "parameters": {
                 "temperature": [
-                  0.0,
-                  0.5
+                  -0.1,
+                  0.1
                 ],
                 "humidity": [
                   -1.0,
@@ -133,7 +133,67 @@
               "parameters": {
                 "temperature": [
                   -2.0,
-                  -0.01
+                  -0.8
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": [
+                  -1.0,
+                  1.0
+                ],
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0,
+                "continentalness": [
+                  -0.35,
+                  2.0
+                ]
+              }
+            },
+            {
+              "biome": "teyvat:dragon_ridge",
+              "parameters": {
+                "temperature": [
+                  -0.7,
+                  -0.6
+                ],
+                "humidity": [
+                  -1.0,
+                  1.0
+                ],
+                "erosion": [
+                  -1.0,
+                  1.0
+                ],
+                "depth": [
+                  -1.0,
+                  1.0
+                ],
+                "weirdness": [
+                  -1.0,
+                  1.0
+                ],
+                "offset": 0.0,
+                "continentalness": [
+                  -0.35,
+                  2.0
+                ]
+              }
+            },
+            {
+              "biome": "teyvat:dragon_ridge_path",
+              "parameters": {
+                "temperature": [
+                  0.4,
+                  0.6
                 ],
                 "humidity": [
                   -1.0,

@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import net.minecraft.world.border.WorldBorder;
 import net.teyvat.TeyvatBlocks;
 import net.teyvat.config.TeyvatConfig;
+import net.teyvat.worldgen.TeyvatDragonRidge;
 import net.teyvat.worldgen.TeyvatOceanEdge;
 import net.teyvat.worldgen.TeyvatXEdge;
 
@@ -34,6 +35,8 @@ public final class TeyvatSpawn {
     private static final RegistryKey<Biome> BEACH_BIOME = RegistryKey.of(RegistryKeys.BIOME, BEACH_BIOME_ID);
     private static final Identifier GRASS_BIOME_ID = Identifier.of("teyvat", "teyvat_plains");
     private static final RegistryKey<Biome> GRASS_BIOME = RegistryKey.of(RegistryKeys.BIOME, GRASS_BIOME_ID);
+    private static final Identifier TRAIL_BIOME_ID = Identifier.of("teyvat", "dragon_ridge_path");
+    private static final RegistryKey<Biome> TRAIL_BIOME = RegistryKey.of(RegistryKeys.BIOME, TRAIL_BIOME_ID);
     private static final Identifier EDGE_BIOME_ID = Identifier.of("teyvat", "teyvat_beach_edge");
     private static final RegistryKey<Biome> EDGE_BIOME = RegistryKey.of(RegistryKeys.BIOME, EDGE_BIOME_ID);
     private static final String WELCOME_TAG = "teyvat:welcomed";
@@ -121,16 +124,19 @@ public final class TeyvatSpawn {
         LOGGER.info("Спавн-точка (пляж): x={}, y={}, z={}, yaw={}", pos.getX(), pos.getY(), pos.getZ(), yaw);
 
         // Точка телепортации = на границе с равнинами (строим ОДИН раз)
-        BlockPos grassPos = findGrassBorderSpawn(world, pos);
-        if (grassPos != null) {
-            if (!teleportExistsNear(world, grassPos, 12)) {
-                buildTeleportPoint(world, grassPos);
-                LOGGER.info("Построена точка телепортации: x={}, y={}, z={}", grassPos.getX(), grassPos.getY(), grassPos.getZ());
+        BlockPos teleportPos = findTrailheadSpawn(world, pos);
+        if (teleportPos == null) {
+            teleportPos = findGrassBorderSpawn(world, pos);
+        }
+        if (teleportPos != null) {
+            if (!teleportExistsNear(world, teleportPos, 12)) {
+                buildTeleportPoint(world, teleportPos);
+                LOGGER.info("Построена точка телепортации: x={}, y={}, z={}", teleportPos.getX(), teleportPos.getY(), teleportPos.getZ());
             } else {
                 LOGGER.info("Точка телепортации уже существует поблизости");
             }
         } else {
-            LOGGER.warn("Не удалось найти равнины для точки телепортации!");
+            LOGGER.warn("Не удалось найти начало Драконьего хребта для точки телепортации!");
         }
 
         return pos;
@@ -471,6 +477,47 @@ public final class TeyvatSpawn {
             if (!below.isFullCube(world, top.down())) continue;
             LOGGER.info("Равнины (фолбэк): x={}, z={}", cx, cz);
             return top;
+        }
+        return null;
+    }
+
+    /**
+     * Находит сухую площадку непосредственно на входе серпантина Драконьего хребта.
+     * Целевые координаты задаются генератором, поэтому поиск не зависит от случайного
+     * порядка загрузки биомов вдоль одной линии.
+     */
+    private static BlockPos findTrailheadSpawn(ServerWorld world, BlockPos beachPos) {
+        int centerX = TeyvatDragonRidge.TRAILHEAD_X;
+        int centerZ = TeyvatDragonRidge.TRAILHEAD_Z;
+
+        for (int radius = 0; radius <= 24; radius++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                for (int dz = -radius; dz <= radius; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != radius) {
+                        continue;
+                    }
+                    int x = centerX + dx;
+                    int z = centerZ + dz;
+                    if (!world.isChunkLoaded(x >> 4, z >> 4)) {
+                        world.getChunk(x >> 4, z >> 4);
+                    }
+                    BlockPos column = new BlockPos(x, 0, z);
+                    if (!world.getBiome(column).matchesKey(TRAIL_BIOME)) {
+                        continue;
+                    }
+                    int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
+                    BlockPos top = new BlockPos(x, topY, z);
+                    if (!world.getFluidState(top).isEmpty() || !world.getFluidState(top.up()).isEmpty()) {
+                        continue;
+                    }
+                    BlockState below = world.getBlockState(top.down());
+                    if (!below.isFullCube(world, top.down())) {
+                        continue;
+                    }
+                    LOGGER.info("Начало тропы хребта: x={}, z={}", x, z);
+                    return top;
+                }
+            }
         }
         return null;
     }
