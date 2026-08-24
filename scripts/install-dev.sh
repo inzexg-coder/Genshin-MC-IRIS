@@ -47,7 +47,7 @@ if ! jar_ok; then
     echo "! teyvat.jar так и не восстановлен. Проверь сеть и запусти ./scripts/update.sh ещё раз."
 else
     echo "   teyvat.jar: $([ -f "$JAR" ] && stat -c%s "$JAR") байт"
-    TV_VERSION=$(unzip -p "$JAR" fabric.mod.json 2>/dev/null | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*//p' | head -1)
+    TV_VERSION=$(unzip -p "$JAR" fabric.mod.json 2>/dev/null | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
     echo "   версия мода: ${TV_VERSION:-?}"
 fi
 

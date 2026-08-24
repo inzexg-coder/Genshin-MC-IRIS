@@ -44,8 +44,13 @@ else
     fi
 fi
 
-# Собираем мод из актуальных исходников. Это исключает установку устаревшего бинарника.
-./scripts/build-mod.sh
+# По умолчанию ставим проверенный jar из репозитория: обновление не требует Gradle.
+# Для сборки из исходников запустите: TEYVAT_BUILD=1 ./scripts/update.sh
+if [[ "${TEYVAT_BUILD:-0}" == "1" ]]; then
+    ./scripts/build-mod.sh
+else
+    echo "== Использую готовый mod/dist/mods/teyvat.jar (Gradle не требуется)"
+fi
 
 echo "== Teyvat update: теперь коммит $(git log --oneline -1)"
 ./scripts/install-dev.sh
