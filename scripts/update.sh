@@ -44,14 +44,7 @@ else
     fi
 fi
 
-# По умолчанию ставим проверенный jar из репозитория: обновление не требует Gradle.
-# Для сборки из исходников запустите: TEYVAT_BUILD=1 ./scripts/update.sh
-if [[ "${TEYVAT_BUILD:-0}" == "1" ]]; then
-    ./scripts/build-mod.sh
-else
-    echo "== Использую готовый mod/dist/mods/teyvat.jar (Gradle не требуется)"
-fi
-
+# После синхронизации заменяем процесс свежим установщиком. Это исключает выполнение
+# старой версии update.sh из памяти Bash после self-update.
 echo "== Teyvat update: теперь коммит $(git log --oneline -1)"
-./scripts/install-dev.sh
-echo "OK. В игре: F3+R — шейдер, F3+T — ресурспак. Если что-то не так: ./scripts/check-install.sh"
+exec "$REPO/scripts/install-dev.sh"
