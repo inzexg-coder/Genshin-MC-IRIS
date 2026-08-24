@@ -9,7 +9,7 @@
     "input": "teyvat:teyvat_dragon_ridge_path",
     "min_inclusive": 0.35,
     "max_exclusive": 2.0,
-    "when_in_range": 0.75,
+    "when_in_range": 0.5,
     "when_out_of_range": {
       "type": "minecraft:range_choice",
       "input": "teyvat:teyvat_beach_zone",
