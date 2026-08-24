@@ -6,8 +6,8 @@
     "sky_color": 7972607,
     "water_color": 4159204,
     "water_fog_color": 329011,
-    "grass_color": 8823999,
-    "foliage_color": 7171431
+    "grass_color": 8309619,
+    "foliage_color": 6739455
   },
   "features": [
     [],
@@ -22,7 +22,6 @@
     [
       "minecraft:flower_plains",
       "minecraft:patch_grass_plain",
-      "teyvat:dragon_ridge_stones",
       "teyvat:dragon_ridge_trail"
     ],
     []

@@ -34,6 +34,8 @@ public final class TeyvatDragonRidge {
     private static final double START_RADIUS = 70.0;
     private static final double END_RADIUS = 200.0;
     private static final int SPATIAL_CELL_SIZE = 32;
+    private static final double TRAIL_CLIMB = 2.35;
+    private static final double HILLS_AMPLITUDE = 0.32;
 
     /** Плавная центральная линия серпантина в полярных координатах кольца. */
     private static final double[][] TRAIL_CURVE = buildTrailCurve();
@@ -100,25 +102,25 @@ public final class TeyvatDragonRidge {
 
             double progress = Math.max(0.0, Math.min(1.0,
                     (radius - INNER_RADIUS) / (OUTER_RADIUS - INNER_RADIUS)));
-            double climb = progress * 3.2;
+            double climb = progress * TRAIL_CLIMB;
 
             double waves = Math.sin(x * 0.017 + Math.sin(dz * 0.009) * 1.2)
                     * Math.cos(dz * 0.014 + Math.sin(x * 0.008));
-            double hills = waves * 0.85;
+            double hills = waves * HILLS_AMPLITUDE;
 
             double summitDx = x - SUMMIT_X;
             double summitDz = pos.blockZ() - SUMMIT_Z;
             double summitDistanceSquared = summitDx * summitDx + summitDz * summitDz;
-            double summit = Math.exp(-summitDistanceSquared / 900.0) * 1.15;
+            double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.65;
 
             double hillsHeight = envelope * (climb + hills + summit);
 
             double trailDistance = trailDistance(x, pos.blockZ());
-            double trailBlend = 1.0 - smooth01((trailDistance - 2.25) / 17.75);
-            double trailTarget = envelope * (climb + 0.06 + summit * 0.75);
+            double trailBlend = 1.0 - smooth01((trailDistance - 2.25) / 27.75);
+            double trailTarget = envelope * (climb + 0.05 + summit * 0.85);
 
             double plateauBlend = 1.0 - smooth01((Math.sqrt(summitDistanceSquared) - 9.0) / 13.0);
-            double plateauTarget = envelope * (progress * 3.2 + 1.05);
+            double plateauTarget = envelope * (progress * TRAIL_CLIMB + 0.72);
             double blended = hillsHeight * (1.0 - trailBlend) + trailTarget * trailBlend;
             return blended * (1.0 - plateauBlend) + plateauTarget * plateauBlend;
         }
