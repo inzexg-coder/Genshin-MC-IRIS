@@ -14,13 +14,17 @@ import net.minecraft.command.EntitySelector;
 import net.minecraft.command.argument.EntityArgumentType;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.Heightmap;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.progression.ProgressionStore;
 import net.teyvat.server.AutoPickupStats;
 import net.teyvat.server.PickupSelfTest;
+import net.teyvat.worldgen.TeyvatDragonRidge;
 
 /** Корневая команда /teyvat: column, notes, choose и прогрессия (ar/char/reset). */
 public final class TeyvatCommand {
@@ -42,6 +46,8 @@ public final class TeyvatCommand {
                         .executes(TeyvatCommand::pickupDebug))
                 .then(CommandManager.literal("selftest")
                         .executes(TeyvatCommand::selfTest))
+                .then(CommandManager.literal("ridge")
+                        .executes(TeyvatCommand::ridgeDebug))
                 .then(progression()));
     }
 
@@ -75,6 +81,65 @@ public final class TeyvatCommand {
                         + (blocked > 0
                                 ? "счётчики растут, значит миксины активны."
                                 : "счётчики нулевые: игра запущена со старым jar, обнови мод.")), false);
+        return 1;
+    }
+
+    /** Телепорт к эталонному входу серпантина с диагностикой биомов хребта. */
+    private static int ridgeDebug(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
+        ServerPlayerEntity player = ctx.getSource().getPlayerOrThrow();
+        ServerWorld world = ctx.getSource().getWorld();
+        int centerX = TeyvatDragonRidge.TRAILHEAD_X;
+        int centerZ = TeyvatDragonRidge.TRAILHEAD_Z;
+
+        BlockPos best = null;
+        String bestBiome = "?";
+        for (int radius = 0; radius <= 24 && best == null; radius++) {
+            for (int dx = -radius; dx <= radius && best == null; dx++) {
+                for (int dz = -radius; dz <= radius && best == null; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != radius) {
+                        continue;
+                    }
+                    int x = centerX + dx;
+                    int z = centerZ + dz;
+                    world.getChunk(x >> 4, z >> 4);
+                    BlockPos column = new BlockPos(x, 0, z);
+                    var biomeKey = world.getBiome(column).getKey();
+                    String biomeId = biomeKey.map(key -> key.getValue().toString()).orElse("?");
+                    int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
+                    BlockPos top = new BlockPos(x, topY, z);
+                    boolean safe = world.getFluidState(top).isEmpty()
+                            && world.getFluidState(top.up()).isEmpty()
+                            && world.getBlockState(top.down()).isFullCube(world, top.down());
+                    if (biomeId.equals("teyvat:dragon_ridge_path") && safe) {
+                        best = top;
+                        bestBiome = biomeId;
+                    }
+                }
+            }
+        }
+
+        if (best == null) {
+            best = new BlockPos(centerX, world.getTopY(Heightmap.Type.MOTION_BLOCKING, centerX, centerZ), centerZ);
+        }
+        BlockPos teleportPos = best;
+        String currentBiome = world.getBiome(best).getKey().map(key -> key.getValue().toString()).orElse("?");
+        player.teleport(world, teleportPos.getX() + 0.5, teleportPos.getY() + 1.0, teleportPos.getZ() + 0.5,
+                java.util.Set.of(), player.getYaw(), player.getPitch(), false);
+
+        BlockPos trailColumn = new BlockPos(centerX, 64, centerZ);
+        BlockPos ridgeColumn = new BlockPos(33, 64, -1260);
+        String trailBiome = world.getBiome(trailColumn).getKey().map(key -> key.getValue().toString()).orElse("?");
+        String ridgeBiome = world.getBiome(ridgeColumn).getKey().map(key -> key.getValue().toString()).orElse("?");
+        String result = best != null && bestBiome.equals("teyvat:dragon_ridge_path")
+                ? "§aгенерация активна"
+                : "§cбиом тропы не найден";
+        ctx.getSource().sendFeedback(() -> Text.literal("""
+                §e[Teyvat] §fДраконий Хребет: %s
+                §fТелепорт: §b%d, %d, %d§f, биом: §b%s
+                §fЭталонные биомы: тропа §b%s§f, хребет §b%s
+                §7Если оба биома — teyvat:* и телепорт состоялся, мир правильный."""
+                .formatted(result, teleportPos.getX(), teleportPos.getY(), teleportPos.getZ(),
+                        currentBiome, trailBiome, ridgeBiome)), false);
         return 1;
     }
 
