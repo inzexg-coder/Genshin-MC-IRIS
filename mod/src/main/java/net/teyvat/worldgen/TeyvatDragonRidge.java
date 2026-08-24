@@ -36,6 +36,8 @@ public final class TeyvatDragonRidge {
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 2.35;
     private static final double HILLS_AMPLITUDE = 0.32;
+    private static final double TRAIL_HALF_WIDTH = 2.8;
+    private static final double SHOULDER_AMPLITUDE = 0.55;
 
     /** Плавная центральная линия серпантина в полярных координатах кольца. */
     private static final double[][] TRAIL_CURVE = buildTrailCurve();
@@ -106,23 +108,21 @@ public final class TeyvatDragonRidge {
 
             double waves = Math.sin(x * 0.017 + Math.sin(dz * 0.009) * 1.2)
                     * Math.cos(dz * 0.014 + Math.sin(x * 0.008));
-            double hills = waves * HILLS_AMPLITUDE;
-
             double summitDx = x - SUMMIT_X;
             double summitDz = pos.blockZ() - SUMMIT_Z;
             double summitDistanceSquared = summitDx * summitDx + summitDz * summitDz;
             double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.65;
 
-            double hillsHeight = envelope * (climb + hills + summit);
-
             double trailDistance = trailDistance(x, pos.blockZ());
-            double trailBlend = 1.0 - smooth01((trailDistance - 2.25) / 27.75);
-            double trailTarget = envelope * (climb + 0.05 + summit * 0.85);
+            double corridorOpening = smoothstep(TRAIL_HALF_WIDTH,
+                    TRAIL_HALF_WIDTH + 24.0, trailDistance);
+            double shoulder = SHOULDER_AMPLITUDE * corridorOpening;
+            double localHills = waves * HILLS_AMPLITUDE * corridorOpening;
+            double hillsHeight = envelope * (climb + shoulder + localHills + summit);
 
             double plateauBlend = 1.0 - smooth01((Math.sqrt(summitDistanceSquared) - 9.0) / 13.0);
             double plateauTarget = envelope * (progress * TRAIL_CLIMB + 0.72);
-            double blended = hillsHeight * (1.0 - trailBlend) + trailTarget * trailBlend;
-            return blended * (1.0 - plateauBlend) + plateauTarget * plateauBlend;
+            return hillsHeight * (1.0 - plateauBlend) + plateauTarget * plateauBlend;
         }
 
         @Override public double minValue() { return -1.5; }
@@ -139,7 +139,7 @@ public final class TeyvatDragonRidge {
     }
 
     static boolean isTrailSurface(int x, int z) {
-        return trailDistance(x, z) <= 2.25;
+        return trailDistance(x, z) <= TRAIL_HALF_WIDTH;
     }
 
     private static double trailDistance(double x, double z) {
@@ -176,10 +176,10 @@ public final class TeyvatDragonRidge {
         for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
             double[] start = TRAIL_CURVE[i];
             double[] end = TRAIL_CURVE[i + 1];
-            int minCellX = spatialCellCoordinate(Math.min(start[0], end[0]) - 2.25);
-            int maxCellX = spatialCellCoordinate(Math.max(start[0], end[0]) + 2.25);
-            int minCellZ = spatialCellCoordinate(Math.min(start[1], end[1]) - 2.25);
-            int maxCellZ = spatialCellCoordinate(Math.max(start[1], end[1]) + 2.25);
+            int minCellX = spatialCellCoordinate(Math.min(start[0], end[0]) - TRAIL_HALF_WIDTH);
+            int maxCellX = spatialCellCoordinate(Math.max(start[0], end[0]) + TRAIL_HALF_WIDTH);
+            int minCellZ = spatialCellCoordinate(Math.min(start[1], end[1]) - TRAIL_HALF_WIDTH);
+            int maxCellZ = spatialCellCoordinate(Math.max(start[1], end[1]) + TRAIL_HALF_WIDTH);
 
             for (int cellX = minCellX - 1; cellX <= maxCellX + 1; cellX++) {
                 for (int cellZ = minCellZ - 1; cellZ <= maxCellZ + 1; cellZ++) {

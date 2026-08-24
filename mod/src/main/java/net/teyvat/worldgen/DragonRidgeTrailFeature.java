@@ -42,17 +42,30 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                 }
 
                 var world = context.getWorld();
-                int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
-                BlockPos surface = new BlockPos(x, y, z);
-                var surfaceState = world.getBlockState(surface);
-                if (!isTrailBase(surfaceState.getBlock()) || !world.getFluidState(surface).isEmpty()) {
+                int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+                BlockPos.Mutable mutable = new BlockPos.Mutable(x, topY, z);
+                while (mutable.getY() > world.getBottomY() && !isTrailBase(world.getBlockState(mutable).getBlock())) {
+                    mutable.move(net.minecraft.util.math.Direction.DOWN);
+                }
+
+                if (!isTrailBase(world.getBlockState(mutable).getBlock())
+                        || !world.getFluidState(mutable).isEmpty()) {
                     continue;
                 }
 
-                setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
-                BlockPos base = surface.down();
+                if (world.getBlockState(mutable).getBlock() != Blocks.SAND) {
+                    setBlockState(world, mutable, Blocks.DIRT_PATH.getDefaultState());
+                }
+                BlockPos base = mutable.down();
                 if (isTrailBase(world.getBlockState(base).getBlock())) {
                     setBlockState(world, base, Blocks.COARSE_DIRT.getDefaultState());
+                }
+
+                for (int clearY = mutable.getY() + 1; clearY <= topY + 2; clearY++) {
+                    BlockPos above = new BlockPos(x, clearY, z);
+                    if (!world.getBlockState(above).isAir()) {
+                        world.removeBlock(above, false);
+                    }
                 }
                 changed = true;
             }
@@ -62,7 +75,8 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
     }
 
     private static boolean isTrailBase(net.minecraft.block.Block block) {
-        return block == Blocks.GRASS_BLOCK
+        return block == Blocks.SAND
+                || block == Blocks.GRASS_BLOCK
                 || block == Blocks.DIRT
                 || block == Blocks.COARSE_DIRT
                 || block == Blocks.PODZOL
