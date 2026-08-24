@@ -15,7 +15,7 @@
     "height": 384,
     "min_y": -64,
     "size_horizontal": 1,
-    "size_vertical": 2
+    "size_vertical": 1
   },
   "noise_router": {
     "barrier": 0.0,
@@ -660,7 +660,7 @@
               "then_run": {
                 "type": "minecraft:block",
                 "result_state": {
-                  "Name": "minecraft:dirt_path"
+                  "Name": "minecraft:grass_block"
                 }
               }
             },
@@ -676,7 +676,7 @@
               "then_run": {
                 "type": "minecraft:block",
                 "result_state": {
-                  "Name": "minecraft:coarse_dirt"
+                  "Name": "minecraft:dirt"
                 }
               }
             },

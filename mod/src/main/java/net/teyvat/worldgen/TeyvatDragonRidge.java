@@ -5,6 +5,11 @@ import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.dynamic.CodecHolder;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import net.minecraft.world.gen.densityfunction.DensityFunction;
 import net.teyvat.TeyvatMod;
 
@@ -26,17 +31,14 @@ public final class TeyvatDragonRidge {
     public static final int TRAILHEAD_X = 0;
     public static final int TRAILHEAD_Z = -1295;
 
-    /** Центральная линия серпантина от границы пляжа к смотровой вершине. */
-    private static final double[][] TRAIL = {
-            {0, -1295},
-            {-27, -1279},
-            {-42, -1248},
-            {-19, -1226},
-            {23, -1217},
-            {46, -1191},
-            {21, -1169},
-            {SUMMIT_X, SUMMIT_Z}
-    };
+    private static final double START_RADIUS = 70.0;
+    private static final double END_RADIUS = 200.0;
+    private static final int SPATIAL_CELL_SIZE = 32;
+
+    /** Плавная центральная линия серпантина в полярных координатах кольца. */
+    private static final double[][] TRAIL_CURVE = buildTrailCurve();
+    private static final Map<Long, int[]> TRAIL_SEGMENTS_BY_CELL =
+            buildTrailSegmentIndex();
 
     private static final DensityFunction ZONE = new DensityFunction.Base() {
         @Override
@@ -67,7 +69,7 @@ public final class TeyvatDragonRidge {
             double x = pos.blockX();
             double z = pos.blockZ();
             double distance = trailDistance(x, z);
-            double edge = (distance - 1.0) / 1.75;
+            double edge = (distance - 5.0) / 5.0;
             double mask = 1.0 - smooth01(edge);
             return Math.max(-1.0, Math.min(1.0, mask * 2.0 - 1.0));
         }
@@ -100,10 +102,9 @@ public final class TeyvatDragonRidge {
                     (radius - INNER_RADIUS) / (OUTER_RADIUS - INNER_RADIUS)));
             double climb = progress * 3.2;
 
-            double waves = Math.sin(x * 0.036 + Math.sin(dz * 0.028) * 1.8)
-                    * Math.sin(dz * 0.042 + Math.sin(x * 0.024) * 1.6);
-            double ridged = 1.0 - Math.abs(waves);
-            double hills = (ridged - 0.56) * 2.6;
+            double waves = Math.sin(x * 0.017 + Math.sin(dz * 0.009) * 1.2)
+                    * Math.cos(dz * 0.014 + Math.sin(x * 0.008));
+            double hills = waves * 0.85;
 
             double summitDx = x - SUMMIT_X;
             double summitDz = pos.blockZ() - SUMMIT_Z;
@@ -113,7 +114,7 @@ public final class TeyvatDragonRidge {
             double hillsHeight = envelope * (climb + hills + summit);
 
             double trailDistance = trailDistance(x, pos.blockZ());
-            double trailBlend = 1.0 - smooth01((trailDistance - 2.0) / 5.0);
+            double trailBlend = 1.0 - smooth01((trailDistance - 2.25) / 17.75);
             double trailTarget = envelope * (climb + 0.06 + summit * 0.75);
 
             double plateauBlend = 1.0 - smooth01((Math.sqrt(summitDistanceSquared) - 9.0) / 13.0);
@@ -135,12 +136,86 @@ public final class TeyvatDragonRidge {
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, HEIGHT_ID, MapCodec.unit(HEIGHT));
     }
 
+    static boolean isTrailSurface(int x, int z) {
+        return trailDistance(x, z) <= 2.25;
+    }
+
     private static double trailDistance(double x, double z) {
-        double best = Double.MAX_VALUE;
-        for (int i = 0; i < TRAIL.length - 1; i++) {
-            best = Math.min(best, segmentDistanceSquared(x, z, TRAIL[i], TRAIL[i + 1]));
+        int[] candidateSegments = TRAIL_SEGMENTS_BY_CELL.get(spatialCellKey(x, z));
+        if (candidateSegments == null) {
+            return 999.0;
         }
-        return Math.sqrt(best);
+
+        double bestSquared = Double.MAX_VALUE;
+        for (int segmentIndex : candidateSegments) {
+            bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
+                    TRAIL_CURVE[segmentIndex], TRAIL_CURVE[segmentIndex + 1]));
+        }
+        return Math.sqrt(bestSquared);
+    }
+
+    public static boolean chunkMayContainTrail(int minX, int minZ, int maxX, int maxZ) {
+        double margin = 3.5;
+        for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
+            double[] start = TRAIL_CURVE[i];
+            double[] end = TRAIL_CURVE[i + 1];
+            if (Math.max(start[0], end[0]) + margin >= minX
+                    && Math.min(start[0], end[0]) - margin <= maxX
+                    && Math.max(start[1], end[1]) + margin >= minZ
+                    && Math.min(start[1], end[1]) - margin <= maxZ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Map<Long, int[]> buildTrailSegmentIndex() {
+        Map<Long, List<Integer>> segmentsByCell = new HashMap<>();
+        for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
+            double[] start = TRAIL_CURVE[i];
+            double[] end = TRAIL_CURVE[i + 1];
+            int minCellX = spatialCellCoordinate(Math.min(start[0], end[0]) - 2.25);
+            int maxCellX = spatialCellCoordinate(Math.max(start[0], end[0]) + 2.25);
+            int minCellZ = spatialCellCoordinate(Math.min(start[1], end[1]) - 2.25);
+            int maxCellZ = spatialCellCoordinate(Math.max(start[1], end[1]) + 2.25);
+
+            for (int cellX = minCellX - 1; cellX <= maxCellX + 1; cellX++) {
+                for (int cellZ = minCellZ - 1; cellZ <= maxCellZ + 1; cellZ++) {
+                    segmentsByCell.computeIfAbsent(
+                            spatialCellKey(cellX * SPATIAL_CELL_SIZE, cellZ * SPATIAL_CELL_SIZE),
+                            key -> new ArrayList<>()).add(i);
+                }
+            }
+        }
+
+        Map<Long, int[]> result = new HashMap<>();
+        segmentsByCell.forEach((key, segments) -> result.put(key,
+                segments.stream().mapToInt(Integer::intValue).toArray()));
+        return Map.copyOf(result);
+    }
+
+    private static int spatialCellCoordinate(double coordinate) {
+        return Math.floorDiv((int) Math.floor(coordinate), SPATIAL_CELL_SIZE);
+    }
+
+    private static long spatialCellKey(double x, double z) {
+        return ((long) spatialCellCoordinate(x) << 32)
+                | (spatialCellCoordinate(z) & 0xFFFFFFFFL);
+    }
+
+    private static double[][] buildTrailCurve() {
+        double[][] points = new double[257][];
+        for (int i = 0; i < points.length; i++) {
+            double progress = i / (double) (points.length - 1);
+            double eased = progress * progress * (3.0 - 2.0 * progress);
+            double radius = START_RADIUS + (END_RADIUS - START_RADIUS) * eased;
+            double angle = 0.42 * Math.sin(3.0 * Math.PI * progress);
+            points[i] = new double[] {
+                    radius * Math.sin(angle),
+                    TeyvatOceanEdge.BEACH_CENTER_Z + radius * Math.cos(angle)
+            };
+        }
+        return points;
     }
 
     private static double segmentDistanceSquared(double px, double pz, double[] a, double[] b) {

@@ -50,6 +50,7 @@ import net.teyvat.server.PlayerCombat;
 import net.teyvat.server.SlimeTraining;
 import net.teyvat.server.TeyvatQuests;
 import net.teyvat.server.TeyvatSpawn;
+import net.teyvat.worldgen.DragonRidgeTrailFeature;
 import net.teyvat.worldgen.TeyvatBeachRadius;
 import net.teyvat.worldgen.TeyvatDragonRidge;
 import net.teyvat.worldgen.TeyvatOceanEdge;
@@ -122,6 +123,7 @@ public class TeyvatMod implements ModInitializer {
         TeyvatXEdge.register();
         TeyvatBeachRadius.register();
         TeyvatDragonRidge.register();
+        DragonRidgeTrailFeature.register();
         BeachGuard.register();
         BeachBoundary.register();
         PaimonEntity.register();
