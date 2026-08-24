@@ -44,8 +44,8 @@ else
     fi
 fi
 
-# Гарантированно свежий jar прямо из origin/main (даже если локальный HEAD был старым).
-git checkout origin/main -- dist/mods/teyvat.jar 2>/dev/null || true
+# Собираем мод из актуальных исходников. Это исключает установку устаревшего бинарника.
+./scripts/build-mod.sh
 
 echo "== Teyvat update: теперь коммит $(git log --oneline -1)"
 ./scripts/install-dev.sh
