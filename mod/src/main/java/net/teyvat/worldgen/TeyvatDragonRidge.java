@@ -102,15 +102,20 @@ public final class TeyvatDragonRidge {
             double envelope = inner * outer * land;
             if (envelope <= 0.001) return 0.0;
 
-            // Профиль по расстоянию от тропы: 0 на тропе, 1 на расстоянии 40, 0 на 80
+            // Профиль: тропа В ДОЛИНЕ (-4 блока), холмы по бокам (+1.0)
             double dist = trailDistance(x, z);
-            double profile = 0.0;
-            if (dist > TRAIL_HALF_WIDTH && dist < 80.0) {
-                if (dist < 40.0) {
-                    profile = smoothstep(TRAIL_HALF_WIDTH, 40.0, dist);
-                } else {
-                    profile = 1.0 - smoothstep(40.0, 80.0, dist);
-                }
+            double profile;
+            if (dist <= TRAIL_HALF_WIDTH + 1.0) {
+                // Зона тропы: врезана ниже базового уровня
+                profile = -0.12;
+            } else if (dist < 40.0) {
+                // Подъём от тропы к вершине холма
+                profile = smoothstep(TRAIL_HALF_WIDTH + 1.0, 40.0, dist);
+            } else if (dist < 80.0) {
+                // Спуск за холмом
+                profile = 1.0 - smoothstep(40.0, 80.0, dist);
+            } else {
+                profile = 0.0;
             }
 
             return envelope * profile;

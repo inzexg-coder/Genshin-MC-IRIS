@@ -24,13 +24,21 @@
         "type": "minecraft:mul",
         "argument1": 40.0,
         "argument2": {
-          "type": "minecraft:shifted_noise",
-          "noise": "minecraft:continentalness",
-          "shift_x": "minecraft:shift_x",
-          "shift_y": 0.0,
-          "shift_z": "minecraft:shift_z",
-          "xz_scale": 0.025,
-          "y_scale": 0.0
+          "type": "minecraft:mul",
+          "argument1": {
+            "type": "minecraft:add",
+            "argument1": {
+              "type": "minecraft:shifted_noise",
+              "noise": "minecraft:continentalness",
+              "shift_x": "minecraft:shift_x",
+              "shift_y": 0.0,
+              "shift_z": "minecraft:shift_z",
+              "xz_scale": 0.025,
+              "y_scale": 0.0
+            },
+            "argument2": 1.0
+          },
+          "argument2": 0.5
         }
       },
       "argument2": 0.5
