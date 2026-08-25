@@ -12,7 +12,7 @@ import net.minecraft.world.gen.feature.Feature;
 import net.minecraft.world.gen.feature.util.FeatureContext;
 import net.teyvat.TeyvatMod;
 
-/** Тропа серпантина: поверхневая укладка без глубокого копания. */
+/** Тропа серпантина: ТОЛЬКО покраска поверхности, без копания. */
 public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig> {
     public static final Identifier ID =
             Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_trail");
@@ -42,42 +42,24 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                     continue;
                 }
 
-                // Стартуем от РЕАЛЬНОЙ поверхности в этой колонке, не от topY чанка
                 int surfaceY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
-                BlockPos.Mutable pos = new BlockPos.Mutable(x, surfaceY, z);
+                BlockPos surface = new BlockPos(x, surfaceY, z);
 
-                // Ищем первый подходящий блок, копая максимум 2 блока вниз
-                int dug = 0;
-                while (dug < 2 && pos.getY() > world.getBottomY()) {
-                    if (isTrailBase(world.getBlockState(pos).getBlock())) {
-                        break;
-                    }
-                    pos.move(net.minecraft.util.math.Direction.DOWN);
-                    dug++;
-                }
-
-                if (!isTrailBase(world.getBlockState(pos).getBlock())
-                        || !world.getFluidState(pos).isEmpty()) {
+                if (!isTrailBase(world.getBlockState(surface).getBlock())) {
                     continue;
                 }
 
-                // Кладём тропу
-                if (world.getBlockState(pos).getBlock() != Blocks.SAND) {
-                    setBlockState(world, pos, Blocks.DIRT_PATH.getDefaultState());
+                // Заменяем только верхний блок на тропу
+                if (world.getBlockState(surface).getBlock() != Blocks.SAND) {
+                    setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
                 }
+
                 // Подкладка под тропой
-                BlockPos below = pos.down();
+                BlockPos below = surface.down();
                 if (isTrailBase(world.getBlockState(below).getBlock())) {
                     setBlockState(world, below, Blocks.COARSE_DIRT.getDefaultState());
                 }
 
-                // Убираем только нависающие блоки НАД тропой (макс 3)
-                int clearLimit = Math.min(pos.getY() + 4, world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) + 1);
-                for (int clearY = pos.getY() + 1; clearY <= clearLimit; clearY++) {
-                    if (!world.getBlockState(new BlockPos(x, clearY, z)).isAir()) {
-                        world.removeBlock(new BlockPos(x, clearY, z), false);
-                    }
-                }
                 changed = true;
             }
         }

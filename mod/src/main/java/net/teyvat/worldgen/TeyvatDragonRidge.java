@@ -113,7 +113,10 @@ public final class TeyvatDragonRidge {
             double summitDistanceSquared = summitDx * summitDx + summitDz * summitDz;
             double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.25;
 
-            double hills = waves * HILLS_AMPLITUDE;
+            // На тропе — убираем волны, чтобы поверхность была ровной
+            double dist = trailDistance(x, pos.blockZ());
+            double trailBlend = smoothstep(TRAIL_HALF_WIDTH, TRAIL_HALF_WIDTH + 6.0, dist);
+            double hills = waves * HILLS_AMPLITUDE * trailBlend;
             return envelope * (climb + hills + summit);
         }
 
