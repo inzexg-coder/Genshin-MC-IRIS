@@ -34,10 +34,10 @@ public final class TeyvatDragonRidge {
     private static final double START_RADIUS = 70.0;
     private static final double END_RADIUS = 200.0;
     private static final int SPATIAL_CELL_SIZE = 32;
-    private static final double TRAIL_CLIMB = 1.2;
-    private static final double HILLS_AMPLITUDE = 0.32;
+    private static final double TRAIL_CLIMB = 0.4;
+    private static final double HILLS_AMPLITUDE = 0.2;
     private static final double TRAIL_HALF_WIDTH = 4.5;
-    private static final double SHOULDER_AMPLITUDE = 0.25;
+    private static final double SHOULDER_AMPLITUDE = 0.0;
 
     /** Плавная центральная линия серпантина в полярных координатах кольца. */
     private static final double[][] TRAIL_CURVE = buildTrailCurve();
@@ -111,7 +111,7 @@ public final class TeyvatDragonRidge {
             double summitDx = x - SUMMIT_X;
             double summitDz = pos.blockZ() - SUMMIT_Z;
             double summitDistanceSquared = summitDx * summitDx + summitDz * summitDz;
-            double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.35;
+            double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.25;
 
             double hills = waves * HILLS_AMPLITUDE;
             return envelope * (climb + hills + summit);
