@@ -34,8 +34,8 @@ public final class TeyvatDragonRidge {
     private static final double START_RADIUS = 85.0;
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
-    private static final double TRAIL_CLIMB = 0.6;
-    private static final double HILLS_AMPLITUDE = 0.2;
+    private static final double TRAIL_CLIMB = 0.8;
+    private static final double HILLS_AMPLITUDE = 0.25;
     private static final double TRAIL_HALF_WIDTH = 4.5;
     private static final double SHOULDER_AMPLITUDE = 0.25;
 
