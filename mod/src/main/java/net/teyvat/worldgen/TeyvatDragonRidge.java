@@ -29,7 +29,7 @@ public final class TeyvatDragonRidge {
 
     /** Фиксированный вход на серпантин для структур и серверного поиска. */
     public static final int TRAILHEAD_X = 0;
-    public static final int TRAILHEAD_Z = -1228;
+    public static final int TRAILHEAD_Z = -1280;
 
     private static final double START_RADIUS = 55.0;
     private static final double END_RADIUS = 220.0;
@@ -211,12 +211,17 @@ public final class TeyvatDragonRidge {
     }
 
     private static double[][] buildTrailCurve() {
+        // Прямая тропа через точку телепортации (radius 85) в обе стороны:
+        // от.radius 55 (пляж) до radius 220 (холмы), телепорт по центру
+        double teleportRadius = 85.0;
         double[][] points = new double[257][];
         for (int i = 0; i < points.length; i++) {
             double progress = i / (double) (points.length - 1);
-            double eased = progress * progress * (3.0 - 2.0 * progress);
-            double radius = START_RADIUS + (END_RADIUS - START_RADIUS) * eased;
-            double angle = 0.25 * Math.sin(2.0 * Math.PI * progress);
+            // Прямая линия от radius 55 до 220, с лёгким серпантином дальше от телепорта
+            double radius = START_RADIUS + (END_RADIUS - START_RADIUS) * progress;
+            double distFromTeleport = Math.abs(radius - teleportRadius);
+            double curveFactor = smoothstep(0.0, 40.0, distFromTeleport);
+            double angle = 0.22 * curveFactor * Math.sin(2.0 * Math.PI * progress);
             points[i] = new double[] {
                     radius * Math.sin(angle),
                     TeyvatOceanEdge.BEACH_CENTER_Z + radius * Math.cos(angle)
