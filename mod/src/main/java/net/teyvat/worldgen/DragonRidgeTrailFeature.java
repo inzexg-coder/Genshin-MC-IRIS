@@ -12,7 +12,7 @@ import net.minecraft.world.gen.feature.Feature;
 import net.minecraft.world.gen.feature.util.FeatureContext;
 import net.teyvat.TeyvatMod;
 
-/** Тропа серпантина: углубление ровно на 1 блок + покраска. */
+/** Тропа серпантина с плавным переходом в равнины. */
 public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig> {
     public static final Identifier ID =
             Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_trail");
@@ -42,25 +42,32 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                     continue;
                 }
 
+                double fade = TeyvatDragonRidge.trailFadeFactor(x, z);
+
                 int surfaceY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
+                BlockPos surface = new BlockPos(x, surfaceY, z);
 
-                // Углубляем ровно на 1 блок
-                BlockPos trailPos = new BlockPos(x, surfaceY - 1, z);
-                BlockPos below = new BlockPos(x, surfaceY - 2, z);
-
-                if (!isTrailBase(world.getBlockState(trailPos).getBlock())) {
+                if (!isTrailBase(world.getBlockState(surface).getBlock())) {
                     continue;
                 }
 
-                // Кладём тропу в углубление
-                if (world.getBlockState(trailPos).getBlock() != Blocks.SAND) {
-                    setBlockState(world, trailPos, Blocks.DIRT_PATH.getDefaultState());
+                if (fade > 0.5) {
+                    // Центр тропы — dirt_path, углубляем на 1 блок
+                    BlockPos trailPos = new BlockPos(x, surfaceY - 1, z);
+                    if (isTrailBase(world.getBlockState(trailPos).getBlock())) {
+                        setBlockState(world, trailPos, Blocks.DIRT_PATH.getDefaultState());
+                    }
+                    BlockPos below = new BlockPos(x, surfaceY - 2, z);
+                    if (isTrailBase(world.getBlockState(below).getBlock())) {
+                        setBlockState(world, below, Blocks.COARSE_DIRT.getDefaultState());
+                    }
+                } else if (fade > 0.0) {
+                    // Переходная зона — coarse_dirt на поверхности
+                    if (world.getBlockState(surface).getBlock() != Blocks.SAND) {
+                        setBlockState(world, surface, Blocks.COARSE_DIRT.getDefaultState());
+                    }
                 }
-
-                // Подкладка
-                if (isTrailBase(world.getBlockState(below).getBlock())) {
-                    setBlockState(world, below, Blocks.COARSE_DIRT.getDefaultState());
-                }
+                // fade <= 0: не трогаем — biome surface rule покажет траву
 
                 changed = true;
             }

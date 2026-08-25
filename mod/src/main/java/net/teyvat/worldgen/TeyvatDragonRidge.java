@@ -32,7 +32,7 @@ public final class TeyvatDragonRidge {
     public static final int TRAILHEAD_Z = -1295;
 
     private static final double START_RADIUS = 70.0;
-    private static final double END_RADIUS = 200.0;
+    private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 0.6;
     private static final double HILLS_AMPLITUDE = 0.2;
@@ -133,7 +133,13 @@ public final class TeyvatDragonRidge {
     }
 
     static boolean isTrailSurface(int x, int z) {
-        return trailDistance(x, z) <= TRAIL_HALF_WIDTH;
+        return trailDistance(x, z) <= TRAIL_HALF_WIDTH + 3.0;
+    }
+
+    /** 1.0 = центр тропы, 0.0 = край, -1.0 = за пределами. */
+    static double trailFadeFactor(int x, int z) {
+        double dist = trailDistance(x, z);
+        return 1.0 - dist / (TRAIL_HALF_WIDTH + 3.0);
     }
 
     private static double trailDistance(double x, double z) {
