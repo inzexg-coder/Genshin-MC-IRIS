@@ -36,7 +36,7 @@ public final class TeyvatDragonRidge {
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 1.5;
     private static final double HILLS_AMPLITUDE = 0.5;
-    private static final double TRAIL_HALF_WIDTH = 4.5;
+    private static final double TRAIL_HALF_WIDTH = 2.5;
     private static final double SHOULDER_AMPLITUDE = 0.25;
 
     /** Плавная центральная линия серпантина в полярных координатах кольца. */
@@ -73,7 +73,7 @@ public final class TeyvatDragonRidge {
             double x = pos.blockX();
             double z = pos.blockZ();
             double distance = trailDistance(x, z);
-            double edge = (distance - 7.0) / 5.0;
+            double edge = (distance - 5.0) / 5.0;
             double mask = 1.0 - smooth01(edge);
             return Math.max(-1.0, Math.min(1.0, mask * 2.0 - 1.0));
         }
@@ -104,19 +104,19 @@ public final class TeyvatDragonRidge {
 
             double progress = Math.max(0.0, Math.min(1.0,
                     (radius - START_RADIUS) / (END_RADIUS - START_RADIUS)));
+
+            // Высота зависит от расстояния до тропы: долина на тропе, холмы по бокам
+            double dist = trailDistance(x, pos.blockZ());
+            double distFromTrail = Math.max(0.0, dist - TRAIL_HALF_WIDTH);
+            double hillRise = distFromTrail * distFromTrail * 0.006;
             double climb = progress * TRAIL_CLIMB;
 
-            double waves = Math.sin(x * 0.004 + Math.sin(dz * 0.003) * 1.5)
-                    * Math.cos(dz * 0.005 + Math.sin(x * 0.002));
             double summitDx = x - SUMMIT_X;
             double summitDz = pos.blockZ() - SUMMIT_Z;
             double summitDistanceSquared = summitDx * summitDx + summitDz * summitDz;
             double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.15;
 
-            double dist = trailDistance(x, pos.blockZ());
-            double trailBlend = Math.max(0.4, smoothstep(TRAIL_HALF_WIDTH * 0.3, TRAIL_HALF_WIDTH + 4.0, dist));
-            double hills = waves * HILLS_AMPLITUDE * trailBlend;
-            return envelope * (climb + hills + summit);
+            return envelope * (climb + hillRise + summit);
         }
 
         @Override public double minValue() { return -1.5; }
@@ -134,17 +134,17 @@ public final class TeyvatDragonRidge {
 
     static boolean isTrailSurface(int x, int z) {
         double dist = trailDistance(x, z);
-        if (dist <= TRAIL_HALF_WIDTH + 3.0) return true;
+        if (dist <= TRAIL_HALF_WIDTH + 2.0) return true;
         // Площадка вокруг точки телепортации (radius 6 блоков)
         double tdx = x - TRAILHEAD_X;
         double tdz = z - TRAILHEAD_Z;
-        return Math.sqrt(tdx * tdx + tdz * tdz) <= 6.0;
+        return Math.sqrt(tdx * tdx + tdz * tdz) <= TRAIL_HALF_WIDTH + 1.0;
     }
 
     /** 1.0 = центр тропы, 0.0 = край, -1.0 = за пределами. */
     static double trailFadeFactor(int x, int z) {
         double dist = trailDistance(x, z);
-        return 1.0 - dist / (TRAIL_HALF_WIDTH + 3.0);
+        return 1.0 - dist / (TRAIL_HALF_WIDTH + 2.0);
     }
 
     private static double trailDistance(double x, double z) {
@@ -162,7 +162,7 @@ public final class TeyvatDragonRidge {
     }
 
     public static boolean chunkMayContainTrail(int minX, int minZ, int maxX, int maxZ) {
-        double margin = 3.5;
+        double margin = TRAIL_HALF_WIDTH + 1.0;
         for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
             double[] start = TRAIL_CURVE[i];
             double[] end = TRAIL_CURVE[i + 1];
