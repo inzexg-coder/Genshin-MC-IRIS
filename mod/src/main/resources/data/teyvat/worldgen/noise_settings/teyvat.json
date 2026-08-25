@@ -477,7 +477,7 @@
                     "then_run": {
                       "type": "minecraft:block",
                       "result_state": {
-                        "Name": "minecraft:gravel"
+                        "Name": "minecraft:sand"
                       }
                     }
                   }
@@ -507,7 +507,7 @@
                     "then_run": {
                       "type": "minecraft:block",
                       "result_state": {
-                        "Name": "minecraft:clay"
+                        "Name": "minecraft:sand"
                       }
                     }
                   }
@@ -551,7 +551,7 @@
                     "then_run": {
                       "type": "minecraft:block",
                       "result_state": {
-                        "Name": "minecraft:gravel"
+                        "Name": "minecraft:sand"
                       }
                     }
                   }
@@ -627,7 +627,7 @@
                     "then_run": {
                       "type": "minecraft:block",
                       "result_state": {
-                        "Name": "minecraft:clay"
+                        "Name": "minecraft:sand"
                       }
                     }
                   }
