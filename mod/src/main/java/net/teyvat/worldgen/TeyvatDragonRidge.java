@@ -34,8 +34,8 @@ public final class TeyvatDragonRidge {
     private static final double START_RADIUS = 55.0;
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
-    private static final double TRAIL_CLIMB = 0.8;
-    private static final double HILLS_AMPLITUDE = 0.25;
+    private static final double TRAIL_CLIMB = 1.0;
+    private static final double HILLS_AMPLITUDE = 0.4;
     private static final double TRAIL_HALF_WIDTH = 4.5;
     private static final double SHOULDER_AMPLITUDE = 0.25;
 
@@ -114,7 +114,7 @@ public final class TeyvatDragonRidge {
             double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.15;
 
             double dist = trailDistance(x, pos.blockZ());
-            double trailBlend = smoothstep(TRAIL_HALF_WIDTH, TRAIL_HALF_WIDTH + 6.0, dist);
+            double trailBlend = smoothstep(TRAIL_HALF_WIDTH * 0.3, TRAIL_HALF_WIDTH + 2.0, dist);
             double hills = waves * HILLS_AMPLITUDE * trailBlend;
             return envelope * (climb + hills + summit);
         }

@@ -640,6 +640,54 @@
       {
         "type": "minecraft:condition",
         "if_true": {
+          "type": "minecraft:range_choice",
+          "input": "teyvat:teyvat_dragon_ridge_zone",
+          "min_inclusive": -0.7,
+          "max_exclusive": -0.05,
+          "when_in_range": 1.0,
+          "when_out_of_range": -1.0
+        },
+        "then_run": {
+          "type": "minecraft:sequence",
+          "sequence": [
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "add_surface_depth": false,
+                "offset": 0,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": {
+                  "Name": "minecraft:sand"
+                }
+              }
+            },
+            {
+              "type": "minecraft:condition",
+              "if_true": {
+                "type": "minecraft:stone_depth",
+                "add_surface_depth": false,
+                "offset": 1,
+                "secondary_depth_range": 0,
+                "surface_type": "floor"
+              },
+              "then_run": {
+                "type": "minecraft:block",
+                "result_state": {
+                  "Name": "minecraft:sandstone"
+                }
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
           "type": "minecraft:biome",
           "biome_is": [
             "teyvat:dragon_ridge_path"
@@ -722,7 +770,7 @@
               "then_run": {
                 "type": "minecraft:block",
                 "result_state": {
-                  "Name": "minecraft:sand"
+                  "Name": "minecraft:grass_block"
                 }
               }
             },
@@ -738,7 +786,7 @@
               "then_run": {
                 "type": "minecraft:block",
                 "result_state": {
-                  "Name": "minecraft:sandstone"
+                  "Name": "minecraft:dirt"
                 }
               }
             },
@@ -754,7 +802,7 @@
               "then_run": {
                 "type": "minecraft:block",
                 "result_state": {
-                  "Name": "minecraft:sandstone"
+                  "Name": "minecraft:dirt"
                 }
               }
             }
