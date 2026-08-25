@@ -29,9 +29,9 @@ public final class TeyvatDragonRidge {
 
     /** Фиксированный вход на серпантин для структур и серверного поиска. */
     public static final int TRAILHEAD_X = 0;
-    public static final int TRAILHEAD_Z = -1295;
+    public static final int TRAILHEAD_Z = -1280;
 
-    private static final double START_RADIUS = 70.0;
+    private static final double START_RADIUS = 85.0;
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 0.6;
