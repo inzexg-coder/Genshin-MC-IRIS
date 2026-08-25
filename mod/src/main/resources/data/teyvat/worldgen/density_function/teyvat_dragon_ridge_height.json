@@ -1,12 +1,6 @@
 {
   "type": "minecraft:mul",
-  "argument1": {
-    "type": "minecraft:y_clamped_gradient",
-    "from_value": 1.0,
-    "from_y": 72,
-    "to_value": 0.0,
-    "to_y": 96
-  },
+  "argument1": 0.35,
   "argument2": {
     "type": "minecraft:flat_cache",
     "argument": {
