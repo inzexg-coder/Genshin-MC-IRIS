@@ -1,22 +1,12 @@
 {
   "type": "minecraft:mul",
-  "argument1": {
-    "type": "minecraft:y_clamped_gradient",
-    "from_value": 1.0,
-    "from_y": 60,
-    "to_value": 0.0,
-    "to_y": 80
-  },
+  "argument1": 0.3,
   "argument2": {
-    "type": "minecraft:mul",
-    "argument1": 0.75,
-    "argument2": {
-      "type": "minecraft:flat_cache",
+    "type": "minecraft:flat_cache",
+    "argument": {
+      "type": "minecraft:cache_2d",
       "argument": {
-        "type": "minecraft:cache_2d",
-        "argument": {
-          "type": "teyvat:dragon_ridge_height_raw"
-        }
+        "type": "teyvat:dragon_ridge_height_raw"
       }
     }
   }
