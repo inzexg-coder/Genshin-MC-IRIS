@@ -36,7 +36,7 @@ public final class TeyvatDragonRidge {
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 1.2;
     private static final double HILLS_AMPLITUDE = 0.32;
-    private static final double TRAIL_HALF_WIDTH = 2.8;
+    private static final double TRAIL_HALF_WIDTH = 3.5;
     private static final double SHOULDER_AMPLITUDE = 0.25;
 
     /** Плавная центральная линия серпантина в полярных координатах кольца. */
@@ -113,16 +113,8 @@ public final class TeyvatDragonRidge {
             double summitDistanceSquared = summitDx * summitDx + summitDz * summitDz;
             double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.35;
 
-            double trailDistance = trailDistance(x, pos.blockZ());
-            double corridorOpening = smoothstep(TRAIL_HALF_WIDTH,
-                    TRAIL_HALF_WIDTH + 24.0, trailDistance);
-            double shoulder = SHOULDER_AMPLITUDE * corridorOpening;
-            double localHills = waves * HILLS_AMPLITUDE * corridorOpening;
-            double hillsHeight = envelope * (climb + shoulder + localHills + summit);
-
-            double plateauBlend = 1.0 - smooth01((Math.sqrt(summitDistanceSquared) - 9.0) / 13.0);
-            double plateauTarget = envelope * (progress * TRAIL_CLIMB + 0.72);
-            return hillsHeight * (1.0 - plateauBlend) + plateauTarget * plateauBlend;
+            double hills = waves * HILLS_AMPLITUDE;
+            return envelope * (climb + hills + summit);
         }
 
         @Override public double minValue() { return -1.5; }
