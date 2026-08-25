@@ -34,8 +34,6 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         }
 
         boolean changed = false;
-        boolean isTrail = TeyvatDragonRidge.chunkMayContainTrail(chunkPos.getStartX(), chunkPos.getStartZ(),
-                chunkPos.getEndX(), chunkPos.getEndZ());
 
         for (int x = chunkPos.getStartX(); x <= chunkPos.getEndX(); x++) {
             for (int z = chunkPos.getStartZ(); z <= chunkPos.getEndZ(); z++) {
@@ -55,26 +53,19 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                     continue;
                 }
 
-                int target = TeyvatDragonRidge.isTrailSurface(x, z) ? -1 : 1;
-                if (target == -1 && world.getBlockState(mutable).getBlock() != Blocks.SAND) {
+                if (world.getBlockState(mutable).getBlock() != Blocks.SAND) {
                     setBlockState(world, mutable, Blocks.DIRT_PATH.getDefaultState());
-                } else if (target == 1 && world.getBlockState(mutable).getBlock() == Blocks.DIRT_PATH) {
-                    setBlockState(world, mutable, Blocks.GRASS_BLOCK.getDefaultState());
                 }
                 BlockPos base = mutable.down();
                 if (isTrailBase(world.getBlockState(base).getBlock())) {
                     setBlockState(world, base, Blocks.COARSE_DIRT.getDefaultState());
                 }
 
-                int targetY = RidgeHeightField.targetY(x, z);
-                while (mutable.getY() > world.getBottomY() && mutable.getY() < targetY) {
-                    mutable.move(net.minecraft.util.math.Direction.UP);
-                    if (!world.getBlockState(mutable).isAir()) break;
-                    setBlockState(world, mutable, Blocks.STONE.getDefaultState());
-                }
-                while (mutable.getY() > world.getBottomY() && mutable.getY() > targetY) {
-                    world.removeBlock(mutable, false);
-                    mutable.move(net.minecraft.util.math.Direction.DOWN);
+                for (int clearY = mutable.getY() + 1; clearY <= topY + 2; clearY++) {
+                    BlockPos above = new BlockPos(x, clearY, z);
+                    if (!world.getBlockState(above).isAir()) {
+                        world.removeBlock(above, false);
+                    }
                 }
                 changed = true;
             }

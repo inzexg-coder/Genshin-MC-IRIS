@@ -34,10 +34,10 @@ public final class TeyvatDragonRidge {
     private static final double START_RADIUS = 70.0;
     private static final double END_RADIUS = 200.0;
     private static final int SPATIAL_CELL_SIZE = 32;
-    private static final double TRAIL_CLIMB = 2.35;
+    private static final double TRAIL_CLIMB = 1.80;
     private static final double HILLS_AMPLITUDE = 0.32;
     private static final double TRAIL_HALF_WIDTH = 2.8;
-    private static final double SHOULDER_AMPLITUDE = 0.55;
+    private static final double SHOULDER_AMPLITUDE = 0.35;
 
     /** Плавная центральная линия серпантина в полярных координатах кольца. */
     private static final double[][] TRAIL_CURVE = buildTrailCurve();
@@ -138,11 +138,11 @@ public final class TeyvatDragonRidge {
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, HEIGHT_ID, MapCodec.unit(HEIGHT));
     }
 
-    public static boolean isTrailSurface(int x, int z) {
+    static boolean isTrailSurface(int x, int z) {
         return trailDistance(x, z) <= TRAIL_HALF_WIDTH;
     }
 
-    public static double trailDistance(double x, double z) {
+    private static double trailDistance(double x, double z) {
         int[] candidateSegments = TRAIL_SEGMENTS_BY_CELL.get(spatialCellKey(x, z));
         if (candidateSegments == null) {
             return 999.0;
@@ -155,7 +155,6 @@ public final class TeyvatDragonRidge {
         }
         return Math.sqrt(bestSquared);
     }
-
 
     public static boolean chunkMayContainTrail(int minX, int minZ, int maxX, int maxZ) {
         double margin = 3.5;
@@ -235,26 +234,6 @@ public final class TeyvatDragonRidge {
         double cx = ax + abx * fraction - px;
         double cz = az + abz * fraction - pz;
         return cx * cx + cz * cz;
-    }
-
-    public static double progress(double x, double z) {
-        double dz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
-        double radius = Math.sqrt(x * x + dz * dz);
-        return Math.max(0.0, Math.min(1.0,
-                (radius - INNER_RADIUS) / (OUTER_RADIUS - INNER_RADIUS)));
-    }
-
-    public static double envelope(double x, double z) {
-        double dz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
-        double radius = Math.sqrt(x * x + dz * dz);
-        double angle = Math.atan2(x, dz);
-        double warped = radius
-                + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
-                + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-        double inner = smoothstep(INNER_RADIUS + 4.0, INNER_RADIUS + 30.0, warped);
-        double outer = 1.0 - smoothstep(OUTER_RADIUS - 38.0, OUTER_RADIUS, warped);
-        double land = smoothstep(20.0, 55.0, dz);
-        return Math.max(0.0, inner * outer * land);
     }
 
     private static double smooth01(double value) {
