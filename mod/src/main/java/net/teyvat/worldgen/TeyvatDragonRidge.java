@@ -73,7 +73,7 @@ public final class TeyvatDragonRidge {
             double x = pos.blockX();
             double z = pos.blockZ();
             double distance = trailDistance(x, z);
-            double edge = (distance - 5.0) / 5.0;
+            double edge = (distance - 7.0) / 5.0;
             double mask = 1.0 - smooth01(edge);
             return Math.max(-1.0, Math.min(1.0, mask * 2.0 - 1.0));
         }
@@ -114,7 +114,7 @@ public final class TeyvatDragonRidge {
             double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.15;
 
             double dist = trailDistance(x, pos.blockZ());
-            double trailBlend = smoothstep(TRAIL_HALF_WIDTH * 0.3, TRAIL_HALF_WIDTH + 2.0, dist);
+            double trailBlend = Math.max(0.4, smoothstep(TRAIL_HALF_WIDTH * 0.3, TRAIL_HALF_WIDTH + 4.0, dist));
             double hills = waves * HILLS_AMPLITUDE * trailBlend;
             return envelope * (climb + hills + summit);
         }
