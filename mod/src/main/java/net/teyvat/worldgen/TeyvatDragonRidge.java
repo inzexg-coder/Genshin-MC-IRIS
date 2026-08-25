@@ -36,7 +36,7 @@ public final class TeyvatDragonRidge {
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 1.2;
     private static final double HILLS_AMPLITUDE = 0.32;
-    private static final double TRAIL_HALF_WIDTH = 3.5;
+    private static final double TRAIL_HALF_WIDTH = 4.5;
     private static final double SHOULDER_AMPLITUDE = 0.25;
 
     /** Плавная центральная линия серпантина в полярных координатах кольца. */
@@ -203,7 +203,7 @@ public final class TeyvatDragonRidge {
             double progress = i / (double) (points.length - 1);
             double eased = progress * progress * (3.0 - 2.0 * progress);
             double radius = START_RADIUS + (END_RADIUS - START_RADIUS) * eased;
-            double angle = 0.42 * Math.sin(3.0 * Math.PI * progress);
+            double angle = 0.22 * Math.sin(2.0 * Math.PI * progress);
             points[i] = new double[] {
                     radius * Math.sin(angle),
                     TeyvatOceanEdge.BEACH_CENTER_Z + radius * Math.cos(angle)

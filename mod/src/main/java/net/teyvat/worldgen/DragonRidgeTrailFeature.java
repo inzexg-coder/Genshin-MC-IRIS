@@ -44,8 +44,12 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                 var world = context.getWorld();
                 int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
                 BlockPos.Mutable mutable = new BlockPos.Mutable(x, topY, z);
+                int maxDepth = 3;
+                int dug = 0;
                 while (mutable.getY() > world.getBottomY() && !isTrailBase(world.getBlockState(mutable).getBlock())) {
                     mutable.move(net.minecraft.util.math.Direction.DOWN);
+                    dug++;
+                    if (dug >= maxDepth) break;
                 }
 
                 if (!isTrailBase(world.getBlockState(mutable).getBlock())
