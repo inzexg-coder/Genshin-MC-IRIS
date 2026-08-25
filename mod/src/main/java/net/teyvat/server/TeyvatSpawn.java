@@ -486,7 +486,7 @@ public final class TeyvatSpawn {
      * Целевые координаты задаются генератором, поэтому поиск не зависит от случайного
      * порядка загрузки биомов вдоль одной линии.
      */
-    private static final int TELEPORT_OFFSET_FROM_TRAIL = 11;
+    private static final int TELEPORT_OFFSET_FROM_TRAIL = 20;
 
     private static BlockPos findTrailheadSpawn(ServerWorld world, BlockPos beachPos) {
         int centerX = TeyvatDragonRidge.TRAILHEAD_X;
