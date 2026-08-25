@@ -31,7 +31,7 @@ public final class TeyvatDragonRidge {
     public static final int TRAILHEAD_X = 0;
     public static final int TRAILHEAD_Z = -1280;
 
-    private static final double START_RADIUS = 85.0;
+    private static final double START_RADIUS = 55.0;
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 0.8;
@@ -94,7 +94,7 @@ public final class TeyvatDragonRidge {
             double warpedRadius = radius
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-            double inner = smoothstep(INNER_RADIUS + 4, INNER_RADIUS + 30, warpedRadius);
+            double inner = smoothstep(INNER_RADIUS - 17, INNER_RADIUS + 3, warpedRadius);
             double outer = 1.0 - smoothstep(OUTER_RADIUS - 38, OUTER_RADIUS, warpedRadius);
             double land = smoothstep(20.0, 55.0, dz);
             double envelope = inner * outer * land;
@@ -133,7 +133,12 @@ public final class TeyvatDragonRidge {
     }
 
     static boolean isTrailSurface(int x, int z) {
-        return trailDistance(x, z) <= TRAIL_HALF_WIDTH + 3.0;
+        double dist = trailDistance(x, z);
+        if (dist <= TRAIL_HALF_WIDTH + 3.0) return true;
+        // Площадка вокруг точки телепортации (radius 6 блоков)
+        double tdx = x - TRAILHEAD_X;
+        double tdz = z - TRAILHEAD_Z;
+        return Math.sqrt(tdx * tdx + tdz * tdz) <= 6.0;
     }
 
     /** 1.0 = центр тропы, 0.0 = край, -1.0 = за пределами. */
