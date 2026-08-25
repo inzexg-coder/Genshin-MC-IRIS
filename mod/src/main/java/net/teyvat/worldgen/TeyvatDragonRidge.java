@@ -34,8 +34,8 @@ public final class TeyvatDragonRidge {
     private static final double START_RADIUS = 55.0;
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
-    private static final double TRAIL_CLIMB = 1.0;
-    private static final double HILLS_AMPLITUDE = 2.0;
+    private static final double TRAIL_CLIMB = 1.5;
+    private static final double HILLS_AMPLITUDE = 0.5;
     private static final double TRAIL_HALF_WIDTH = 4.5;
     private static final double SHOULDER_AMPLITUDE = 0.25;
 
@@ -104,7 +104,7 @@ public final class TeyvatDragonRidge {
 
             double progress = Math.max(0.0, Math.min(1.0,
                     (radius - START_RADIUS) / (END_RADIUS - START_RADIUS)));
-            double climb = 0.0; // peaks from waves only
+            double climb = progress * TRAIL_CLIMB;
 
             double waves = Math.sin(x * 0.004 + Math.sin(dz * 0.003) * 1.5)
                     * Math.cos(dz * 0.005 + Math.sin(x * 0.002));

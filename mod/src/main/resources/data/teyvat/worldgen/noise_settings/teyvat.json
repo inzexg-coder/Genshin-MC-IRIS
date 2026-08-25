@@ -1,7 +1,7 @@
 {
   "aquifers_enabled": false,
   "default_block": {
-    "Name": "minecraft:stone"
+    "Name": "minecraft:sand"
   },
   "default_fluid": {
     "Name": "minecraft:water",
