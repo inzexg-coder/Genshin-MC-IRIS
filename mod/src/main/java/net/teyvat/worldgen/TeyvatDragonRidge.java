@@ -35,7 +35,7 @@ public final class TeyvatDragonRidge {
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 1.5;
-    private static final double HILLS_AMPLITUDE = 1.5;
+    private static final double HILLS_AMPLITUDE = 1.2;
     private static final double TRAIL_HALF_WIDTH = 2.5;
     private static final double SHOULDER_AMPLITUDE = 0.25;
 
@@ -105,7 +105,7 @@ public final class TeyvatDragonRidge {
             // Ванильный шум: 3 октавы с разными масштабами
             double noise1 = Math.sin(x * 0.008 + dz * 0.006) * Math.cos(dz * 0.010 + x * 0.004);
             double noise2 = Math.sin(x * 0.020 + 1.7) * Math.cos(dz * 0.015 + 2.3) * 0.5;
-            double noise3 = Math.sin(x * 0.045 + dz * 0.035 + 3.1) * 0.25;
+            double noise3 = Math.sin(x * 0.030 + dz * 0.025 + 3.1) * 0.15;
             double hills = (noise1 + noise2 + noise3) * HILLS_AMPLITUDE;
 
             // Вершина хребта (один пик)
@@ -145,15 +145,10 @@ public final class TeyvatDragonRidge {
     }
 
     private static double trailDistance(double x, double z) {
-        int[] candidateSegments = TRAIL_SEGMENTS_BY_CELL.get(spatialCellKey(x, z));
-        if (candidateSegments == null) {
-            return 999.0;
-        }
-
         double bestSquared = Double.MAX_VALUE;
-        for (int segmentIndex : candidateSegments) {
+        for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
             bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
-                    TRAIL_CURVE[segmentIndex], TRAIL_CURVE[segmentIndex + 1]));
+                    TRAIL_CURVE[i], TRAIL_CURVE[i + 1]));
         }
         return Math.sqrt(bestSquared);
     }
