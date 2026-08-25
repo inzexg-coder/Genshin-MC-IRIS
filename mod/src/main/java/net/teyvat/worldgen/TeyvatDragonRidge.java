@@ -35,7 +35,7 @@ public final class TeyvatDragonRidge {
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 1.5;
-    private static final double HILLS_AMPLITUDE = 0.5;
+    private static final double HILLS_AMPLITUDE = 2.0;
     private static final double TRAIL_HALF_WIDTH = 2.5;
     private static final double SHOULDER_AMPLITUDE = 0.25;
 
@@ -94,7 +94,7 @@ public final class TeyvatDragonRidge {
             double warpedRadius = radius
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-            double inner = smoothstep(INNER_RADIUS - 27, INNER_RADIUS - 7, warpedRadius);
+            double inner = smoothstep(INNER_RADIUS - 30, INNER_RADIUS + 5, warpedRadius);
             double outer = 1.0 - smoothstep(OUTER_RADIUS - 38, OUTER_RADIUS, warpedRadius);
             double land = smoothstep(20.0, 55.0, dz);
             double envelope = inner * outer * land;
@@ -105,10 +105,11 @@ public final class TeyvatDragonRidge {
             double progress = Math.max(0.0, Math.min(1.0,
                     (radius - START_RADIUS) / (END_RADIUS - START_RADIUS)));
 
-            // Высота зависит от расстояния до тропы: долина на тропе, холмы по бокам
+            // Высота: долина на тропе, холмы по бокам, плавный спуск дальше
             double dist = trailDistance(x, pos.blockZ());
             double distFromTrail = Math.max(0.0, dist - TRAIL_HALF_WIDTH);
-            double hillRise = distFromTrail * distFromTrail * 0.006;
+            // Плавный рост с насыщением: tanh вместо квадрата (нет плато)
+            double hillRise = HILLS_AMPLITUDE * (1.0 - Math.exp(-distFromTrail * 0.06));
             double climb = progress * TRAIL_CLIMB;
 
             double summitDx = x - SUMMIT_X;
@@ -138,7 +139,7 @@ public final class TeyvatDragonRidge {
         // Площадка вокруг точки телепортации (radius 6 блоков)
         double tdx = x - TRAILHEAD_X;
         double tdz = z - TRAILHEAD_Z;
-        return Math.sqrt(tdx * tdx + tdz * tdz) <= TRAIL_HALF_WIDTH + 1.0;
+        return Math.sqrt(tdx * tdx + tdz * tdz) <= TRAIL_HALF_WIDTH;
     }
 
     /** 1.0 = центр тропы, 0.0 = край, -1.0 = за пределами. */
