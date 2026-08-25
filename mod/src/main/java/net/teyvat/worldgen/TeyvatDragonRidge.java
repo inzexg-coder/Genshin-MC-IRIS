@@ -29,7 +29,7 @@ public final class TeyvatDragonRidge {
 
     /** Фиксированный вход на серпантин для структур и серверного поиска. */
     public static final int TRAILHEAD_X = 0;
-    public static final int TRAILHEAD_Z = -1280;
+    public static final int TRAILHEAD_Z = -1228;
 
     private static final double START_RADIUS = 55.0;
     private static final double END_RADIUS = 220.0;
@@ -94,7 +94,7 @@ public final class TeyvatDragonRidge {
             double warpedRadius = radius
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-            double inner = smoothstep(INNER_RADIUS - 17, INNER_RADIUS + 3, warpedRadius);
+            double inner = smoothstep(INNER_RADIUS - 27, INNER_RADIUS - 7, warpedRadius);
             double outer = 1.0 - smoothstep(OUTER_RADIUS - 38, OUTER_RADIUS, warpedRadius);
             double land = smoothstep(20.0, 55.0, dz);
             double envelope = inner * outer * land;
@@ -103,7 +103,7 @@ public final class TeyvatDragonRidge {
             }
 
             double progress = Math.max(0.0, Math.min(1.0,
-                    (radius - INNER_RADIUS) / (OUTER_RADIUS - INNER_RADIUS)));
+                    (radius - START_RADIUS) / (END_RADIUS - START_RADIUS)));
             double climb = progress * TRAIL_CLIMB;
 
             double waves = Math.sin(x * 0.017 + Math.sin(dz * 0.009) * 1.2)
