@@ -8,12 +8,32 @@
     "to_y": 200
   },
   "argument2": {
-    "type": "minecraft:flat_cache",
-    "argument": {
-      "type": "minecraft:cache_2d",
+    "type": "minecraft:mul",
+    "argument1": {
+      "type": "minecraft:flat_cache",
       "argument": {
-        "type": "teyvat:dragon_ridge_height_raw"
+        "type": "minecraft:cache_2d",
+        "argument": {
+          "type": "teyvat:dragon_ridge_height_raw"
+        }
       }
+    },
+    "argument2": {
+      "type": "minecraft:mul",
+      "argument1": {
+        "type": "minecraft:mul",
+        "argument1": 2.0,
+        "argument2": {
+          "type": "minecraft:shifted_noise",
+          "noise": "minecraft:continentalness",
+          "shift_x": "minecraft:shift_x",
+          "shift_y": 0.0,
+          "shift_z": "minecraft:shift_z",
+          "xz_scale": 0.025,
+          "y_scale": 0.0
+        }
+      },
+      "argument2": 0.5
     }
   }
 }
