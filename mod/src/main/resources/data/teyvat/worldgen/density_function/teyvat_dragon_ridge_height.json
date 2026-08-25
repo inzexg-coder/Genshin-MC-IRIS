@@ -1,6 +1,6 @@
 {
   "type": "minecraft:mul",
-  "argument1": 1.5,
+  "argument1": 0.75,
   "argument2": {
     "type": "minecraft:flat_cache",
     "argument": {
