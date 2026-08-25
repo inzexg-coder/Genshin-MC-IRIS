@@ -13,176 +13,239 @@ import java.util.Map;
 import net.minecraft.world.gen.densityfunction.DensityFunction;
 import net.teyvat.TeyvatMod;
 
+/**
+ * Кольцо Драконьего хребта вокруг пляжа и широкая серпантинная тропа.
+ * Все функции зависят только от X/Z и кэшируются в JSON как 2D.
+ */
 public final class TeyvatDragonRidge {
-    public static final Identifier ZONE_ID =
-            Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_zone_raw");
-    public static final Identifier PATH_ID =
-            Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_path_raw");
-    public static final Identifier HEIGHT_ID =
-            Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_height_raw");
+    public static final Identifier ZONE_ID = Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_zone_raw");
+    public static final Identifier PATH_ID = Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_path_raw");
+    public static final Identifier HEIGHT_ID = Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_height_raw");
 
-    private static final int INNER = 72;
-    private static final int OUTER = 235;
-    private static final double CZ = -1365.0;
+    private static final int INNER_RADIUS = 72;
+    private static final int OUTER_RADIUS = 235;
+    private static final double SUMMIT_X = 0.0;
+    private static final double SUMMIT_Z = -1165.0;
 
+    /** Фиксированный вход на серпантин для структур и серверного поиска. */
     public static final int TRAILHEAD_X = 0;
     public static final int TRAILHEAD_Z = -1295;
 
-    private static final double T_START = 70.0;
-    private static final double T_END = 200.0;
-    private static final double T_HALF = 2.8;
-    private static final int CELL = 32;
+    private static final double START_RADIUS = 70.0;
+    private static final double END_RADIUS = 200.0;
+    private static final int SPATIAL_CELL_SIZE = 32;
+    private static final double TRAIL_CLIMB = 1.2;
+    private static final double HILLS_AMPLITUDE = 0.32;
+    private static final double TRAIL_HALF_WIDTH = 2.8;
+    private static final double SHOULDER_AMPLITUDE = 0.25;
 
-    private static final double[][] CURVE = buildCurve();
-    private static final Map<Long, int[]> INDEX = buildIndex();
+    /** Плавная центральная линия серпантина в полярных координатах кольца. */
+    private static final double[][] TRAIL_CURVE = buildTrailCurve();
+    private static final Map<Long, int[]> TRAIL_SEGMENTS_BY_CELL =
+            buildTrailSegmentIndex();
 
     private static final DensityFunction ZONE = new DensityFunction.Base() {
-        @Override public double sample(NoisePos p) {
-            double dx = p.blockX();
-            double dz = p.blockZ() - CZ;
-            double r = Math.sqrt(dx * dx + dz * dz);
-            double a = Math.atan2(dx, dz);
-            double w = r + 7 * Math.sin(a * 3 + r * 0.024)
-                    + 4 * Math.sin(dx * 0.019 - dz * 0.016);
-            double inner = smooth(INNER + 4, INNER + 26, w);
-            double outer = 1 - smooth(OUTER - 34, OUTER, w);
-            double land = smooth(18, 52, dz);
-            return clampM1P1(inner * outer * land * 2 - 1);
+        @Override
+        public double sample(NoisePos pos) {
+            double dx = pos.blockX();
+            double dz = pos.blockZ() - TeyvatOceanEdge.BEACH_CENTER_Z;
+            double radius = Math.sqrt(dx * dx + dz * dz);
+            double angle = Math.atan2(dx, dz);
+            double warpedRadius = radius
+                    + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
+                    + 4.0 * Math.sin(dx * 0.019 - dz * 0.016);
+
+            double inner = smoothstep(INNER_RADIUS + 4, INNER_RADIUS + 26, warpedRadius);
+            double outer = 1.0 - smoothstep(OUTER_RADIUS - 34, OUTER_RADIUS, warpedRadius);
+            double land = smoothstep(18.0, 52.0, dz);
+            double value = inner * outer * land;
+            return Math.max(-1.0, Math.min(1.0, value * 2.0 - 1.0));
         }
-        @Override public double minValue() { return -1; }
-        @Override public double maxValue() { return 1; }
-        @Override public CodecHolder<? extends DensityFunction> getCodecHolder() {
-            return CodecHolder.of(MapCodec.unit(this));
-        }
+
+        @Override public double minValue() { return -1.0; }
+        @Override public double maxValue() { return 1.0; }
+        @Override public CodecHolder<? extends DensityFunction> getCodecHolder() { return CodecHolder.of(MapCodec.unit(ZONE)); }
     };
 
-    private static final DensityFunction PATH_F = new DensityFunction.Base() {
-        @Override public double sample(NoisePos p) {
-            double d = trailDist(p.blockX(), p.blockZ());
-            return clampM1P1((1 - smooth(5, 10, d)) * 2 - 1);
+    private static final DensityFunction PATH = new DensityFunction.Base() {
+        @Override
+        public double sample(NoisePos pos) {
+            double x = pos.blockX();
+            double z = pos.blockZ();
+            double distance = trailDistance(x, z);
+            double edge = (distance - 5.0) / 5.0;
+            double mask = 1.0 - smooth01(edge);
+            return Math.max(-1.0, Math.min(1.0, mask * 2.0 - 1.0));
         }
-        @Override public double minValue() { return -1; }
-        @Override public double maxValue() { return 1; }
-        @Override public CodecHolder<? extends DensityFunction> getCodecHolder() {
-            return CodecHolder.of(MapCodec.unit(this));
-        }
+
+        @Override public double minValue() { return -1.0; }
+        @Override public double maxValue() { return 1.0; }
+        @Override public CodecHolder<? extends DensityFunction> getCodecHolder() { return CodecHolder.of(MapCodec.unit(PATH)); }
     };
 
     private static final DensityFunction HEIGHT = new DensityFunction.Base() {
-        @Override public double sample(NoisePos p) {
-            int bx = p.blockX();
-            int bz = p.blockZ();
-            double x = bx, z = bz;
-            double dz = z - CZ;
-            double r = Math.sqrt(x * x + dz * dz);
+        @Override
+        public double sample(NoisePos pos) {
+            double x = pos.blockX();
+            double dz = pos.blockZ() - TeyvatOceanEdge.BEACH_CENTER_Z;
+            double radius = Math.sqrt(x * x + dz * dz);
+            double angle = Math.atan2(x, dz);
 
-            double inner = smooth(INNER + 4, INNER + 30,
-                    r + 7 * Math.sin(Math.atan2(x, dz) * 3 + r * 0.024));
-            double outer = 1 - smooth(OUTER - 38, OUTER,
-                    r + 4 * Math.sin(x * 0.019 - dz * 0.016));
-            double land = smooth(20, 55, dz);
-            double e = inner * outer * land;
-            if (e < 0.001) return 0;
+            double warpedRadius = radius
+                    + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
+                    + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
+            double inner = smoothstep(INNER_RADIUS + 4, INNER_RADIUS + 30, warpedRadius);
+            double outer = 1.0 - smoothstep(OUTER_RADIUS - 38, OUTER_RADIUS, warpedRadius);
+            double land = smoothstep(20.0, 55.0, dz);
+            double envelope = inner * outer * land;
+            if (envelope <= 0.001) {
+                return 0.0;
+            }
 
-            double t = clamp01((r - INNER) / (OUTER - INNER));
-            double climb = t * 0.8;
+            double progress = Math.max(0.0, Math.min(1.0,
+                    (radius - INNER_RADIUS) / (OUTER_RADIUS - INNER_RADIUS)));
+            double climb = progress * TRAIL_CLIMB;
 
-            double h1 = Math.sin(x * 0.012 + Math.sin(dz * 0.007)) * 0.6;
-            double h2 = Math.sin(dz * 0.009 + Math.sin(x * 0.006)) * 0.4;
-            double hills = e * (h1 + h2);
+            double waves = Math.sin(x * 0.017 + Math.sin(dz * 0.009) * 1.2)
+                    * Math.cos(dz * 0.014 + Math.sin(x * 0.008));
+            double summitDx = x - SUMMIT_X;
+            double summitDz = pos.blockZ() - SUMMIT_Z;
+            double summitDistanceSquared = summitDx * summitDx + summitDz * summitDz;
+            double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.35;
 
-            double sd = x * x + (z + 1165) * (z + 1165);
-            double summit = e * Math.exp(-sd / 2500) * 1.0;
+            double trailDistance = trailDistance(x, pos.blockZ());
+            double corridorOpening = smoothstep(TRAIL_HALF_WIDTH,
+                    TRAIL_HALF_WIDTH + 24.0, trailDistance);
+            double shoulder = SHOULDER_AMPLITUDE * corridorOpening;
+            double localHills = waves * HILLS_AMPLITUDE * corridorOpening;
+            double hillsHeight = envelope * (climb + shoulder + localHills + summit);
 
-            double ridge = e * (climb + 0.15) + hills + summit;
-
-            double td = trailDist(bx, bz);
-            double blend = smooth(T_HALF, T_HALF + 20, td);
-            double trail = ridge - 0.15 * e;
-
-            return trail * (1 - blend) + ridge * blend;
+            double plateauBlend = 1.0 - smooth01((Math.sqrt(summitDistanceSquared) - 9.0) / 13.0);
+            double plateauTarget = envelope * (progress * TRAIL_CLIMB + 0.72);
+            return hillsHeight * (1.0 - plateauBlend) + plateauTarget * plateauBlend;
         }
-        @Override public double minValue() { return -1; }
-        @Override public double maxValue() { return 3; }
-        @Override public CodecHolder<? extends DensityFunction> getCodecHolder() {
-            return CodecHolder.of(MapCodec.unit(this));
-        }
+
+        @Override public double minValue() { return -1.5; }
+        @Override public double maxValue() { return 5.5; }
+        @Override public CodecHolder<? extends DensityFunction> getCodecHolder() { return CodecHolder.of(MapCodec.unit(HEIGHT)); }
     };
 
     private TeyvatDragonRidge() {}
 
     public static void register() {
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, ZONE_ID, MapCodec.unit(ZONE));
-        Registry.register(Registries.DENSITY_FUNCTION_TYPE, PATH_ID, MapCodec.unit(PATH_F));
+        Registry.register(Registries.DENSITY_FUNCTION_TYPE, PATH_ID, MapCodec.unit(PATH));
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, HEIGHT_ID, MapCodec.unit(HEIGHT));
     }
 
-    public static boolean isTrailSurface(int x, int z) {
-        return trailDist(x, z) <= T_HALF;
+    static boolean isTrailSurface(int x, int z) {
+        return trailDistance(x, z) <= TRAIL_HALF_WIDTH;
     }
 
-    public static double trailDist(double x, double z) {
-        int[] c = INDEX.get(ck((int) x, (int) z));
-        if (c == null) return 999;
-        double best = Double.MAX_VALUE;
-        for (int i : c)
-            best = Math.min(best, segDist(x, z, CURVE[i], CURVE[i + 1]));
-        return Math.sqrt(best);
+    private static double trailDistance(double x, double z) {
+        int[] candidateSegments = TRAIL_SEGMENTS_BY_CELL.get(spatialCellKey(x, z));
+        if (candidateSegments == null) {
+            return 999.0;
+        }
+
+        double bestSquared = Double.MAX_VALUE;
+        for (int segmentIndex : candidateSegments) {
+            bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
+                    TRAIL_CURVE[segmentIndex], TRAIL_CURVE[segmentIndex + 1]));
+        }
+        return Math.sqrt(bestSquared);
     }
 
-    public static boolean chunkMayContainTrail(int x0, int z0, int x1, int z1) {
-        for (int i = 0; i < CURVE.length - 1; i++) {
-            double[] a = CURVE[i], b = CURVE[i + 1];
-            if (Math.max(a[0], b[0]) + 3 >= x0 && Math.min(a[0], b[0]) - 3 <= x1
-                    && Math.max(a[1], b[1]) + 3 >= z0 && Math.min(a[1], b[1]) - 3 <= z1)
+    public static boolean chunkMayContainTrail(int minX, int minZ, int maxX, int maxZ) {
+        double margin = 3.5;
+        for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
+            double[] start = TRAIL_CURVE[i];
+            double[] end = TRAIL_CURVE[i + 1];
+            if (Math.max(start[0], end[0]) + margin >= minX
+                    && Math.min(start[0], end[0]) - margin <= maxX
+                    && Math.max(start[1], end[1]) + margin >= minZ
+                    && Math.min(start[1], end[1]) - margin <= maxZ) {
                 return true;
+            }
         }
         return false;
     }
 
-    private static double[][] buildCurve() {
-        double[][] p = new double[257][];
-        for (int i = 0; i < p.length; i++) {
-            double t = i / 256.0;
-            double e = t * t * (3 - 2 * t);
-            double r = T_START + (T_END - T_START) * e;
-            double a = 0.35 * Math.sin(3 * Math.PI * t);
-            p[i] = new double[]{r * Math.sin(a), CZ + r * Math.cos(a)};
+    private static Map<Long, int[]> buildTrailSegmentIndex() {
+        Map<Long, List<Integer>> segmentsByCell = new HashMap<>();
+        for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
+            double[] start = TRAIL_CURVE[i];
+            double[] end = TRAIL_CURVE[i + 1];
+            int minCellX = spatialCellCoordinate(Math.min(start[0], end[0]) - TRAIL_HALF_WIDTH);
+            int maxCellX = spatialCellCoordinate(Math.max(start[0], end[0]) + TRAIL_HALF_WIDTH);
+            int minCellZ = spatialCellCoordinate(Math.min(start[1], end[1]) - TRAIL_HALF_WIDTH);
+            int maxCellZ = spatialCellCoordinate(Math.max(start[1], end[1]) + TRAIL_HALF_WIDTH);
+
+            for (int cellX = minCellX - 1; cellX <= maxCellX + 1; cellX++) {
+                for (int cellZ = minCellZ - 1; cellZ <= maxCellZ + 1; cellZ++) {
+                    segmentsByCell.computeIfAbsent(
+                            spatialCellKey(cellX * SPATIAL_CELL_SIZE, cellZ * SPATIAL_CELL_SIZE),
+                            key -> new ArrayList<>()).add(i);
+                }
+            }
         }
-        return p;
+
+        Map<Long, int[]> result = new HashMap<>();
+        segmentsByCell.forEach((key, segments) -> result.put(key,
+                segments.stream().mapToInt(Integer::intValue).toArray()));
+        return Map.copyOf(result);
     }
 
-    private static Map<Long, int[]> buildIndex() {
-        Map<Long, List<Integer>> m = new HashMap<>();
-        for (int i = 0; i < CURVE.length - 1; i++) {
-            double[] a = CURVE[i], b = CURVE[i + 1];
-            int x0 = cc(Math.min(a[0], b[0]) - 3), x1 = cc(Math.max(a[0], b[0]) + 3);
-            int z0 = cc(Math.min(a[1], b[1]) - 3), z1 = cc(Math.max(a[1], b[1]) + 3);
-            for (int cx = x0 - 1; cx <= x1 + 1; cx++)
-                for (int cz = z0 - 1; cz <= z1 + 1; cz++)
-                    m.computeIfAbsent(ck(cx * CELL, cz * CELL), k -> new ArrayList<>()).add(i);
+    private static int spatialCellCoordinate(double coordinate) {
+        return Math.floorDiv((int) Math.floor(coordinate), SPATIAL_CELL_SIZE);
+    }
+
+    private static long spatialCellKey(double x, double z) {
+        return ((long) spatialCellCoordinate(x) << 32)
+                | (spatialCellCoordinate(z) & 0xFFFFFFFFL);
+    }
+
+    private static double[][] buildTrailCurve() {
+        double[][] points = new double[257][];
+        for (int i = 0; i < points.length; i++) {
+            double progress = i / (double) (points.length - 1);
+            double eased = progress * progress * (3.0 - 2.0 * progress);
+            double radius = START_RADIUS + (END_RADIUS - START_RADIUS) * eased;
+            double angle = 0.42 * Math.sin(3.0 * Math.PI * progress);
+            points[i] = new double[] {
+                    radius * Math.sin(angle),
+                    TeyvatOceanEdge.BEACH_CENTER_Z + radius * Math.cos(angle)
+            };
         }
-        Map<Long, int[]> r = new HashMap<>();
-        m.forEach((k, v) -> r.put(k, v.stream().mapToInt(Integer::intValue).toArray()));
-        return Map.copyOf(r);
+        return points;
     }
 
-    private static int cc(double v) { return Math.floorDiv((int) Math.floor(v), CELL); }
-    private static long ck(int x, int z) { return ((long) x << 32) | (z & 0xFFFFFFFFL); }
-
-    private static double segDist(double px, double pz, double[] a, double[] b) {
-        double abx = b[0] - a[0], abz = b[1] - a[1];
-        double apx = px - a[0], apz = pz - a[1];
-        double l2 = abx * abx + abz * abz;
-        double f = l2 < 1e-8 ? 0 : clamp01((apx * abx + apz * abz) / l2);
-        double dx = a[0] + abx * f - px, dz = a[1] + abz * f - pz;
-        return dx * dx + dz * dz;
+    private static double segmentDistanceSquared(double px, double pz, double[] a, double[] b) {
+        double ax = a[0];
+        double az = a[1];
+        double bx = b[0];
+        double bz = b[1];
+        double abx = bx - ax;
+        double abz = bz - az;
+        double apx = px - ax;
+        double apz = pz - az;
+        double lengthSquared = abx * abx + abz * abz;
+        double fraction = lengthSquared < 1.0E-8 ? 0.0 : clamp01((apx * abx + apz * abz) / lengthSquared);
+        double cx = ax + abx * fraction - px;
+        double cz = az + abz * fraction - pz;
+        return cx * cx + cz * cz;
     }
 
-    private static double smooth(double f, double t, double v) {
-        double x = clamp01((v - f) / (t - f));
-        return x * x * (3 - 2 * x);
+    private static double smooth01(double value) {
+        return smoothstep(0.0, 1.0, value);
     }
-    private static double clamp01(double v) { return Math.max(0, Math.min(1, v)); }
-    private static double clampM1P1(double v) { return Math.max(-1, Math.min(1, v)); }
+
+    private static double smoothstep(double from, double to, double value) {
+        double fraction = clamp01((value - from) / (to - from));
+        return fraction * fraction * (3.0 - 2.0 * fraction);
+    }
+
+    private static double clamp01(double value) {
+        return Math.max(0.0, Math.min(1.0, value));
+    }
 }

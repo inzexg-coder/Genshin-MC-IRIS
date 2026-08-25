@@ -12,10 +12,7 @@ import net.minecraft.world.gen.feature.Feature;
 import net.minecraft.world.gen.feature.util.FeatureContext;
 import net.teyvat.TeyvatMod;
 
-/**
- * Укладка блоков тропы: dirt_path сверху, coarse_dirt под ней.
- * Рельеф целиком определяется аналитической density-функцией HEIGHT.
- */
+/** Точная укладка видимой тропы поверх сглаженного склона. */
 public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig> {
     public static final Identifier ID =
             Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_trail");
@@ -30,49 +27,60 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
 
     @Override
     public boolean generate(FeatureContext<DefaultFeatureConfig> context) {
-        ChunkPos chunk = new ChunkPos(context.getOrigin());
-        if (!TeyvatDragonRidge.chunkMayContainTrail(
-                chunk.getStartX(), chunk.getStartZ(),
-                chunk.getEndX(), chunk.getEndZ())) {
+        ChunkPos chunkPos = new ChunkPos(context.getOrigin());
+        if (!TeyvatDragonRidge.chunkMayContainTrail(chunkPos.getStartX(), chunkPos.getStartZ(),
+                chunkPos.getEndX(), chunkPos.getEndZ())) {
             return false;
         }
 
         boolean changed = false;
 
-        for (int x = chunk.getStartX(); x <= chunk.getEndX(); x++) {
-            for (int z = chunk.getStartZ(); z <= chunk.getEndZ(); z++) {
-                if (!TeyvatDragonRidge.isTrailSurface(x, z)) continue;
-
-                var world = context.getWorld();
-                int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
-                BlockPos pos = new BlockPos(x, y, z);
-                var state = world.getBlockState(pos);
-
-                if (!isNatural(state.getBlock()) || !world.getFluidState(pos).isEmpty()) {
+        for (int x = chunkPos.getStartX(); x <= chunkPos.getEndX(); x++) {
+            for (int z = chunkPos.getStartZ(); z <= chunkPos.getEndZ(); z++) {
+                if (!TeyvatDragonRidge.isTrailSurface(x, z)) {
                     continue;
                 }
 
-                /* не трогаем песок у начала тропы */
-                if (state.getBlock() != Blocks.SAND) {
-                    setBlockState(world, pos, Blocks.DIRT_PATH.getDefaultState());
-                    BlockPos base = pos.down();
-                    if (isNatural(world.getBlockState(base).getBlock())) {
-                        setBlockState(world, base, Blocks.COARSE_DIRT.getDefaultState());
+                var world = context.getWorld();
+                int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING_NO_LEAVES, x, z);
+                BlockPos.Mutable mutable = new BlockPos.Mutable(x, topY, z);
+                while (mutable.getY() > world.getBottomY() && !isTrailBase(world.getBlockState(mutable).getBlock())) {
+                    mutable.move(net.minecraft.util.math.Direction.DOWN);
+                }
+
+                if (!isTrailBase(world.getBlockState(mutable).getBlock())
+                        || !world.getFluidState(mutable).isEmpty()) {
+                    continue;
+                }
+
+                if (world.getBlockState(mutable).getBlock() != Blocks.SAND) {
+                    setBlockState(world, mutable, Blocks.DIRT_PATH.getDefaultState());
+                }
+                BlockPos base = mutable.down();
+                if (isTrailBase(world.getBlockState(base).getBlock())) {
+                    setBlockState(world, base, Blocks.COARSE_DIRT.getDefaultState());
+                }
+
+                for (int clearY = mutable.getY() + 1; clearY <= topY + 2; clearY++) {
+                    BlockPos above = new BlockPos(x, clearY, z);
+                    if (!world.getBlockState(above).isAir()) {
+                        world.removeBlock(above, false);
                     }
                 }
                 changed = true;
             }
         }
+
         return changed;
     }
 
-    private static boolean isNatural(net.minecraft.block.Block block) {
-        return block == Blocks.GRASS_BLOCK
+    private static boolean isTrailBase(net.minecraft.block.Block block) {
+        return block == Blocks.SAND
+                || block == Blocks.GRASS_BLOCK
                 || block == Blocks.DIRT
                 || block == Blocks.COARSE_DIRT
                 || block == Blocks.PODZOL
                 || block == Blocks.STONE
-                || block == Blocks.GRAVEL
-                || block == Blocks.SAND;
+                || block == Blocks.GRAVEL;
     }
 }
