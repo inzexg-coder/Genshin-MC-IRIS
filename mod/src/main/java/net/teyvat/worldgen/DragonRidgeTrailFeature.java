@@ -12,7 +12,7 @@ import net.minecraft.world.gen.feature.Feature;
 import net.minecraft.world.gen.feature.util.FeatureContext;
 import net.teyvat.TeyvatMod;
 
-/** Тропа серпантина: ТОЛЬКО покраска поверхности, без копания. */
+/** Тропа серпантина: углубление ровно на 1 блок + покраска. */
 public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig> {
     public static final Identifier ID =
             Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_trail");
@@ -43,18 +43,21 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                 }
 
                 int surfaceY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
-                BlockPos surface = new BlockPos(x, surfaceY, z);
 
-                if (!isTrailBase(world.getBlockState(surface).getBlock())) {
+                // Углубляем ровно на 1 блок
+                BlockPos trailPos = new BlockPos(x, surfaceY - 1, z);
+                BlockPos below = new BlockPos(x, surfaceY - 2, z);
+
+                if (!isTrailBase(world.getBlockState(trailPos).getBlock())) {
                     continue;
                 }
 
-                // Только замена верхнего блока — никакого копания
-                if (world.getBlockState(surface).getBlock() != Blocks.SAND) {
-                    setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
+                // Кладём тропу в углубление
+                if (world.getBlockState(trailPos).getBlock() != Blocks.SAND) {
+                    setBlockState(world, trailPos, Blocks.DIRT_PATH.getDefaultState());
                 }
 
-                BlockPos below = surface.down();
+                // Подкладка
                 if (isTrailBase(world.getBlockState(below).getBlock())) {
                     setBlockState(world, below, Blocks.COARSE_DIRT.getDefaultState());
                 }
