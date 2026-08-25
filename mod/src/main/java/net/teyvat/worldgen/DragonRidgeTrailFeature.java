@@ -12,7 +12,7 @@ import net.minecraft.world.gen.feature.Feature;
 import net.minecraft.world.gen.feature.util.FeatureContext;
 import net.teyvat.TeyvatMod;
 
-/** Тропа: покраска поверхности без углубления. */
+/** Тропа: ровная, без выступающих краёв. Заменяет блоки на тропе и рядом. */
 public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig> {
     public static final Identifier ID =
             Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_trail");
@@ -38,46 +38,28 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
 
         for (int x = chunkPos.getStartX(); x <= chunkPos.getEndX(); x++) {
             for (int z = chunkPos.getStartZ(); z <= chunkPos.getEndZ(); z++) {
-                if (!TeyvatDragonRidge.isTrailSurface(x, z)) {
-                    continue;
-                }
-
                 double fade = TeyvatDragonRidge.trailFadeFactor(x, z);
-                if (fade <= 0.0) continue;
+                if (fade <= -0.3) continue;
 
                 int surfaceY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
                 BlockPos surface = new BlockPos(x, surfaceY, z);
+                var block = world.getBlockState(surface).getBlock();
 
-                if (!isTrailBase(world.getBlockState(surface).getBlock())) {
-                    continue;
-                }
-
-                // Центр тропы — dirt_path на поверхности (БЕЗ углубления)
-                if (fade > 0.5) {
-                    if (world.getBlockState(surface).getBlock() != Blocks.SAND) {
+                // Заменяем ТОЛЬКО траву — убираем выступающие края
+                if (block == Blocks.GRASS_BLOCK) {
+                    if (fade > 0.5) {
                         setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
-                    }
-                } else {
-                    // Переход — coarse_dirt
-                    if (world.getBlockState(surface).getBlock() != Blocks.SAND) {
+                    } else if (fade > 0.0) {
                         setBlockState(world, surface, Blocks.COARSE_DIRT.getDefaultState());
+                    } else {
+                        // Краевая зона: заменяем траву на под grass_block без блока травы
+                        setBlockState(world, surface, Blocks.DIRT.getDefaultState());
                     }
+                    changed = true;
                 }
-
-                changed = true;
             }
         }
 
         return changed;
-    }
-
-    private static boolean isTrailBase(net.minecraft.block.Block block) {
-        return block == Blocks.SAND
-                || block == Blocks.GRASS_BLOCK
-                || block == Blocks.DIRT
-                || block == Blocks.COARSE_DIRT
-                || block == Blocks.PODZOL
-                || block == Blocks.STONE
-                || block == Blocks.GRAVEL;
     }
 }

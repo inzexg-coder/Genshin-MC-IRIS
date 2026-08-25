@@ -35,7 +35,7 @@ public final class TeyvatDragonRidge {
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 1.5;
-    private static final double HILLS_AMPLITUDE = 2.0;
+    private static final double HILLS_AMPLITUDE = 4.0;
     private static final double TRAIL_HALF_WIDTH = 2.5;
     private static final double SHOULDER_AMPLITUDE = 0.25;
 
@@ -109,8 +109,8 @@ public final class TeyvatDragonRidge {
             double dist = trailDistance(x, pos.blockZ());
             double distFromTrail = Math.max(0.0, dist - TRAIL_HALF_WIDTH);
             // Плавный рост с насыщением: tanh вместо квадрата (нет плато)
-            double hillRise = HILLS_AMPLITUDE * (1.0 - Math.exp(-distFromTrail * 0.06));
-            double climb = progress * TRAIL_CLIMB;
+            double hillRise = HILLS_AMPLITUDE * (1.0 - Math.exp(-distFromTrail * 0.08));
+            double climb = 0.0; // trail stays flat, hills from distance only
 
             double summitDx = x - SUMMIT_X;
             double summitDz = pos.blockZ() - SUMMIT_Z;
@@ -139,7 +139,7 @@ public final class TeyvatDragonRidge {
         // Площадка вокруг точки телепортации (radius 6 блоков)
         double tdx = x - TRAILHEAD_X;
         double tdz = z - TRAILHEAD_Z;
-        return Math.sqrt(tdx * tdx + tdz * tdz) <= TRAIL_HALF_WIDTH;
+        return Math.sqrt(tdx * tdx + tdz * tdz) <= TRAIL_HALF_WIDTH + 0.5;
     }
 
     /** 1.0 = центр тропы, 0.0 = край, -1.0 = за пределами. */
