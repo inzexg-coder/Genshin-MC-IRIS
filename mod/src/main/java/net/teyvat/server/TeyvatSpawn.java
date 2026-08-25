@@ -492,9 +492,8 @@ public final class TeyvatSpawn {
         int centerX = TeyvatDragonRidge.TRAILHEAD_X;
         int centerZ = TeyvatDragonRidge.TRAILHEAD_Z;
 
-        // Найти реальный центр тропы по расстоянию от кривой тропы
-        // Тропа идёт на юг от TRAILHEAD, ищем блоки с dirt_path/coarse_dirt (материал тропы)
-        BlockPos trailCenter = null;
+        // Шаг 1: Найти TRAILHEAD — ближайший блок тропы
+        BlockPos trailHead = null;
         for (int radius = 0; radius <= 30; radius++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 for (int dz = -radius; dz <= radius; dz++) {
@@ -508,97 +507,106 @@ public final class TeyvatSpawn {
                     if (topY < world.getSeaLevel()) continue;
                     BlockPos top = new BlockPos(x, topY, z);
                     BlockState surface = world.getBlockState(top);
-                    // Ищем блоки тропы: dirt_path или coarse_dirt
                     if (surface.isOf(Blocks.DIRT_PATH) || surface.isOf(Blocks.COARSE_DIRT)) {
                         if (world.getFluidState(top.up()).isEmpty()) {
-                            trailCenter = top;
-                            LOGGER.info("Центр тропы хребта: x={}, z={}, block={}", x, z, surface.getBlock().getName().getString());
+                            trailHead = top;
+                            LOGGER.info("TRAILHEAD найден: x={}, z={}", x, z);
                             break;
                         }
                     }
                 }
-                if (trailCenter != null) break;
+                if (trailHead != null) break;
             }
-            if (trailCenter != null) break;
+            if (trailHead != null) break;
         }
-        if (trailCenter == null) {
-            LOGGER.warn("Не найдена тропа для точки телепортации, ищем по биому");
-            // Fallback: ищем по тропе через биом
-            for (int radius = 0; radius <= 30; radius++) {
-                for (int dx = -radius; dx <= radius; dx++) {
-                    for (int dz = -radius; dz <= radius; dz++) {
-                        if (Math.max(Math.abs(dx), Math.abs(dz)) != radius) continue;
-                        int x = centerX + dx;
-                        int z = centerZ + dz;
-                        if (!world.isChunkLoaded(x >> 4, z >> 4)) {
-                            world.getChunk(x >> 4, z >> 4);
-                        }
-                        BlockPos column = new BlockPos(x, 0, z);
-                        if (world.getBiome(column).matchesKey(TRAIL_BIOME)) {
-                            int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
-                            if (topY < world.getSeaLevel()) continue;
-                            BlockPos top = new BlockPos(x, topY, z);
-                            if (world.getFluidState(top).isEmpty() && world.getFluidState(top.up()).isEmpty()) {
-                                trailCenter = top;
-                                LOGGER.info("Центр тропы (биом): x={}, z={}", x, z);
-                                break;
-                            }
-                        }
-                    }
-                    if (trailCenter != null) break;
+        if (trailHead == null) {
+            LOGGER.warn("TRAILHEAD не найден");
+            return null;
+        }
+
+        // Шаг 2: Определить направление тропы по соседним блокам тропы
+        int trailDx = 0, trailDz = 0;
+        int count = 0;
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                if (dx == 0 && dz == 0) continue;
+                BlockPos neighbor = trailHead.add(dx, 0, dz);
+                if (!world.isChunkLoaded(neighbor.getX() >> 4, neighbor.getZ() >> 4)) {
+                    world.getChunk(neighbor.getX() >> 4, neighbor.getZ() >> 4);
                 }
-                if (trailCenter != null) break;
+                int ny = world.getTopY(Heightmap.Type.MOTION_BLOCKING, neighbor.getX(), neighbor.getZ());
+                BlockPos above = new BlockPos(neighbor.getX(), ny, neighbor.getZ());
+                BlockState s = world.getBlockState(above);
+                if (s.isOf(Blocks.DIRT_PATH) || s.isOf(Blocks.COARSE_DIRT)) {
+                    trailDx += dx;
+                    trailDz += dz;
+                    count++;
+                }
             }
         }
-        if (trailCenter == null) return null;
+        if (count > 0) {
+            trailDx /= count;
+            trailDz /= count;
+        } else {
+            // Тропа идёт на юг по умолчанию
+            trailDz = 1;
+        }
+        LOGGER.info("Направление тропы: dx={}, dz={}", trailDx, trailDz);
 
-        // Строим точку телепортации ровно TELEPORT_OFFSET_FROM_TRAIL блоков от тропы
-        // Тропа идёт на юг → перпендикуляр = по X
-        BlockPos best = null;
-        double bestDist = Double.MAX_VALUE;
+        // Перпендикуляр к тропе
+        double len = Math.sqrt(trailDx * trailDx + trailDz * trailDz);
+        double perpX = len > 0 ? -trailDz / len : 1.0;
+        double perpZ = len > 0 ? trailDx / len : 0.0;
+        LOGGER.info("Перпендикуляр: px={}, pz={}", perpX, perpZ);
 
+        // Шаг 3: Ищем площадку на расстоянии TELEPORT_OFFSET_FROM_TRAIL от тропы
+        // Проверяем реальное расстояние через trailDistancePublic
         for (int sign : new int[]{1, -1}) {
-            int tx = trailCenter.getX() + sign * TELEPORT_OFFSET_FROM_TRAIL;
-            int tz = trailCenter.getZ();
+            // Вычисляем позицию: trailHead + sign * offset * perpendicular
+            int tx = (int) Math.round(trailHead.getX() + sign * TELEPORT_OFFSET_FROM_TRAIL * perpX);
+            int tz = (int) Math.round(trailHead.getZ() + sign * TELEPORT_OFFSET_FROM_TRAIL * perpZ);
+
+            // Проверяем реальное расстояние до тропы
+            double actualDist = TeyvatDragonRidge.trailDistancePublic(tx, tz);
+            LOGGER.info("Кандидат: x={}, z={}, расстояние до тропы={}", tx, tz, String.format("%.1f", actualDist));
+            if (actualDist < TELEPORT_OFFSET_FROM_TRAIL - 2) {
+                LOGGER.info("Пропуск: слишком близко до тропы ({} < {})", String.format("%.1f", actualDist), TELEPORT_OFFSET_FROM_TRAIL);
+                continue;
+            }
 
             if (!world.isChunkLoaded(tx >> 4, tz >> 4)) {
                 world.getChunk(tx >> 4, tz >> 4);
             }
             int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, tx, tz);
-            if (topY < world.getSeaLevel()) continue;
-            BlockPos candidate = new BlockPos(tx, topY, tz);
-            BlockState surface = world.getBlockState(candidate);
-            // Не должно быть на тропе
-            if (surface.isOf(Blocks.DIRT_PATH) || surface.isOf(Blocks.COARSE_DIRT)) {
-                LOGGER.info("Пропуск: x={}, z={} — это тропа", tx, tz);
+            if (topY < world.getSeaLevel()) {
+                LOGGER.info("Пропуск: под водой");
                 continue;
             }
+            BlockPos candidate = new BlockPos(tx, topY, tz);
 
-            // Проверить ровность 3x3
+            // Проверить ровность 5x5
             boolean flat = true;
-            for (int sdx = -1; sdx <= 1 && flat; sdx++) {
-                for (int sdz = -1; sdz <= 1 && flat; sdz++) {
+            for (int sdx = -2; sdx <= 2 && flat; sdx++) {
+                for (int sdz = -2; sdz <= 2 && flat; sdz++) {
                     int ny = world.getTopY(Heightmap.Type.MOTION_BLOCKING, tx + sdx, tz + sdz);
                     if (Math.abs(ny - topY) > 2) flat = false;
                 }
             }
             if (!flat) {
-                LOGGER.info("Пропуск: x={}, z={} — неровно", tx, tz);
+                LOGGER.info("Пропуск: неровно");
                 continue;
             }
-            if (!world.getFluidState(candidate).isEmpty()) continue;
+            if (!world.getFluidState(candidate).isEmpty()) {
+                LOGGER.info("Пропуск: жидкость");
+                continue;
+            }
 
-            best = candidate;
-            LOGGER.info("Точка телепортации: x={}, z={} ({} блоков от тропы)", tx, tz, TELEPORT_OFFSET_FROM_TRAIL);
-            return best;
+            LOGGER.info("Точка телепортации: x={}, z={} (расстояние от тропы: {} блоков)", tx, tz, String.format("%.1f", actualDist));
+            return candidate;
         }
 
-        // Последний фолбэк: просто offset 11 блоков
-        int fx = trailCenter.getX() + TELEPORT_OFFSET_FROM_TRAIL;
-        int fz = trailCenter.getZ();
-        int fy = world.getTopY(Heightmap.Type.MOTION_BLOCKING, fx, fz);
-        LOGGER.info("Фолбэк точка телепортации: x={}, z={}", fx, fz);
-        return new BlockPos(fx, fy, fz);
+        LOGGER.warn("Не удалось найти площадку для телепортации");
+        return null;
     }
 
     /** Проверяет, есть ли уже точка телепортации в радиусе radius от center. */

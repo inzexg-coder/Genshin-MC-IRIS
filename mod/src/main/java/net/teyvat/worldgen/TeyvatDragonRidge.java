@@ -96,27 +96,35 @@ public final class TeyvatDragonRidge {
             double warpedRadius = radius
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-            double inner = smoothstep(INNER_RADIUS - 25, INNER_RADIUS + 10, warpedRadius);
-            double outer = 1.0 - smoothstep(OUTER_RADIUS - 40, OUTER_RADIUS, warpedRadius);
-            double land = smoothstep(15.0, 50.0, dz);
+            // Плавные переходы: 40 блоков на каждый过渡
+            double inner = smoothstep(INNER_RADIUS - 40, INNER_RADIUS + 15, warpedRadius);
+            double outer = 1.0 - smoothstep(OUTER_RADIUS - 50, OUTER_RADIUS + 10, warpedRadius);
+            double land = smoothstep(10.0, 60.0, dz);
             double envelope = inner * outer * land;
             if (envelope <= 0.001) return 0.0;
 
-            // Профиль: тропа В ДОЛИНЕ (-4 блока), холмы по бокам (+1.0)
+            // Профиль: плавная долина + холмы, без вертикальных стен
             double dist = trailDistance(x, z);
             double profile;
-            if (dist <= TRAIL_HALF_WIDTH + 1.0) {
-                // Зона тропы: врезана ниже базового уровня
-                profile = -0.12;
-            } else if (dist < 40.0) {
-                // Подъём от тропы к вершине холма
-                profile = smoothstep(TRAIL_HALF_WIDTH + 1.0, 40.0, dist);
-            } else if (dist < 80.0) {
-                // Спуск за холмом
-                profile = 1.0 - smoothstep(40.0, 80.0, dist);
+            if (dist <= TRAIL_HALF_WIDTH) {
+                // Центр тропы:.cosine-яма
+                double t = dist / TRAIL_HALF_WIDTH;
+                profile = -0.12 * (0.5 + 0.5 * Math.cos(t * Math.PI));
+            } else if (dist < 45.0) {
+                // Плавный подъём от тропы к вершине холма (45 блоков)
+                profile = smoothstep(TRAIL_HALF_WIDTH, 45.0, dist);
+            } else if (dist < 90.0) {
+                // Плавный спуск за холмом (45 блоков)
+                profile = 1.0 - smoothstep(45.0, 90.0, dist);
             } else {
                 profile = 0.0;
             }
+
+            // Ограничиваем скорость изменения: max 2 блока на блок расстояния
+            // profile * 1.5 = max density, 1.5 * 11.2 = max 16.8 blocks height per unit
+            // gradient = d(profile)/d(dist) * 1.5 * 11.2
+            // max gradient of smoothstep ≈ 1.5/(to-from), so 1.5/45 ≈ 0.033
+            // 0.033 * 1.5 * 11.2 = 0.55 blocks/block — well under 2
 
             return envelope * profile;
         }
@@ -125,6 +133,11 @@ public final class TeyvatDragonRidge {
         @Override public double maxValue() { return 5.5; }
         @Override public CodecHolder<? extends DensityFunction> getCodecHolder() { return CodecHolder.of(MapCodec.unit(HEIGHT)); }
     };
+
+    /** Публичное расстояние от точки до тропы (для поиска точки телепортации). */
+    public static double trailDistancePublic(double x, double z) {
+        return trailDistance(x, z);
+    }
 
     private TeyvatDragonRidge() {}
 
