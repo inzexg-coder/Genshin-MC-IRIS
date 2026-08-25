@@ -49,12 +49,11 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                     continue;
                 }
 
-                // Заменяем только верхний блок на тропу
+                // Только замена верхнего блока — никакого копания
                 if (world.getBlockState(surface).getBlock() != Blocks.SAND) {
                     setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
                 }
 
-                // Подкладка под тропой
                 BlockPos below = surface.down();
                 if (isTrailBase(world.getBlockState(below).getBlock())) {
                     setBlockState(world, below, Blocks.COARSE_DIRT.getDefaultState());

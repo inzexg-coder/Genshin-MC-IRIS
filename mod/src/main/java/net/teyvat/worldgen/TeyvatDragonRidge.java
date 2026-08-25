@@ -34,10 +34,10 @@ public final class TeyvatDragonRidge {
     private static final double START_RADIUS = 70.0;
     private static final double END_RADIUS = 200.0;
     private static final int SPATIAL_CELL_SIZE = 32;
-    private static final double TRAIL_CLIMB = 0.5;
-    private static final double HILLS_AMPLITUDE = 0.15;
+    private static final double TRAIL_CLIMB = 0.4;
+    private static final double HILLS_AMPLITUDE = 0.2;
     private static final double TRAIL_HALF_WIDTH = 4.5;
-    private static final double SHOULDER_AMPLITUDE = 0.0;
+    private static final double SHOULDER_AMPLITUDE = 0.25;
 
     /** Плавная центральная линия серпантина в полярных координатах кольца. */
     private static final double[][] TRAIL_CURVE = buildTrailCurve();
@@ -111,9 +111,8 @@ public final class TeyvatDragonRidge {
             double summitDx = x - SUMMIT_X;
             double summitDz = pos.blockZ() - SUMMIT_Z;
             double summitDistanceSquared = summitDx * summitDx + summitDz * summitDz;
-            double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.25;
+            double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.15;
 
-            // На тропе — убираем волны, чтобы поверхность была ровной
             double dist = trailDistance(x, pos.blockZ());
             double trailBlend = smoothstep(TRAIL_HALF_WIDTH, TRAIL_HALF_WIDTH + 6.0, dist);
             double hills = waves * HILLS_AMPLITUDE * trailBlend;
@@ -206,7 +205,7 @@ public final class TeyvatDragonRidge {
             double progress = i / (double) (points.length - 1);
             double eased = progress * progress * (3.0 - 2.0 * progress);
             double radius = START_RADIUS + (END_RADIUS - START_RADIUS) * eased;
-            double angle = 0.22 * Math.sin(2.0 * Math.PI * progress);
+            double angle = 0.25 * Math.sin(2.0 * Math.PI * progress);
             points[i] = new double[] {
                     radius * Math.sin(angle),
                     TeyvatOceanEdge.BEACH_CENTER_Z + radius * Math.cos(angle)
