@@ -87,12 +87,12 @@ public final class TeyvatDragonRidge {
             double t = clamp01((r - INNER) / (OUTER - INNER));
             double climb = t * 0.8;
 
-            double h1 = Math.sin(x * 0.012 + Math.sin(dz * 0.007)) * 0.3;
-            double h2 = Math.sin(dz * 0.009 + Math.sin(x * 0.006)) * 0.2;
+            double h1 = Math.sin(x * 0.012 + Math.sin(dz * 0.007)) * 0.6;
+            double h2 = Math.sin(dz * 0.009 + Math.sin(x * 0.006)) * 0.4;
             double hills = e * (h1 + h2);
 
             double sd = x * x + (z + 1165) * (z + 1165);
-            double summit = e * Math.exp(-sd / 2500) * 0.6;
+            double summit = e * Math.exp(-sd / 2500) * 1.0;
 
             double ridge = e * (climb + 0.15) + hills + summit;
 
