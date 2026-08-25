@@ -722,7 +722,7 @@
               "then_run": {
                 "type": "minecraft:block",
                 "result_state": {
-                  "Name": "minecraft:sand"
+                  "Name": "minecraft:grass_block"
                 }
               }
             },
@@ -738,7 +738,7 @@
               "then_run": {
                 "type": "minecraft:block",
                 "result_state": {
-                  "Name": "minecraft:sandstone"
+                  "Name": "minecraft:dirt"
                 }
               }
             },
@@ -754,7 +754,7 @@
               "then_run": {
                 "type": "minecraft:block",
                 "result_state": {
-                  "Name": "minecraft:sandstone"
+                  "Name": "minecraft:dirt"
                 }
               }
             }

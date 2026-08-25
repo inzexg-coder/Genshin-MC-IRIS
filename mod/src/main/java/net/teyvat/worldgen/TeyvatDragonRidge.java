@@ -35,7 +35,7 @@ public final class TeyvatDragonRidge {
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 1.0;
-    private static final double HILLS_AMPLITUDE = 0.4;
+    private static final double HILLS_AMPLITUDE = 0.6;
     private static final double TRAIL_HALF_WIDTH = 4.5;
     private static final double SHOULDER_AMPLITUDE = 0.25;
 
@@ -104,7 +104,7 @@ public final class TeyvatDragonRidge {
 
             double progress = Math.max(0.0, Math.min(1.0,
                     (radius - START_RADIUS) / (END_RADIUS - START_RADIUS)));
-            double climb = progress * TRAIL_CLIMB;
+            double climb = 0.0; // peaks from waves only
 
             double waves = Math.sin(x * 0.017 + Math.sin(dz * 0.009) * 1.2)
                     * Math.cos(dz * 0.014 + Math.sin(x * 0.008));
@@ -211,17 +211,16 @@ public final class TeyvatDragonRidge {
     }
 
     private static double[][] buildTrailCurve() {
-        // Прямая тропа через точку телепортации (radius 85) в обе стороны:
-        // от.radius 55 (пляж) до radius 220 (холмы), телепорт по центру
+        // Полностью прямая тропа через телепорт, лёгкий серпантин только вдали
         double teleportRadius = 85.0;
         double[][] points = new double[257][];
         for (int i = 0; i < points.length; i++) {
             double progress = i / (double) (points.length - 1);
-            // Прямая линия от radius 55 до 220, с лёгким серпантином дальше от телепорта
             double radius = START_RADIUS + (END_RADIUS - START_RADIUS) * progress;
+            // Кривизна: 0 рядом с телепортом, нарастает дальше
             double distFromTeleport = Math.abs(radius - teleportRadius);
-            double curveFactor = smoothstep(0.0, 40.0, distFromTeleport);
-            double angle = 0.22 * curveFactor * Math.sin(2.0 * Math.PI * progress);
+            double curveFactor = smoothstep(20.0, 80.0, distFromTeleport);
+            double angle = 0.18 * curveFactor * Math.sin(2.5 * Math.PI * progress);
             points[i] = new double[] {
                     radius * Math.sin(angle),
                     TeyvatOceanEdge.BEACH_CENTER_Z + radius * Math.cos(angle)
