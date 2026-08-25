@@ -35,7 +35,7 @@ public final class TeyvatDragonRidge {
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 1.5;
-    private static final double HILLS_AMPLITUDE = 6.0;
+    private static final double HILLS_AMPLITUDE = 1.5;
     private static final double TRAIL_HALF_WIDTH = 2.5;
     private static final double SHOULDER_AMPLITUDE = 0.25;
 
@@ -87,37 +87,33 @@ public final class TeyvatDragonRidge {
         @Override
         public double sample(NoisePos pos) {
             double x = pos.blockX();
-            double dz = pos.blockZ() - TeyvatOceanEdge.BEACH_CENTER_Z;
+            double z = pos.blockZ();
+            double dz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
             double radius = Math.sqrt(x * x + dz * dz);
             double angle = Math.atan2(x, dz);
 
+            // Огибающая: плавный подъём от пляжа, спуск за кольцом
             double warpedRadius = radius
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-            double inner = smoothstep(INNER_RADIUS - 30, INNER_RADIUS + 5, warpedRadius);
-            double outer = 1.0 - smoothstep(OUTER_RADIUS - 38, OUTER_RADIUS, warpedRadius);
-            double land = smoothstep(20.0, 55.0, dz);
+            double inner = smoothstep(INNER_RADIUS - 25, INNER_RADIUS + 10, warpedRadius);
+            double outer = 1.0 - smoothstep(OUTER_RADIUS - 40, OUTER_RADIUS, warpedRadius);
+            double land = smoothstep(15.0, 50.0, dz);
             double envelope = inner * outer * land;
-            if (envelope <= 0.001) {
-                return 0.0;
-            }
+            if (envelope <= 0.001) return 0.0;
 
-            double progress = Math.max(0.0, Math.min(1.0,
-                    (radius - START_RADIUS) / (END_RADIUS - START_RADIUS)));
+            // Ванильный шум: 3 октавы с разными масштабами
+            double noise1 = Math.sin(x * 0.008 + dz * 0.006) * Math.cos(dz * 0.010 + x * 0.004);
+            double noise2 = Math.sin(x * 0.020 + 1.7) * Math.cos(dz * 0.015 + 2.3) * 0.5;
+            double noise3 = Math.sin(x * 0.045 + dz * 0.035 + 3.1) * 0.25;
+            double hills = (noise1 + noise2 + noise3) * HILLS_AMPLITUDE;
 
-            // Высота: долина на тропе, холмы по бокам, плавный спуск дальше
-            double dist = trailDistance(x, pos.blockZ());
-            double distFromTrail = Math.max(0.0, dist - TRAIL_HALF_WIDTH);
-            // Плавный рост с насыщением: tanh вместо квадрата (нет плато)
-            double hillRise = HILLS_AMPLITUDE * (1.0 - Math.exp(-distFromTrail * 0.08));
-            double climb = 0.0; // trail stays flat, hills from distance only
+            // Вершина хребта (один пик)
+            double sdx = x - SUMMIT_X;
+            double sdz = z - SUMMIT_Z;
+            double summit = Math.exp(-(sdx * sdx + sdz * sdz) / 3600.0) * 0.3;
 
-            double summitDx = x - SUMMIT_X;
-            double summitDz = pos.blockZ() - SUMMIT_Z;
-            double summitDistanceSquared = summitDx * summitDx + summitDz * summitDz;
-            double summit = Math.exp(-summitDistanceSquared / 2025.0) * 0.15;
-
-            return envelope * (climb + hillRise + summit);
+            return envelope * (hills + summit);
         }
 
         @Override public double minValue() { return -1.5; }
