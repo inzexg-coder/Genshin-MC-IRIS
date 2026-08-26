@@ -96,7 +96,7 @@ public final class TeyvatDragonRidge {
             double warpedRadius = radius
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-            double inner = smoothstep(40.0, 120.0, warpedRadius);
+            double inner = smoothstep(20.0, 80.0, warpedRadius);
             double outer = 1.0 - smoothstep(OUTER_RADIUS - 85, OUTER_RADIUS + 85, warpedRadius);
             double land = smoothstep(5.0, 100.0, dz);
             double envelope = inner * outer * land;
@@ -115,7 +115,7 @@ public final class TeyvatDragonRidge {
         }
 
         @Override public double minValue() { return -1.5; }
-        @Override public double maxValue() { return 5.5; }
+        @Override public double maxValue() { return 7.0; }
         @Override public CodecHolder<? extends DensityFunction> getCodecHolder() { return CodecHolder.of(MapCodec.unit(HEIGHT)); }
     };
 
@@ -154,8 +154,8 @@ public final class TeyvatDragonRidge {
      * sigma=40 даёт плавные склоны длиной ~80 блоков.
      */
     private static final double HILL_PEAK_DIST = 85.0;
-    private static final double HILL_SIGMA = 40.0;
-    private static final double HILL_AMPLITUDE = 1.2;
+    private static final double HILL_SIGMA = 35.0;
+    private static final double HILL_AMPLITUDE = 2.0;
     private static final double HILL_GAUSSIAN_PEAK = 1.0; // exp(0) = 1.0
 
     private static double smoothHillProfile(double dist) {
