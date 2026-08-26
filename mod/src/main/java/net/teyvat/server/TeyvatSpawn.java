@@ -14,6 +14,8 @@ import net.minecraft.world.WorldProperties;
 import net.minecraft.world.biome.Biome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import net.minecraft.server.world.ChunkTicketType;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.border.WorldBorder;
 import net.teyvat.TeyvatBlocks;
 import net.teyvat.config.TeyvatConfig;
@@ -47,15 +49,29 @@ public final class TeyvatSpawn {
     private TeyvatSpawn() {
     }
 
-    /** Вызывается на старте сервера: установить бордер. Спавн ищется лениво при первом входе. */
+    /** Вызывается на старте сервера: установить бордер и загрузить чанки спавна. */
     public static void prepare(MinecraftServer server) {
         beachSpawn = null;
         beachYaw = 0f;
         ServerWorld world = server.getOverworld();
         setupWorldBorder(world);
-        // НЕ ищем спавн здесь — findShoreSpawn/findBeachSpawn форсируют
-        // генерацию тысяч чанков и вешают "Загрузку территории".
-        // Спавн будет найден лениво при welcome() первого игрока.
+        // Принудительно загружаем чанки вокруг спавна, чтобы клиент
+        // не завис на "Загрузке территории" (чанки远未 были загружены).
+        TeyvatConfig.Spawn cfg = TeyvatConfig.get().spawn;
+        int sx = cfg.use_fixed_position ? cfg.fixed_x : 0;
+        int sz = cfg.use_fixed_position
+                ? (cfg.fixed_z != 0 ? cfg.fixed_z : cfg.anchor_z != 0 ? cfg.anchor_z : TeyvatOceanEdge.BEACH_CENTER_Z)
+                : (cfg.anchor_z != 0 ? cfg.anchor_z : TeyvatOceanEdge.BEACH_CENTER_Z);
+        ChunkPos spawnChunk = new ChunkPos(sx >> 4, sz >> 4);
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                world.getChunkManager().addTicket(
+                        ChunkTicketType.PLAYER_LOADING,
+                        new ChunkPos(spawnChunk.x + dx, spawnChunk.z + dz),
+                        3);
+            }
+        }
+        LOGGER.info("Загружены чанки вокруг спавна ({}, {})", sx, sz);
     }
 
     /**
