@@ -106,16 +106,9 @@ public final class TeyvatDragonRidge {
             // Расстояние от центра тропы (одинаково для левой и правой стороны)
             double dist = trailDistance(x, z);
 
-            // Сглаживание: усредняем hill-профиль по 5x5 блокам вокруг,
-            // чтобы убрать резкие ступеньки на склонах.
-            double hillSum = 0.0;
-            for (int kx = -2; kx <= 2; kx++) {
-                for (int kz = -2; kz <= 2; kz++) {
-                    double nd = trailDistance(x + kx, z + kz);
-                    hillSum += smoothHillProfile(nd);
-                }
-            }
-            double hill = hillSum / 25.0;
+            // Линейный спуск от вершины к тропе: постоянный уклон, блок за блоком.
+            // Вершина на HILL_PEAK_DIST, спуск до 0 на HILL_END_DIST.
+            double hill = linearHillProfile(dist);
 
             return envelope * hill;
         }
@@ -154,24 +147,21 @@ public final class TeyvatDragonRidge {
     }
 
     /**
-     * Профиль холма по расстоянию от тропы.
-     * Raised cosine: C∞-гладкая, f'=0 на обоих концах (тропа и дальний край).
-     * Вершина = 1.0 на dist=85, затухает до 0 на dist=0 и dist=170.
-     * Максимально плавный подъём без резких стыков.
+     * Линейный профиль холма: постоянный уклон от тропы к вершине.
+     * Вершина = 1.0 на dist=85, линейный спуск до 0 на dist=170.
+     * Никаких ускорений — блок за блоком одинаковый подъём.
      */
     private static final double HILL_PEAK_DIST = 85.0;
     private static final double HILL_END_DIST = 170.0;
     private static final double HILL_AMPLITUDE = 2.0;
 
-    private static double smoothHillProfile(double dist) {
+    private static double linearHillProfile(double dist) {
         if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;
-        // Подъём: raised cosine от 0 до PEAK_DIST
-        double riseT = dist / HILL_PEAK_DIST;
-        double rise = 0.5 - 0.5 * Math.cos(riseT * Math.PI);
-        // Спуск: raised cosine от PEAK_DIST до END_DIST
-        double fallT = (dist - HILL_PEAK_DIST) / (HILL_END_DIST - HILL_PEAK_DIST);
-        double fall = 0.5 + 0.5 * Math.cos(fallT * Math.PI);
-        return HILL_AMPLITUDE * Math.min(rise, fall);
+        if (dist <= HILL_PEAK_DIST) {
+            return HILL_AMPLITUDE * (dist / HILL_PEAK_DIST);
+        } else {
+            return HILL_AMPLITUDE * (1.0 - (dist - HILL_PEAK_DIST) / (HILL_END_DIST - HILL_PEAK_DIST));
+        }
     }
 
     private static double trailDistance(double x, double z) {
