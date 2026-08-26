@@ -8,20 +8,16 @@
     "to_y": 96
   },
   "argument2": {
-    "type": "minecraft:add",
-    "argument1": "teyvat:teyvat_dragon_ridge_height",
+    "type": "minecraft:mul",
+    "argument1": 0.25,
     "argument2": {
-      "type": "minecraft:mul",
-      "argument1": 0.25,
-      "argument2": {
-        "type": "minecraft:shifted_noise",
-        "noise": "minecraft:gravel",
-        "shift_x": "minecraft:shift_x",
-        "shift_y": 0.0,
-        "shift_z": "minecraft:shift_z",
-        "xz_scale": 4.0,
-        "y_scale": 0.0
-      }
+      "type": "minecraft:shifted_noise",
+      "noise": "minecraft:gravel",
+      "shift_x": "minecraft:shift_x",
+      "shift_y": 0.0,
+      "shift_z": "minecraft:shift_z",
+      "xz_scale": 4.0,
+      "y_scale": 0.0
     }
   }
 }
