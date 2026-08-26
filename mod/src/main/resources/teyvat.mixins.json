@@ -14,16 +14,20 @@
     "common.PlayerEntityPickupMixin"
   ],
   "client": [
+    "client.PlayerListEntryMixin",
+    "client.AbstractClientPlayerEntityMixin",
+    "client.ChatHudMixin",
+    "client.ChatScreenMixin",
+    "client.ClientPlayerEntityMixin",
+    "client.AdvancementToastMixin",
+    "client.RecipeToastMixin",
+    "client.InputMixin",
+    "client.MinecraftClientMixin",
     "client.InGameHudMixin",
     "client.GameRendererMixin",
     "client.GameRendererAccessor",
     "client.CameraMixin",
-    "client.CameraAccessor",
-    "client.HeldItemRendererMixin",
-    "client.HeldItemFeatureRendererMixin",
-    "client.PlayerEntityModelMixin",
-    "client.PlayerHurtMixin",
-    "client.MouseMixin"
+    "client.CameraAccessor"
   ],
   "injectors": {
     "defaultRequire": 1
