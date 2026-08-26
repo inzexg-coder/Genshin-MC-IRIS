@@ -108,7 +108,7 @@ public final class TeyvatDragonRidge {
 
             // Valley: -0.15 на тропе, Gaussian衰减
             double sigmaV = 5.0;
-            double valley = -0.15 * Math.exp(-(dist * dist) / (2.0 * sigmaV * sigmaV));
+            double valley = 0.0; // ровная тропа без ямы
 
             // Hill: подъём 8→45, плоская вершина 45→65, спуск 65→110
             double hill = 0.0;
