@@ -510,6 +510,7 @@ public final class TeyvatSpawn {
                     if (surface.isOf(Blocks.DIRT_PATH) || surface.isOf(Blocks.COARSE_DIRT)) {
                         if (world.getFluidState(top.up()).isEmpty()) {
                             trailHead = top;
+                            LOGGER.info("TRAILHEAD: x={}, z={}, y={}, surface={}", x, z, topY, surface.getBlock().getName().getString());
                             LOGGER.info("TRAILHEAD найден: x={}, z={}", x, z);
                             break;
                         }
