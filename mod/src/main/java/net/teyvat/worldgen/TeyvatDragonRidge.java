@@ -147,19 +147,23 @@ public final class TeyvatDragonRidge {
 
     /**
      * Профиль холма по расстоянию от тропы.
-     * Чистая Gaussian-кривая — C∞-гладкая (все производные непрерывны).
-     * Вершина = 1.0 на dist=85, затухает экспоненциально.
-     * sigma=40 даёт плавные склоны длиной ~80 блоков.
+     * Raised cosine: C∞-гладкая, f'=0 на обоих концах (тропа и дальний край).
+     * Вершина = 1.0 на dist=85, затухает до 0 на dist=0 и dist=170.
+     * Максимально плавный подъём без резких стыков.
      */
     private static final double HILL_PEAK_DIST = 85.0;
-    private static final double HILL_SIGMA = 35.0;
+    private static final double HILL_END_DIST = 170.0;
     private static final double HILL_AMPLITUDE = 2.0;
-    private static final double HILL_GAUSSIAN_PEAK = 1.0; // exp(0) = 1.0
 
     private static double smoothHillProfile(double dist) {
-        double delta = dist - HILL_PEAK_DIST;
-        double exponent = -(delta * delta) / (2.0 * HILL_SIGMA * HILL_SIGMA);
-        return HILL_AMPLITUDE * Math.exp(exponent);
+        if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;
+        // Подъём: raised cosine от 0 до PEAK_DIST
+        double riseT = dist / HILL_PEAK_DIST;
+        double rise = 0.5 - 0.5 * Math.cos(riseT * Math.PI);
+        // Спуск: raised cosine от PEAK_DIST до END_DIST
+        double fallT = (dist - HILL_PEAK_DIST) / (HILL_END_DIST - HILL_PEAK_DIST);
+        double fall = 0.5 + 0.5 * Math.cos(fallT * Math.PI);
+        return HILL_AMPLITUDE * Math.min(rise, fall);
     }
 
     private static double trailDistance(double x, double z) {
