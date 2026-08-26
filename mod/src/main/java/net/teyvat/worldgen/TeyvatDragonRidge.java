@@ -103,28 +103,29 @@ public final class TeyvatDragonRidge {
             double envelope = inner * outer * land;
             if (envelope <= 0.001) return 0.0;
 
-            // Профиль: плавная долина + холмы, без вертикальных стен
+            // Профиль: один плавный Gaussian + cosine valley, непрерывные производные
             double dist = trailDistance(x, z);
-            double profile;
-            if (dist <= TRAIL_HALF_WIDTH) {
-                // Центр тропы:.cosine-яма
-                double t = dist / TRAIL_HALF_WIDTH;
-                profile = -0.12 * (0.5 + 0.5 * Math.cos(t * Math.PI));
-            } else if (dist < 80.0) {
-                // Плавный подъём от тропы к вершине холма (45 блоков)
-                profile = smoothstep(TRAIL_HALF_WIDTH, 80.0, dist);
-            } else if (dist < 160.0) {
-                // Плавный спуск за холмом (45 блоков)
-                profile = 1.0 - smoothstep(80.0, 160.0, dist);
-            } else {
-                profile = 0.0;
+
+            // Valley: -0.12 на тропе, экспоненциально сходящая на 0
+            // Gaussian: -0.12 * exp(-dist²/(2*σ_v²))
+            double sigmaV = 4.0;
+            double valley = -0.12 * Math.exp(-(dist * dist) / (2.0 * sigmaV * sigmaV));
+
+            // Hill: raised cosine, 0 → 1 → 0
+            double hillStart = 8.0;
+            double hillPeak = 80.0;
+            double hillEnd = 160.0;
+            double hill = 0.0;
+            if (dist >= hillStart && dist < hillPeak) {
+                double t = (dist - hillStart) / (hillPeak - hillStart);
+                hill = 0.5 - 0.5 * Math.cos(t * Math.PI);
+            } else if (dist >= hillPeak && dist < hillEnd) {
+                double t = (dist - hillPeak) / (hillEnd - hillPeak);
+                hill = 0.5 + 0.5 * Math.cos(t * Math.PI);
             }
 
-            // Ограничиваем скорость изменения: max 2 блока на блок расстояния
-            // profile * 1.5 = max density, 1.5 * 11.2 = max 16.8 blocks height per unit
-            // gradient = d(profile)/d(dist) * 1.5 * 11.2
-            // max gradient of smoothstep ≈ 1.5/(to-from), so 1.5/80 ≈ 0.019
-            // 0.019 * 1.5 * 11.2 = 0.32 blocks/block — very gentle
+            // Valley и hill не перекрываются (valley ≈ 0 на dist=8)
+            double profile = valley + hill;
 
             return envelope * profile;
         }
