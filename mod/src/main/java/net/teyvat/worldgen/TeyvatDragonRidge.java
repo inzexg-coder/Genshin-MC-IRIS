@@ -103,28 +103,32 @@ public final class TeyvatDragonRidge {
             double envelope = inner * outer * land;
             if (envelope <= 0.001) return 0.0;
 
-            // Профиль: один плавный Gaussian + cosine valley, непрерывные производные
+            // Профиль: valley + пологие холмы с плоской вершиной
             double dist = trailDistance(x, z);
 
-            // Valley: -0.12 на тропе, экспоненциально сходящая на 0
-            // Gaussian: -0.12 * exp(-dist²/(2*σ_v²))
-            double sigmaV = 4.0;
-            double valley = -0.12 * Math.exp(-(dist * dist) / (2.0 * sigmaV * sigmaV));
+            // Valley: -0.15 на тропе, Gaussian衰减
+            double sigmaV = 5.0;
+            double valley = -0.15 * Math.exp(-(dist * dist) / (2.0 * sigmaV * sigmaV));
 
-            // Hill: raised cosine, 0 → 1 → 0
-            double hillStart = 8.0;
-            double hillPeak = 80.0;
-            double hillEnd = 160.0;
+            // Hill: подъём 8→45, плоская вершина 45→65, спуск 65→110
             double hill = 0.0;
-            if (dist >= hillStart && dist < hillPeak) {
-                double t = (dist - hillStart) / (hillPeak - hillStart);
+            double riseEnd = 45.0;
+            double flatEnd = 65.0;
+            double fallEnd = 110.0;
+
+            if (dist >= 8.0 && dist < riseEnd) {
+                // Плавный подъём: raised cosine
+                double t = (dist - 8.0) / (riseEnd - 8.0);
                 hill = 0.5 - 0.5 * Math.cos(t * Math.PI);
-            } else if (dist >= hillPeak && dist < hillEnd) {
-                double t = (dist - hillPeak) / (hillEnd - hillPeak);
+            } else if (dist >= riseEnd && dist < flatEnd) {
+                // Плоская вершина
+                hill = 1.0;
+            } else if (dist >= flatEnd && dist < fallEnd) {
+                // Плавный спуск: raised cosine
+                double t = (dist - flatEnd) / (fallEnd - flatEnd);
                 hill = 0.5 + 0.5 * Math.cos(t * Math.PI);
             }
 
-            // Valley и hill не перекрываются (valley ≈ 0 на dist=8)
             double profile = valley + hill;
 
             return envelope * profile;

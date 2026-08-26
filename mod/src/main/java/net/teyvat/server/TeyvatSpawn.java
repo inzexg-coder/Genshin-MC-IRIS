@@ -581,12 +581,37 @@ public final class TeyvatSpawn {
         int y = center.getY();
         int z = center.getZ();
 
-        // Очищаем пространство над точкой
+        // Очищаем пространство 5x5x5 над и вокруг точки
         for (int dx = -3; dx <= 3; dx++) {
             for (int dz = -3; dz <= 3; dz++) {
-                for (int dy = 1; dy <= 4; dy++) {
+                for (int dy = 1; dy <= 5; dy++) {
                     world.setBlockState(new BlockPos(x + dx, y + dy, z + dz), Blocks.AIR.getDefaultState());
                 }
+            }
+        }
+
+        // Расчищаем траву вокруг на 5x5, чтобы площадка была видна
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
+                int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x + dx, z + dz);
+                BlockPos top = new BlockPos(x + dx, topY, z + dz);
+                if (world.getBlockState(top).getBlock() == Blocks.GRASS_BLOCK) {
+                    world.setBlockState(top, Blocks.DIRT_PATH.getDefaultState());
+                }
+            }
+        }
+
+        // Строим дорожку от тропы к точке телепортации (по X)
+        int trailX = TeyvatDragonRidge.TRAILHEAD_X;
+        int trailZ = TeyvatDragonRidge.TRAILHEAD_Z;
+        int dir = Integer.compare(x, trailX);
+        for (int cx = x; cx != trailX; cx += dir) {
+            int tz = z;
+            int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, tz);
+            BlockPos top = new BlockPos(cx, topY, tz);
+            var block = world.getBlockState(top).getBlock();
+            if (block == Blocks.GRASS_BLOCK || block == Blocks.TALL_GRASS) {
+                world.setBlockState(top, Blocks.DIRT_PATH.getDefaultState());
             }
         }
 
