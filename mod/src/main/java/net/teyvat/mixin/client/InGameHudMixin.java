@@ -1,6 +1,5 @@
 package net.teyvat.mixin.client;
 
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.hud.InGameHud;
 import net.minecraft.client.render.RenderTickCounter;
@@ -16,16 +15,13 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/** Весь ванильный HUD скрыт навсегда: на экране только мир, диалоговый оверлей
+ *  и уведомления квестов. Работает с любым рендерером (включая Sodium). */
 @Mixin(InGameHud.class)
 public abstract class InGameHudMixin {
-    private static final boolean HAS_SODIUM = FabricLoader.getInstance().isModLoaded("sodium");
-
     @Inject(method = "render", at = @At("HEAD"), cancellable = true)
     private void teyvat$hideHud(DrawContext context, RenderTickCounter tickCounter, CallbackInfo ci) {
-        // Если Sodium загружен — НЕ отменяем vanilla HUD (иначе зависает рендер).
-        if (!HAS_SODIUM) {
-            ci.cancel();
-        }
+        ci.cancel();
         DialogueOverlay.render(context);
         HealthOverlay.render(context, tickCounter);
         StaminaOverlay.render(context);
