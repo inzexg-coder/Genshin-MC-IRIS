@@ -496,50 +496,54 @@ public final class TeyvatSpawn {
         int centerX = TeyvatDragonRidge.TRAILHEAD_X;
         int centerZ = TeyvatDragonRidge.TRAILHEAD_Z;
 
-        // Используем TRAILHEAD напрямую — не ищем dirt_path
         int trailY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, centerX, centerZ);
         if (trailY < world.getSeaLevel()) {
             trailY = world.getSeaLevel() + 1;
         }
-        BlockPos trailCenter = new BlockPos(centerX, trailY, centerZ);
 
-        // Определяем перпендикуляр к тропе: тропа идёт на юг → перпендикуляр = по X
-        // Ищем по обе стороны: +X и -X
-        for (int sign : new int[]{1, -1}) {
-            int tx = centerX + sign * TELEPORT_OFFSET_FROM_TRAIL;
-            int tz = centerZ;
+        // Ищем лучшее место в радиусе 5-30 блоков по X от тропы
+        BlockPos bestCandidate = null;
+        int bestDiff = Integer.MAX_VALUE;
 
-            // Загружаем чанк
-            world.getChunk(tx >> 4, tz >> 4);
+        for (int offset = 5; offset <= 30; offset++) {
+            for (int sign : new int[]{1, -1}) {
+                int tx = centerX + sign * offset;
+                int tz = centerZ;
 
-            int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, tx, tz);
-            if (topY < world.getSeaLevel()) {
-                LOGGER.info("Телепорт пропуск (под водой): x={}, z={}", tx, tz);
-                continue;
-            }
+                world.getChunk(tx >> 4, tz >> 4);
 
-            BlockPos candidate = new BlockPos(tx, topY, tz);
+                int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, tx, tz);
+                if (topY < world.getSeaLevel()) continue;
 
-            // Проверяем ровность 5x5
-            boolean flat = true;
-            for (int sdx = -2; sdx <= 2 && flat; sdx++) {
-                for (int sdz = -2; sdz <= 2 && flat; sdz++) {
-                    int ny = world.getTopY(Heightmap.Type.MOTION_BLOCKING, tx + sdx, tz + sdz);
-                    if (Math.abs(ny - topY) > 3) flat = false;
+                BlockPos candidate = new BlockPos(tx, topY, tz);
+                if (!world.getFluidState(candidate).isEmpty()) continue;
+
+                // Проверяем ровность 3x3, допуск 6 блоков
+                int minY = Integer.MAX_VALUE;
+                int maxY = Integer.MIN_VALUE;
+                boolean flat = true;
+                for (int sdx = -1; sdx <= 1 && flat; sdx++) {
+                    for (int sdz = -1; sdz <= 1 && flat; sdz++) {
+                        int ny = world.getTopY(Heightmap.Type.MOTION_BLOCKING, tx + sdx, tz + sdz);
+                        minY = Math.min(minY, ny);
+                        maxY = Math.max(maxY, ny);
+                        if (maxY - minY > 6) flat = false;
+                    }
+                }
+                if (!flat) continue;
+
+                // Выбираем место ближе к тропе и ровнее
+                int diff = maxY - minY + offset;
+                if (diff < bestDiff) {
+                    bestDiff = diff;
+                    bestCandidate = candidate;
                 }
             }
-            if (!flat) {
-                LOGGER.info("Телепорт пропуск (неровно): x={}, z={}", tx, tz);
-                continue;
-            }
+        }
 
-            if (!world.getFluidState(candidate).isEmpty()) {
-                LOGGER.info("Телепорт пропуск (жидкость): x={}, z={}", tx, tz);
-                continue;
-            }
-
-            LOGGER.info(">>> ТОЧКА ТЕЛЕПОРТАЦИИ: x={}, z={}, y={}", tx, tz, topY);
-            return candidate;
+        if (bestCandidate != null) {
+            LOGGER.info(">>> ТОЧКА ТЕЛЕПОРТАЦИИ: x={}, y={}, z={}", bestCandidate.getX(), bestCandidate.getY(), bestCandidate.getZ());
+            return bestCandidate;
         }
 
         // Фолбэк: просто offset 20 от TRAILHEAD

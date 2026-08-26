@@ -168,24 +168,40 @@ public final class TeyvatDragonRidge {
     }
 
     private static double trailDistance(double x, double z) {
+        int cellX = spatialCellCoordinate(x);
+        int cellZ = spatialCellCoordinate(z);
         double bestSquared = Double.MAX_VALUE;
-        for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
-            bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
-                    TRAIL_CURVE[i], TRAIL_CURVE[i + 1]));
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                long key = spatialCellKey((cellX + dx) * SPATIAL_CELL_SIZE, (cellZ + dz) * SPATIAL_CELL_SIZE);
+                int[] segments = TRAIL_SEGMENTS_BY_CELL.get(key);
+                if (segments != null) {
+                    for (int idx : segments) {
+                        bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
+                                TRAIL_CURVE[idx], TRAIL_CURVE[idx + 1]));
+                    }
+                }
+            }
+        }
+        if (bestSquared == Double.MAX_VALUE) {
+            return 500.0;
         }
         return Math.sqrt(bestSquared);
     }
 
     public static boolean chunkMayContainTrail(int minX, int minZ, int maxX, int maxZ) {
-        double margin = TRAIL_HALF_WIDTH + 1.0;
-        for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
-            double[] start = TRAIL_CURVE[i];
-            double[] end = TRAIL_CURVE[i + 1];
-            if (Math.max(start[0], end[0]) + margin >= minX
-                    && Math.min(start[0], end[0]) - margin <= maxX
-                    && Math.max(start[1], end[1]) + margin >= minZ
-                    && Math.min(start[1], end[1]) - margin <= maxZ) {
-                return true;
+        double margin = TRAIL_HALF_WIDTH + 2.0;
+        int cellMinX = spatialCellCoordinate(minX - margin);
+        int cellMaxX = spatialCellCoordinate(maxX + margin);
+        int cellMinZ = spatialCellCoordinate(minZ - margin);
+        int cellMaxZ = spatialCellCoordinate(maxZ + margin);
+        for (int cx = cellMinX; cx <= cellMaxX; cx++) {
+            for (int cz = cellMinZ; cz <= cellMaxZ; cz++) {
+                long key = spatialCellKey(cx * SPATIAL_CELL_SIZE, cz * SPATIAL_CELL_SIZE);
+                int[] segments = TRAIL_SEGMENTS_BY_CELL.get(key);
+                if (segments != null && segments.length > 0) {
+                    return true;
+                }
             }
         }
         return false;
