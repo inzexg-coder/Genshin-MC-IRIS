@@ -47,13 +47,15 @@ public final class TeyvatSpawn {
     private TeyvatSpawn() {
     }
 
-    /** Вызывается на старте сервера: найти пляжный спавн и установить его мировым. */
+    /** Вызывается на старте сервера: установить бордер. Спавн ищется лениво при первом входе. */
     public static void prepare(MinecraftServer server) {
         beachSpawn = null;
         beachYaw = 0f;
         ServerWorld world = server.getOverworld();
         setupWorldBorder(world);
-        beachSpawn(world);
+        // НЕ ищем спавн здесь — findShoreSpawn/findBeachSpawn форсируют
+        // генерацию тысяч чанков и вешают "Загрузку территории".
+        // Спавн будет найден лениво при welcome() первого игрока.
     }
 
     /**
@@ -104,16 +106,13 @@ public final class TeyvatSpawn {
             }
             pos = new BlockPos(cfg.fixed_x, y, cfg.fixed_z);
         } else {
-            BlockPos anchor = new BlockPos(cfg.anchor_x, 0, cfg.anchor_z);
-            BlockPos found = findShoreSpawn(world, anchor);
-            if (found == null) {
-                found = findBeachSpawn(world, anchor, Math.max(16, cfg.search_radius));
-            }
-            if (found == null) {
-                BlockPos worldSpawn = world.getSpawnPoint().globalPos().pos();
-                found = findBeachSpawn(world, worldSpawn, Math.max(16, cfg.search_radius));
-            }
-            pos = found != null ? found : world.getSpawnPoint().globalPos().pos();
+            // Ленивый спавн: используем фиксированную точку на пляже (центр полукруга).
+            // findShoreSpawn/findBeachSpawn форсируют генерацию тысяч чанков
+            // и вызывают бесконечную "Загрузку территории".
+            int spawnX = cfg.anchor_x != 0 ? cfg.anchor_x : 0;
+            int spawnZ = cfg.anchor_z != 0 ? cfg.anchor_z : TeyvatOceanEdge.BEACH_CENTER_Z;
+            int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, spawnX, spawnZ);
+            pos = new BlockPos(spawnX, y, spawnZ);
         }
 
         // Спавн-точка = на пляже у моря
