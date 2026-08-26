@@ -92,11 +92,12 @@ public final class TeyvatDragonRidge {
             double radius = Math.sqrt(x * x + dz * dz);
             double angle = Math.atan2(x, dz);
 
-            // Огибающая: плавный подъём от пляжа, спуск за кольцом
+            // Огибающая кольца: плавный подъём от пляжа, спуск за кольцом
             double warpedRadius = radius
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-            double inner = smoothstep(20.0, 80.0, warpedRadius);
+            // Плавный подъём от края пляжа (inner) и затухание за пределами кольца (outer)
+            double inner = smoothstep(-20.0, 120.0, warpedRadius);
             double outer = 1.0 - smoothstep(OUTER_RADIUS - 85, OUTER_RADIUS + 85, warpedRadius);
             double land = smoothstep(5.0, 100.0, dz);
             double envelope = inner * outer * land;
@@ -105,13 +106,10 @@ public final class TeyvatDragonRidge {
             // Расстояние от центра тропы (одинаково для левой и правой стороны)
             double dist = trailDistance(x, z);
 
-            // Максимально плавный профиль холмов:
-            // Вершина на dist=85, спуск до dist=175.
-            // Raised cosine — все производные = 0 на стыках.
-            // Начало подъёма с dist=18 с мягкой quadratic ease-in.
-            double profile = smoothHillProfile(dist);
+            // Gaussian-профиль холмов (C∞-гладкий)
+            double hill = smoothHillProfile(dist);
 
-            return envelope * profile;
+            return envelope * hill;
         }
 
         @Override public double minValue() { return -1.5; }
