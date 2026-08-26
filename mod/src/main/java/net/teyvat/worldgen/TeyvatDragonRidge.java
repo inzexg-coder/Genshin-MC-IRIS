@@ -88,6 +88,8 @@ public final class TeyvatDragonRidge {
         public double sample(NoisePos pos) {
             double x = pos.blockX();
             double z = pos.blockZ();
+            // Быстрый выход: за пределами кольца — 0 без вычислений
+            if (x < -240 || x > 240 || z < -1600 || z > -1040) return 0.0;
             double dz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
             double radius = Math.sqrt(x * x + dz * dz);
             double angle = Math.atan2(x, dz);
@@ -175,10 +177,30 @@ public final class TeyvatDragonRidge {
     }
 
     private static double trailDistance(double x, double z) {
+        long key = spatialCellKey(x, z);
+        int[] segments = TRAIL_SEGMENTS_BY_CELL.get(key);
         double bestSquared = Double.MAX_VALUE;
-        for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
-            bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
-                    TRAIL_CURVE[i], TRAIL_CURVE[i + 1]));
+        if (segments != null) {
+            for (int idx : segments) {
+                bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
+                        TRAIL_CURVE[idx], TRAIL_CURVE[idx + 1]));
+            }
+        } else {
+            // Фолбэк: проверяем соседние ячейки
+            int cx = spatialCellCoordinate(x);
+            int cz = spatialCellCoordinate(z);
+            for (int ddx = -1; ddx <= 1; ddx++) {
+                for (int ddz = -1; ddz <= 1; ddz++) {
+                    long nk = ((long)(cx + ddx) << 32) | ((cz + ddz) & 0xFFFFFFFFL);
+                    int[] ns = TRAIL_SEGMENTS_BY_CELL.get(nk);
+                    if (ns != null) {
+                        for (int idx : ns) {
+                            bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
+                                    TRAIL_CURVE[idx], TRAIL_CURVE[idx + 1]));
+                        }
+                    }
+                }
+            }
         }
         return Math.sqrt(bestSquared);
     }
