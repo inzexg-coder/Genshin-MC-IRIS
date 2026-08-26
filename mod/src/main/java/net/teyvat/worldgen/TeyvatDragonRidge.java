@@ -157,7 +157,7 @@ public final class TeyvatDragonRidge {
         final double EASE_IN_END = 18.0;
         final double PEAK_DIST = 85.0;
         final double FALL_END = 175.0;
-        final double AMPLITUDE = 0.9;
+        final double AMPLITUDE = 1.2;
 
         if (dist <= 0.0 || dist >= FALL_END) return 0.0;
 
