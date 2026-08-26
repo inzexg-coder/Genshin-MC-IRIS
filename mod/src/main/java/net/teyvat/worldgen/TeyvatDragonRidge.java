@@ -98,10 +98,15 @@ public final class TeyvatDragonRidge {
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
             double outer = 1.0 - smoothstep(OUTER_RADIUS - 85, OUTER_RADIUS + 85, warpedRadius);
 
-            // Ворота: холмы строго в биоме травы, НЕ на пляже
-            // dz = расстояние к северу от центра пляжа.
-            // Пляж заканчивается примерно на dz ≈ 30-40.
-            double landGate = dz > 65.0 ? 1.0 : smoothstep(30.0, 65.0, dz);
+            // Ворота: блокируем холмы ТОЛЬКО в зоне пляжа (dz 10-45)
+            // В море (dz < 10) и в равнинах (dz > 45) — холмы есть
+            double beachBlock = 1.0;
+            if (dz > 10.0 && dz < 50.0) {
+                double fadeIn = smoothstep(10.0, 22.0, dz);
+                double fadeOut = 1.0 - smoothstep(38.0, 50.0, dz);
+                beachBlock = Math.min(fadeIn, fadeOut);
+            }
+            double landGate = beachBlock;
 
             // Расстояние от центра тропы
             double dist = trailDistance(x, z);
@@ -151,11 +156,11 @@ public final class TeyvatDragonRidge {
      * Пик: smoothstep-crest от dist=70 до dist=100 (плавный переход).
      * Спуск: линейный от dist=100 до dist=170.
      */
-    private static final double HILL_PEAK_DIST = 60.0;
-    private static final double HILL_END_DIST = 130.0;
+    private static final double HILL_PEAK_DIST = 50.0;
+    private static final double HILL_END_DIST = 250.0;
     private static final double HILL_AMPLITUDE = 2.0;
-    private static final double CREST_START = 48.0;
-    private static final double CREST_END = 72.0;
+    private static final double CREST_START = 38.0;
+    private static final double CREST_END = 62.0;
 
     private static double linearHillProfile(double dist) {
         if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;
