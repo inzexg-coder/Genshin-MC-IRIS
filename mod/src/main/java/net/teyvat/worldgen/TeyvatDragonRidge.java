@@ -98,9 +98,9 @@ public final class TeyvatDragonRidge {
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
             double outer = 1.0 - smoothstep(OUTER_RADIUS - 85, OUTER_RADIUS + 85, warpedRadius);
 
-            // Ворота: 0 на пляже, 1 везде дальше (не модулируют высоту!)
-            double beachGate = smoothstep(0.0, 20.0, warpedRadius);
-            double landGate = dz > 10.0 ? 1.0 : smoothstep(-10.0, 10.0, dz);
+            // Ворота: холмы НЕ касаются пляжа
+            double beachGate = smoothstep(15.0, 60.0, warpedRadius);
+            double landGate = dz > 30.0 ? 1.0 : smoothstep(5.0, 30.0, dz);
 
             // Расстояние от центра тропы
             double dist = trailDistance(x, z);
@@ -145,19 +145,32 @@ public final class TeyvatDragonRidge {
     }
 
     /**
-     * Линейный профиль холма: постоянный уклон от тропы к вершине.
-     * Вершина = 1.0 на dist=85, линейный спуск до 0 на dist=170.
-     * Никаких ускорений — блок за блоком одинаковый подъём.
+     * Линейный профиль холма с плавным пиком.
+     * Подъём: линейный от dist=0 до dist=70 (постоянный уклон).
+     * Пик: smoothstep-crest от dist=70 до dist=100 (плавный переход).
+     * Спуск: линейный от dist=100 до dist=170.
      */
     private static final double HILL_PEAK_DIST = 85.0;
     private static final double HILL_END_DIST = 170.0;
     private static final double HILL_AMPLITUDE = 2.0;
+    private static final double CREST_START = 70.0;
+    private static final double CREST_END = 100.0;
 
     private static double linearHillProfile(double dist) {
         if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;
-        if (dist <= HILL_PEAK_DIST) {
+        if (dist <= CREST_START) {
+            // Линейный подъём: постоянный уклон от тропы
             return HILL_AMPLITUDE * (dist / HILL_PEAK_DIST);
+        } else if (dist <= CREST_END) {
+            // Плавный пик: smoothstep-crest соединяет подъём и спуск
+            double t = (dist - CREST_START) / (CREST_END - CREST_START);
+            double fromRise = HILL_AMPLITUDE * (dist / HILL_PEAK_DIST);
+            double toFall = HILL_AMPLITUDE * (1.0 - (dist - HILL_PEAK_DIST) / (HILL_END_DIST - HILL_PEAK_DIST));
+            // Smoothstep interpolation between the two linear segments
+            double s = t * t * (3.0 - 2.0 * t);
+            return fromRise * (1.0 - s) + toFall * s;
         } else {
+            // Линейный спуск
             return HILL_AMPLITUDE * (1.0 - (dist - HILL_PEAK_DIST) / (HILL_END_DIST - HILL_PEAK_DIST));
         }
     }
