@@ -101,7 +101,7 @@ public final class TeyvatDragonRidge {
             // Ворота: холмы строго в биоме травы, НЕ на пляже
             // dz = расстояние к северу от центра пляжа.
             // Пляж заканчивается примерно на dz ≈ 30-40.
-            double landGate = dz > 45.0 ? 1.0 : smoothstep(15.0, 45.0, dz);
+            double landGate = dz > 65.0 ? 1.0 : smoothstep(30.0, 65.0, dz);
 
             // Расстояние от центра тропы
             double dist = trailDistance(x, z);
@@ -151,11 +151,11 @@ public final class TeyvatDragonRidge {
      * Пик: smoothstep-crest от dist=70 до dist=100 (плавный переход).
      * Спуск: линейный от dist=100 до dist=170.
      */
-    private static final double HILL_PEAK_DIST = 85.0;
-    private static final double HILL_END_DIST = 170.0;
+    private static final double HILL_PEAK_DIST = 60.0;
+    private static final double HILL_END_DIST = 130.0;
     private static final double HILL_AMPLITUDE = 2.0;
-    private static final double CREST_START = 70.0;
-    private static final double CREST_END = 100.0;
+    private static final double CREST_START = 48.0;
+    private static final double CREST_END = 72.0;
 
     private static double linearHillProfile(double dist) {
         if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;
