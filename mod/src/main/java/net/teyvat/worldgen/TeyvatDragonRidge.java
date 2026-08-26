@@ -168,10 +168,23 @@ public final class TeyvatDragonRidge {
     }
 
     private static double trailDistance(double x, double z) {
+        int cellX = spatialCellCoordinate(x);
+        int cellZ = spatialCellCoordinate(z);
         double bestSquared = Double.MAX_VALUE;
-        for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
-            bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
-                    TRAIL_CURVE[i], TRAIL_CURVE[i + 1]));
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                long key = spatialCellKey((cellX + dx) * SPATIAL_CELL_SIZE, (cellZ + dz) * SPATIAL_CELL_SIZE);
+                int[] segments = TRAIL_SEGMENTS_BY_CELL.get(key);
+                if (segments != null) {
+                    for (int idx : segments) {
+                        bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
+                                TRAIL_CURVE[idx], TRAIL_CURVE[idx + 1]));
+                    }
+                }
+            }
+        }
+        if (bestSquared == Double.MAX_VALUE) {
+            return 500.0;
         }
         return Math.sqrt(bestSquared);
     }
