@@ -129,7 +129,7 @@ public final class TeyvatDragonRidge {
                 hill = 0.5 + 0.5 * Math.cos(t * Math.PI);
             }
 
-            double profile = valley + hill;
+            double profile = valley + hill * 1.3;
 
             return envelope * profile;
         }
