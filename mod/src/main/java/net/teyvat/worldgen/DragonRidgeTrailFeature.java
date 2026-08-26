@@ -36,8 +36,6 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         var world = context.getWorld();
         boolean changed = false;
 
-        // Проход 1: заменяем траву на dirt_path и собираем минимальную высоту
-        int minY = Integer.MAX_VALUE;
         for (int x = chunkPos.getStartX(); x <= chunkPos.getEndX(); x++) {
             for (int z = chunkPos.getStartZ(); z <= chunkPos.getEndZ(); z++) {
                 double fade = TeyvatDragonRidge.trailFadeFactor(x, z);
@@ -49,33 +47,7 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
 
                 if (block == Blocks.GRASS_BLOCK) {
                     setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
-                    if (surfaceY < minY) minY = surfaceY;
                     changed = true;
-                }
-            }
-        }
-
-        if (!changed || minY == Integer.MAX_VALUE) return false;
-
-        // Проход 2: выравниваем все блоки тропы до minY
-        for (int x = chunkPos.getStartX(); x <= chunkPos.getEndX(); x++) {
-            for (int z = chunkPos.getStartZ(); z <= chunkPos.getEndZ(); z++) {
-                double fade = TeyvatDragonRidge.trailFadeFactor(x, z);
-                if (fade <= 0.0) continue;
-
-                int surfaceY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
-                if (surfaceY > minY) {
-                    // Убираем лишние блоки сверху
-                    for (int y = surfaceY; y > minY; y--) {
-                        setBlockState(world, new BlockPos(x, y, z), Blocks.AIR.getDefaultState());
-                    }
-                    // Ставим dirt_path на нужном уровне
-                    setBlockState(world, new BlockPos(x, minY, z), Blocks.DIRT_PATH.getDefaultState());
-                } else if (surfaceY < minY) {
-                    // Добавляем dirt_path до нужного уровня
-                    for (int y = surfaceY; y < minY; y++) {
-                        setBlockState(world, new BlockPos(x, y, z), Blocks.DIRT_PATH.getDefaultState());
-                    }
                 }
             }
         }
