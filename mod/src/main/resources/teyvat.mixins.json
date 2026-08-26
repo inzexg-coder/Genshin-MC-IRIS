@@ -23,11 +23,14 @@
     "client.RecipeToastMixin",
     "client.InputMixin",
     "client.MinecraftClientMixin",
+    "client.InGameHudMixin",
+    "client.GameRendererMixin",
+    "client.GameRendererAccessor",
+    "client.CameraMixin",
+    "client.CameraAccessor",
     "client.HeldItemRendererMixin",
     "client.HeldItemFeatureRendererMixin",
-    "client.PlayerEntityModelMixin",
-    "client.PlayerHurtMixin",
-    "client.MouseMixin"
+    "client.PlayerEntityModelMixin"
   ],
   "injectors": {
     "defaultRequire": 1
