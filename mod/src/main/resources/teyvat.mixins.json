@@ -31,7 +31,8 @@
     "client.HeldItemRendererMixin",
     "client.HeldItemFeatureRendererMixin",
     "client.PlayerEntityModelMixin",
-    "client.PlayerHurtMixin"
+    "client.PlayerHurtMixin",
+    "client.MouseMixin"
   ],
   "injectors": {
     "defaultRequire": 1
