@@ -98,17 +98,18 @@ public final class TeyvatDragonRidge {
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
             double outer = 1.0 - smoothstep(OUTER_RADIUS - 85, OUTER_RADIUS + 85, warpedRadius);
 
-            // Ворота: холмы НЕ касаются пляжа
-            double beachGate = smoothstep(15.0, 60.0, warpedRadius);
-            double landGate = dz > 30.0 ? 1.0 : smoothstep(5.0, 30.0, dz);
+            // Ворота: холмы строго в биоме травы, НЕ на пляже
+            // dz = расстояние к северу от центра пляжа.
+            // Пляж заканчивается примерно на dz ≈ 30-40.
+            double landGate = dz > 45.0 ? 1.0 : smoothstep(15.0, 45.0, dz);
 
             // Расстояние от центра тропы
             double dist = trailDistance(x, z);
 
-            // Чистый линейный профиль — никаких множителей
+            // Чистый линейный профиль
             double hill = linearHillProfile(dist);
 
-            return beachGate * landGate * outer * hill;
+            return landGate * outer * hill;
         }
 
         @Override public double minValue() { return -1.5; }
