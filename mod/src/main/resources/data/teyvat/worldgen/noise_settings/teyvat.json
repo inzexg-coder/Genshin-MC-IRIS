@@ -19,7 +19,7 @@
   },
   "noise_router": {
     "barrier": 0.0,
-    "continents": 0.0,
+    "continents": "teyvat:teyvat_beach_height",
     "depth": 0.0,
     "erosion": 0.0,
     "final_density": "teyvat:teyvat_terrain",
