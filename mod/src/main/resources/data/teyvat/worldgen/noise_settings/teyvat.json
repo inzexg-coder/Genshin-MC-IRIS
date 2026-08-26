@@ -26,13 +26,23 @@
     "fluid_level_floodedness": 0.0,
     "fluid_level_spread": 0.0,
     "lava": 0.0,
+    "preliminary_surface_level": {
+      "type": "minecraft:find_top_surface",
+      "cell_height": 8,
+      "density": {
+        "type": "minecraft:add",
+        "argument1": -0.4,
+        "argument2": "teyvat:teyvat_terrain"
+      },
+      "lower_bound": -64,
+      "upper_bound": 128
+    },
     "ridges": 0.0,
     "temperature": "teyvat:teyvat_traveler_climate",
     "vegetation": 0.0,
     "vein_gap": 0.0,
     "vein_ridged": 0.0,
-    "vein_toggle": 0.0,
-    "preliminary_surface_level": 72.0
+    "vein_toggle": 0.0
   },
   "ore_veins_enabled": false,
   "sea_level": 64,
