@@ -97,9 +97,9 @@ public final class TeyvatDragonRidge {
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
             // Плавные переходы: 40 блоков на каждый过渡
-            double inner = smoothstep(INNER_RADIUS - 40, INNER_RADIUS + 15, warpedRadius);
-            double outer = 1.0 - smoothstep(OUTER_RADIUS - 50, OUTER_RADIUS + 10, warpedRadius);
-            double land = smoothstep(10.0, 60.0, dz);
+            double inner = smoothstep(65.0, 95.0, warpedRadius);
+            double outer = 1.0 - smoothstep(OUTER_RADIUS - 60, OUTER_RADIUS + 20, warpedRadius);
+            double land = smoothstep(5.0, 80.0, dz);
             double envelope = inner * outer * land;
             if (envelope <= 0.001) return 0.0;
 
