@@ -62,21 +62,31 @@ public final class TeyvatSpawn {
                 ? (cfg.fixed_z != 0 ? cfg.fixed_z : cfg.anchor_z != 0 ? cfg.anchor_z : TeyvatOceanEdge.BEACH_CENTER_Z)
                 : (cfg.anchor_z != 0 ? cfg.anchor_z : TeyvatOceanEdge.BEACH_CENTER_Z);
 
-        // Предвычисляем Y: загружаем ОДИН чанк для высоты (быстро).
+        // Загружаем чанк для высоты.
         world.getChunk(sx >> 4, sz >> 4);
         int sy = world.getTopY(Heightmap.Type.MOTION_BLOCKING, sx, sz);
 
-        // Устанавливаем мировой спавн ДО подключения игрока,
-        // чтобы клиент сразу загружал чанки вокруг нужной точки.
         BlockPos spawnPos = new BlockPos(sx, sy, sz);
         world.setSpawnPoint(WorldProperties.SpawnPoint.create(
                 world.getRegistryKey(), spawnPos, cfg.yaw >= 0f ? cfg.yaw : 0f, 0f));
 
-        // Кэшируем для welcome()
         beachSpawn = spawnPos;
         beachYaw = cfg.yaw >= 0f ? cfg.yaw : 0f;
 
-        LOGGER.info("Мировой спавн установлен: x={}, y={}, z={}", sx, sy, sz);
+        // Широкий радиус загрузки чанков: Iris/Sodium требуют больше чанков
+        // для закрытия экрана "Загрузка территории".
+        ChunkPos spawnChunk = new ChunkPos(sx >> 4, sz >> 4);
+        int radius = 5; // 11x11 = 121 чанков (~1936 блоков)
+        for (int dx = -radius; dx <= radius; dx++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                world.getChunkManager().addTicket(
+                        ChunkTicketType.PLAYER_LOADING,
+                        new ChunkPos(spawnChunk.x + dx, spawnChunk.z + dz),
+                        radius);
+            }
+        }
+        LOGGER.info("Мировой спавн: ({}, {}, {}), загружено {}x{} чанков",
+                sx, sy, sz, radius * 2 + 1, radius * 2 + 1);
     }
 
     /**
