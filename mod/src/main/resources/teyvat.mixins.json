@@ -30,7 +30,8 @@
     "client.CameraAccessor",
     "client.HeldItemRendererMixin",
     "client.HeldItemFeatureRendererMixin",
-    "client.PlayerEntityModelMixin"
+    "client.PlayerEntityModelMixin",
+    "client.PlayerHurtMixin"
   ],
   "injectors": {
     "defaultRequire": 1
