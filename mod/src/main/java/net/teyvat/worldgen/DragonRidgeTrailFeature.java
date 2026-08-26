@@ -45,16 +45,9 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                 BlockPos surface = new BlockPos(x, surfaceY, z);
                 var block = world.getBlockState(surface).getBlock();
 
-                // Заменяем ТОЛЬКО траву — убираем выступающие края
+                // Вся тропа — dirt_path, без краёв и выступов
                 if (block == Blocks.GRASS_BLOCK) {
-                    if (fade > 0.5) {
-                        setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
-                    } else if (fade > 0.0) {
-                        setBlockState(world, surface, Blocks.COARSE_DIRT.getDefaultState());
-                    } else {
-                        // Краевая зона: заменяем траву на под grass_block без блока травы
-                        setBlockState(world, surface, Blocks.DIRT.getDefaultState());
-                    }
+                    setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
                     changed = true;
                 }
             }

@@ -97,9 +97,9 @@ public final class TeyvatDragonRidge {
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
             // Плавные переходы: 40 блоков на каждый过渡
-            double inner = smoothstep(55.0, 110.0, warpedRadius);
-            double outer = 1.0 - smoothstep(OUTER_RADIUS - 75, OUTER_RADIUS + 45, warpedRadius);
-            double land = smoothstep(5.0, 80.0, dz);
+            double inner = smoothstep(40.0, 120.0, warpedRadius);
+            double outer = 1.0 - smoothstep(OUTER_RADIUS - 85, OUTER_RADIUS + 85, warpedRadius);
+            double land = smoothstep(5.0, 100.0, dz);
             double envelope = inner * outer * land;
             if (envelope <= 0.001) return 0.0;
 
@@ -110,12 +110,12 @@ public final class TeyvatDragonRidge {
                 // Центр тропы:.cosine-яма
                 double t = dist / TRAIL_HALF_WIDTH;
                 profile = -0.12 * (0.5 + 0.5 * Math.cos(t * Math.PI));
-            } else if (dist < 55.0) {
+            } else if (dist < 80.0) {
                 // Плавный подъём от тропы к вершине холма (45 блоков)
-                profile = smoothstep(TRAIL_HALF_WIDTH, 55.0, dist);
-            } else if (dist < 110.0) {
+                profile = smoothstep(TRAIL_HALF_WIDTH, 80.0, dist);
+            } else if (dist < 160.0) {
                 // Плавный спуск за холмом (45 блоков)
-                profile = 1.0 - smoothstep(55.0, 110.0, dist);
+                profile = 1.0 - smoothstep(80.0, 160.0, dist);
             } else {
                 profile = 0.0;
             }
@@ -123,8 +123,8 @@ public final class TeyvatDragonRidge {
             // Ограничиваем скорость изменения: max 2 блока на блок расстояния
             // profile * 1.5 = max density, 1.5 * 11.2 = max 16.8 blocks height per unit
             // gradient = d(profile)/d(dist) * 1.5 * 11.2
-            // max gradient of smoothstep ≈ 1.5/(to-from), so 1.5/45 ≈ 0.033
-            // 0.033 * 1.5 * 11.2 = 0.55 blocks/block — well under 2
+            // max gradient of smoothstep ≈ 1.5/(to-from), so 1.5/80 ≈ 0.019
+            // 0.019 * 1.5 * 11.2 = 0.32 blocks/block — very gentle
 
             return envelope * profile;
         }
