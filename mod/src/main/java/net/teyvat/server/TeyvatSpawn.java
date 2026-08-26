@@ -49,29 +49,34 @@ public final class TeyvatSpawn {
     private TeyvatSpawn() {
     }
 
-    /** Вызывается на старте сервера: установить бордер и загрузить чанки спавна. */
+    /** Вызывается на старте сервера: установить бордер и мировой спавн ДО подключения игроков. */
     public static void prepare(MinecraftServer server) {
         beachSpawn = null;
         beachYaw = 0f;
         ServerWorld world = server.getOverworld();
         setupWorldBorder(world);
-        // Принудительно загружаем чанки вокруг спавна, чтобы клиент
-        // не завис на "Загрузке территории" (чанки远未 были загружены).
+
         TeyvatConfig.Spawn cfg = TeyvatConfig.get().spawn;
         int sx = cfg.use_fixed_position ? cfg.fixed_x : 0;
         int sz = cfg.use_fixed_position
                 ? (cfg.fixed_z != 0 ? cfg.fixed_z : cfg.anchor_z != 0 ? cfg.anchor_z : TeyvatOceanEdge.BEACH_CENTER_Z)
                 : (cfg.anchor_z != 0 ? cfg.anchor_z : TeyvatOceanEdge.BEACH_CENTER_Z);
-        ChunkPos spawnChunk = new ChunkPos(sx >> 4, sz >> 4);
-        for (int dx = -3; dx <= 3; dx++) {
-            for (int dz = -3; dz <= 3; dz++) {
-                world.getChunkManager().addTicket(
-                        ChunkTicketType.PLAYER_LOADING,
-                        new ChunkPos(spawnChunk.x + dx, spawnChunk.z + dz),
-                        3);
-            }
-        }
-        LOGGER.info("Загружены чанки вокруг спавна ({}, {})", sx, sz);
+
+        // Предвычисляем Y: загружаем ОДИН чанк для высоты (быстро).
+        world.getChunk(sx >> 4, sz >> 4);
+        int sy = world.getTopY(Heightmap.Type.MOTION_BLOCKING, sx, sz);
+
+        // Устанавливаем мировой спавн ДО подключения игрока,
+        // чтобы клиент сразу загружал чанки вокруг нужной точки.
+        BlockPos spawnPos = new BlockPos(sx, sy, sz);
+        world.setSpawnPoint(WorldProperties.SpawnPoint.create(
+                world.getRegistryKey(), spawnPos, cfg.yaw >= 0f ? cfg.yaw : 0f, 0f));
+
+        // Кэшируем для welcome()
+        beachSpawn = spawnPos;
+        beachYaw = cfg.yaw >= 0f ? cfg.yaw : 0f;
+
+        LOGGER.info("Мировой спавн установлен: x={}, y={}, z={}", sx, sy, sz);
     }
 
     /**
@@ -85,28 +90,13 @@ public final class TeyvatSpawn {
         border.setSize(TeyvatOceanEdge.BORDER_SIZE);
     }
 
-    /** Вызывается при входе игрока: телепортировать новичка на пляж один раз. */
+    /** Вызывается при входе игрока: пометить как приветствованного.
+     *  Телепорт не нужен — мировой спавн уже установлен в prepare(). */
     public static void welcome(ServerPlayerEntity player, MinecraftServer server) {
         if (player.getCommandTags().contains(WELCOME_TAG)) {
             return;
         }
-        if (player.getRespawn() != null) {
-            return; // у игрока есть своя точка возрождения (кровать и т.п.)
-        }
-        if (!TeyvatConfig.get().teleport_new_players) {
-            return;
-        }
-        ServerWorld world = server.getOverworld();
-        BlockPos pos = beachSpawn(world);
-        float yaw = beachYaw;
-        server.execute(() -> {
-            int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, pos.getX(), pos.getZ());
-            double x = pos.getX() + 0.5;
-            double y = topY + 1.0;
-            double z = pos.getZ() + 0.5;
-            player.teleport(world, x, y, z, Set.of(), yaw, 0f, false);
-            player.addCommandTag(WELCOME_TAG);
-        });
+        player.addCommandTag(WELCOME_TAG);
     }
 
     private static BlockPos beachSpawn(ServerWorld world) {
