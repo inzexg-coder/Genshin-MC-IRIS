@@ -106,8 +106,16 @@ public final class TeyvatDragonRidge {
             // Расстояние от центра тропы (одинаково для левой и правой стороны)
             double dist = trailDistance(x, z);
 
-            // Gaussian-профиль холмов (C∞-гладкий)
-            double hill = smoothHillProfile(dist);
+            // Сглаживание: усредняем hill-профиль по 5x5 блокам вокруг,
+            // чтобы убрать резкие ступеньки на склонах.
+            double hillSum = 0.0;
+            for (int kx = -2; kx <= 2; kx++) {
+                for (int kz = -2; kz <= 2; kz++) {
+                    double nd = trailDistance(x + kx, z + kz);
+                    hillSum += smoothHillProfile(nd);
+                }
+            }
+            double hill = hillSum / 25.0;
 
             return envelope * hill;
         }
