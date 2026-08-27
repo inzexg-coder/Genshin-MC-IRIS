@@ -107,11 +107,11 @@ public final class TeyvatDragonRidge {
             double warpedRadius = radius
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-            double outer = 1.0 - smoothstep(OUTER_RADIUS - 130, OUTER_RADIUS + 130, warpedRadius);
+            double outer = 1.0 - smoothstep(OUTER_RADIUS - 15, OUTER_RADIUS + 215, warpedRadius);
 
             // Кольцевой вход холмов: плавно появляются вокруг пляжа по радиусу,
             // а не резкой линией по z — нет «вертикальных стен» у пляжа
-            double landGate = smoothstep(INNER_RADIUS - 12, INNER_RADIUS + 28, warpedRadius);
+            double landGate = smoothstep(INNER_RADIUS - 35, INNER_RADIUS + 25, warpedRadius);
 
             // Расстояние от центра тропы
             double dist = trailDistance(x, z);
@@ -119,10 +119,10 @@ public final class TeyvatDragonRidge {
             // Чистый линейный профиль холмов вокруг тропы
             double hill = linearHillProfile(dist);
 
-            // «Прорезь»: у входа на тропу с пляжа делаем узкий плавный пандус.
-            // Малый масштаб (0.27 density ≈ 3 блока подъёма) — без уноса в небо.
-            double floorBand = 1.0 - smooth01(dist / 5.0);
-            double trailFloor = TRAIL_FLOOR_AMP * smoothstep(57.0, 100.0, warpedRadius) * floorBand;
+            // Песчаная лестница от пляжа: подъём разгоняется до ВХОДА в тропу
+            // (радиус 57..95), дальше тропа лежит на РОВНОМ плато долины.
+            double floorBand = 1.0 - smooth01(dist / 10.0);
+            double trailFloor = TRAIL_FLOOR_AMP * smoothstep(57.0, 95.0, warpedRadius) * floorBand;
 
             return landGate * outer * (trailFloor + hill);
         }
@@ -174,9 +174,9 @@ public final class TeyvatDragonRidge {
      * Пик: smoothstep-crest от dist=70 до dist=100 (плавный переход).
      * Спуск: линейный от dist=100 до dist=170.
      */
-    private static final double HILL_END_DIST = 110.0;
-    private static final double HILL_AMPLITUDE = 1.1;
-    private static final double TRAIL_FLOOR_AMP = 0.27;
+    private static final double HILL_END_DIST = 170.0;
+    private static final double HILL_AMPLITUDE = 0.55;
+    private static final double TRAIL_FLOOR_AMP = 0.45;
 
     /** Плавный колокол: 0 у тропы, пик в середине, 0 на HILL_END_DIST.
      *  C∞-гладкий — никаких плоских вершин и вертикальных стен. */
