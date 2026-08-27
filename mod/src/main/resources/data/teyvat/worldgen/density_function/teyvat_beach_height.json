@@ -31,7 +31,7 @@
        "type": "minecraft:add",
        "argument1": {
         "type": "minecraft:mul",
-        "argument1": 0.25,
+        "argument1": 0.12,
         "argument2": {
          "type": "minecraft:shifted_noise",
          "noise": "minecraft:erosion",
@@ -101,7 +101,7 @@
      },
      "argument2": {
       "type": "minecraft:mul",
-      "argument1": 0.18,
+      "argument1": 0.06,
       "argument2": {
        "type": "minecraft:mul",
        "argument1": "teyvat:teyvat_beach_weight",

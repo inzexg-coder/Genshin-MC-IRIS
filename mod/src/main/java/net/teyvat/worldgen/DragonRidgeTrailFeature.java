@@ -36,16 +36,48 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         var world = context.getWorld();
         boolean changed = false;
 
-        for (int x = chunkPos.getStartX(); x <= chunkPos.getEndX(); x++) {
-            for (int z = chunkPos.getStartZ(); z <= chunkPos.getEndZ(); z++) {
+        int minX = chunkPos.getStartX();
+        int maxX = chunkPos.getEndX();
+        int minZ = chunkPos.getStartZ();
+        int maxZ = chunkPos.getEndZ();
+
+        // 1) Собрать поверхностные высоты блоков тропы (центр) для целевого уровня.
+        int[] ys = new int[16 * 16];
+        int count = 0;
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                double fade = TeyvatDragonRidge.trailFadeFactor(x, z);
+                if (fade <= -0.3) continue;
+                if (count < ys.length) {
+                    ys[count++] = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
+                }
+            }
+        }
+        if (count == 0) return false;
+        // Медианная высота = целевой уровень тропы
+        int[] sample = new int[count];
+        System.arraycopy(ys, 0, sample, 0, count);
+        java.util.Arrays.sort(sample);
+        int targetY = sample[count / 2];
+
+        // 2) Для каждого блока тропы: выровнять поверхность до targetY,
+        //    срезать выступающие блоки, поставить dirt_path.
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
                 double fade = TeyvatDragonRidge.trailFadeFactor(x, z);
                 if (fade <= -0.3) continue;
 
-                int surfaceY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
-                BlockPos surface = new BlockPos(x, surfaceY, z);
-                var block = world.getBlockState(surface).getBlock();
+                BlockPos surface = new BlockPos(x, targetY, z);
+                // Убираем блоки выше целевого уровня (выступающие края)
+                for (int dyUp = 0; dyUp <= 8; dyUp++) {
+                    BlockPos up = new BlockPos(x, targetY + 1 + dyUp, z);
+                    if (up.getY() > world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z)) break;
+                    setBlockState(world, up, Blocks.AIR.getDefaultState());
+                    changed = true;
+                }
 
-                if (block == Blocks.GRASS_BLOCK) {
+                var block = world.getBlockState(surface).getBlock();
+                if (block != Blocks.DIRT_PATH && block != Blocks.AIR) {
                     setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
                     changed = true;
                 }
@@ -53,5 +85,4 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         }
 
         return changed;
-    }
-}
+    }}

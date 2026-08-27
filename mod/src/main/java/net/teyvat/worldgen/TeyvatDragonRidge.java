@@ -139,10 +139,16 @@ public final class TeyvatDragonRidge {
         return Math.sqrt(tdx * tdx + tdz * tdz) <= TRAIL_HALF_WIDTH + 0.5;
     }
 
-    /** 1.0 = центр тропы, 0.0 = край, -1.0 = за пределами. */
+    /** 1.0 = центр тропы, 0.0 = край, -1.0 = за пределами.
+     *  У пляжа (радиус < 75) тропа плавно растекается веером:
+     *  ширина растёт в 2.5 раза к выходу на песок. */
     static double trailFadeFactor(int x, int z) {
         double dist = trailDistance(x, z);
-        return 1.0 - dist / (TRAIL_HALF_WIDTH + 2.0);
+        double dz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
+        double radius = Math.sqrt(x * x + dz * dz);
+        double spread = smoothstep(75.0, 60.0, radius); // 0 вдали, 1 у пляжа
+        double halfWidth = (TRAIL_HALF_WIDTH + 2.0) * (1.0 + 1.5 * spread);
+        return 1.0 - dist / halfWidth;
     }
 
     /**
@@ -153,9 +159,9 @@ public final class TeyvatDragonRidge {
      */
     private static final double HILL_PEAK_DIST = 50.0;
     private static final double HILL_END_DIST = 250.0;
-    private static final double HILL_AMPLITUDE = 2.0;
-    private static final double CREST_START = 38.0;
-    private static final double CREST_END = 62.0;
+    private static final double HILL_AMPLITUDE = 1.1;
+    private static final double CREST_START = 30.0;
+    private static final double CREST_END = 70.0;
 
     private static double linearHillProfile(double dist) {
         if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;
