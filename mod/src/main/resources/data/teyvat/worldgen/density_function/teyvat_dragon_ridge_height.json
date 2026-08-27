@@ -10,9 +10,12 @@
   "argument2": {
     "type": "minecraft:mul",
     "argument1": {
-      "type": "minecraft:cache_2d",
+      "type": "minecraft:flat_cache",
       "argument": {
-        "type": "teyvat:dragon_ridge_height_raw"
+        "type": "minecraft:cache_2d",
+        "argument": {
+          "type": "teyvat:dragon_ridge_height_raw"
+        }
       }
     },
     "argument2": {
