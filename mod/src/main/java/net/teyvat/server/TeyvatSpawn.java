@@ -8,6 +8,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
+import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.WorldProperties;
@@ -136,27 +137,21 @@ public final class TeyvatSpawn {
 
         teleportBuilt = true;
         try {
+            // Полная структура с ромбовой платформой: кладка r=3 + тонкое теснение r=1
+            // на y-1, красная плита на y, колонна сверху. Позиция — на TRAILHEAD (на тропе).
             int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, cz);
-            BlockPos center = new BlockPos(cx, topY, cz);
-            int y = center.getY();
-            // Плита красная + колонна, компактно (только текущий чанк)
-            world.setBlockState(center, TeyvatBlocks.TELEPORT_SLAB_RED.getDefaultState());
-            world.setBlockState(center.up(1), TeyvatBlocks.TELEPORT_COLUMN_BASE_RED.getDefaultState());
-            world.setBlockState(center.up(2), TeyvatBlocks.TELEPORT_COLUMN_SHAFT_RED.getDefaultState());
-            world.setBlockState(center.up(3), TeyvatBlocks.TELEPORT_COLUMN_CAPITAL_RED.getDefaultState());
-            // Расчищаем от лишней травы вокруг плиты (2x2)
-            for (int sdx = -2; sdx <= 2; sdx++) {
-                for (int sdz = -2; sdz <= 2; sdz++) {
-                    BlockPos top = new BlockPos(cx + sdx, topY, cz + sdz);
-                    var b = world.getBlockState(top).getBlock();
-                    if (b == Blocks.GRASS_BLOCK || b == Blocks.SHORT_GRASS || b == Blocks.TALL_GRASS) {
-                        world.setBlockState(top, Blocks.DIRT_PATH.getDefaultState());
-                    }
-                }
+            if (topY < world.getSeaLevel()) topY = world.getSeaLevel() + 1;
+            buildTeleportPoint(world, new BlockPos(cx, topY, cz));
+
+            // Уведомление в чат всем игрокам
+            var msg = Text.literal("§b✦ Точка телепортации построена! §7(начни обучение с Q)");
+            for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+                p.sendMessage(msg, false);
             }
-            LOGGER.info(">>> ТЕЛЕПОРТ ПОСТРОЕН (тик, игрок рядом): x={}, z={}, y={} <<<", cx, cz, topY);
+            LOGGER.info(">>> ТЕЛЕПОРТ ПОСТРОЕН (тик, полная структура+ромб): x={}, z={}, y={} <<<", cx, topY, cz);
         } catch (Exception e) {
             LOGGER.warn("Не удалось построить точку телепортации", e);
+            teleportBuilt = false; // дадим ещё попытку
         }
     }
 
