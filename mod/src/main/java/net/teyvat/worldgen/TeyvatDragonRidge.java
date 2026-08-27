@@ -114,10 +114,16 @@ public final class TeyvatDragonRidge {
             // Расстояние от центра тропы
             double dist = trailDistance(x, z);
 
-            // Чистый линейный профиль
+            // Чистый линейный профиль холмов вокруг тропы
             double hill = linearHillProfile(dist);
 
-            return landGate * outer * hill;
+            // «Этаж» тропы: плавно поднимается от низшей точки пляжа (радиус ~57)
+            // до уровня долины (радиус ~155). Ограничен узкой полосой тропы,
+            // чтобы холмы по бокам оставались нетронутыми.
+            double floorBand = 1.0 - smooth01(dist / 6.0);
+            double trailFloor = TRAIL_FLOOR_AMP * smoothstep(57.0, 155.0, warpedRadius) * floorBand;
+
+            return landGate * outer * (trailFloor + hill);
         }
 
         @Override public double minValue() { return -1.5; }
@@ -170,6 +176,7 @@ public final class TeyvatDragonRidge {
     private static final double HILL_AMPLITUDE = 1.1;
     private static final double CREST_START = 30.0;
     private static final double CREST_END = 70.0;
+    private static final double TRAIL_FLOOR_AMP = 6.0;
 
     private static double linearHillProfile(double dist) {
         if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;

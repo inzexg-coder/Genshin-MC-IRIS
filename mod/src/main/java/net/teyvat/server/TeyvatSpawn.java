@@ -45,6 +45,7 @@ public final class TeyvatSpawn {
 
     private static BlockPos beachSpawn;
     private static float beachYaw;
+    private static boolean teleportBuilt = false;
 
     private TeyvatSpawn() {
     }
@@ -98,6 +99,61 @@ public final class TeyvatSpawn {
         WorldBorder border = world.getWorldBorder();
         border.setCenter(0, 0);
         border.setSize(TeyvatOceanEdge.BORDER_SIZE);
+    }
+
+    /** Серверный тик: строит точку телепортации у начала тропы, когда игрок
+     *  уже рядом (чанки вокруг гарантированно загружены). Это безопасно:
+     *  без форсирования генерации чужих чанков — только isChunkLoaded. */
+    public static void serverTickMaybeBuildTeleport(MinecraftServer server) {
+        if (teleportBuilt) return;
+        ServerWorld world = server.getOverworld();
+
+        int cx = TeyvatDragonRidge.TRAILHEAD_X;
+        int cz = TeyvatDragonRidge.TRAILHEAD_Z;
+        boolean playerNear = false;
+        for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
+            if (p.getBlockPos().getSquaredDistance(new BlockPos(cx, 0, cz)) < 48 * 48) {
+                playerNear = true;
+                break;
+            }
+        }
+        if (!playerNear) return;
+
+        // Проверяем, что чанк TRAILHEAD и его соседи загружены (без генерации)
+        int chunkX = cx >> 4;
+        int chunkZ = cz >> 4;
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (!world.isChunkLoaded(chunkX + dx, chunkZ + dz)) {
+                    return; // ждём, пока чанки подгрузятся рядом с игроком
+                }
+            }
+        }
+
+        teleportBuilt = true;
+        try {
+            int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, cx, cz);
+            BlockPos center = new BlockPos(cx, topY, cz);
+            int y = center.getY();
+            // Плита красная + колонна, компактно (только текущий чанк)
+            world.setBlockState(center, TeyvatBlocks.TELEPORT_SLAB_RED.getDefaultState());
+            world.setBlockState(center.up(1), TeyvatBlocks.TELEPORT_COLUMN_BASE_RED.getDefaultState());
+            world.setBlockState(center.up(2), TeyvatBlocks.TELEPORT_COLUMN_SHAFT_RED.getDefaultState());
+            world.setBlockState(center.up(3), TeyvatBlocks.TELEPORT_COLUMN_CAPITAL_RED.getDefaultState());
+            // Расчищаем от лишней травы вокруг плиты (2x2)
+            for (int sdx = -2; sdx <= 2; sdx++) {
+                for (int sdz = -2; sdz <= 2; sdz++) {
+                    BlockPos top = new BlockPos(cx + sdx, topY, cz + sdz);
+                    var b = world.getBlockState(top).getBlock();
+                    if (b == Blocks.GRASS_BLOCK || b == Blocks.SHORT_GRASS || b == Blocks.TALL_GRASS) {
+                        world.setBlockState(top, Blocks.DIRT_PATH.getDefaultState());
+                    }
+                }
+            }
+            LOGGER.info(">>> ТЕЛЕПОРТ ПОСТРОЕН (тик, игрок рядом): x={}, z={}, y={} <<<", cx, cz, topY);
+        } catch (Exception e) {
+            LOGGER.warn("Не удалось построить точку телепортации", e);
+        }
     }
 
     /** Вызывается при входе игрока: пометить как приветствованного.

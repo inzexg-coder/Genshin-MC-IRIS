@@ -10,11 +10,9 @@ import net.minecraft.world.Heightmap;
 import net.minecraft.world.gen.feature.DefaultFeatureConfig;
 import net.minecraft.world.gen.feature.Feature;
 import net.minecraft.world.gen.feature.util.FeatureContext;
-import net.teyvat.TeyvatBlocks;
 import net.teyvat.TeyvatMod;
 
-/** Тропа: ровная, без выступающих краёв. Заменяет блоки на тропе и рядом.
- *  Также строит точку телепортации, когда генерируется чанк у начала тропы. */
+/** Тропа: ровная, без выступающих краёв. Заменяет блоки на тропе и рядом. */
 public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig> {
     public static final Identifier ID =
             Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_trail");
@@ -54,32 +52,7 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
             }
         }
 
-        // Точка телепортации: строим в чанке, содержащем начало тропы (TRAILHEAD).
-        // Feature работает только в пределах текущего чанка — не форсирует генерацию
-        // соседних чанков, поэтому безопасно (не вызывает бесконечную загрузку).
-        if (chunkPos.x == TeyvatDragonRidge.TRAILHEAD_X >> 4
-                && chunkPos.z == TeyvatDragonRidge.TRAILHEAD_Z >> 4) {
-            changed |= buildTeleportAt(context, TeyvatDragonRidge.TRAILHEAD_X, TeyvatDragonRidge.TRAILHEAD_Z);
-        }
-
         return changed;
     }
 
-    /** Компактно строит точку телепортации на высоте поверхности текущего чанка.
-     *  Не выходит за границы чанка — использует только TOPMOST heightmap. */
-    private boolean buildTeleportAt(FeatureContext<DefaultFeatureConfig> context, int x, int z) {
-        var world = context.getWorld();
-        int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
-        BlockPos center = new BlockPos(x, y, z);
-        boolean changed = false;
-
-        // Плита (красная) в центре
-        setBlockState(world, center, TeyvatBlocks.TELEPORT_SLAB_RED.getDefaultState());
-        // Основание, ствол, капитель колонны над плитой
-        setBlockState(world, center.up(1), TeyvatBlocks.TELEPORT_COLUMN_BASE_RED.getDefaultState());
-        setBlockState(world, center.up(2), TeyvatBlocks.TELEPORT_COLUMN_SHAFT_RED.getDefaultState());
-        setBlockState(world, center.up(3), TeyvatBlocks.TELEPORT_COLUMN_CAPITAL_RED.getDefaultState());
-        changed = true;
-        return changed;
-    }
 }

@@ -459,7 +459,8 @@ public class TeyvatMod implements ModInitializer {
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> MobXp.resetSession());
 
         // Автотест автоподбора (/teyvat selftest): тикает обратный отсчёт.
-        ServerTickEvents.END_SERVER_TICK.register(server -> PickupSelfTest.tick(server));
+        ServerTickEvents.END_SERVER_TICK.register(TeyvatSpawn::serverTickMaybeBuildTeleport);
+                ServerTickEvents.END_SERVER_TICK.register(server -> PickupSelfTest.tick(server));
         // Хит-стоп врагов: замирание на ударе, затем отброс (реакция на удар).
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (ServerWorld world : server.getWorlds()) {
