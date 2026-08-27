@@ -12,7 +12,10 @@ import net.minecraft.world.gen.feature.Feature;
 import net.minecraft.world.gen.feature.util.FeatureContext;
 import net.teyvat.TeyvatMod;
 
-/** Тропа: ровная, без выступающих краёв. Заменяет блоки на тропе и рядом. */
+/** Тропа: ЛЁГКИЙ фича-генератор. Ровность тропы обеспечивает сама density-функция
+ *  (плоское плато на высоте TRAIL_Y), поэтому здесь мы только подменяем поверхностные
+ *  блоки на dirt_path. НИКАКИХ тяжёлых циклов по getTopY и выравнивания — именно
+ *  они вызывали бесконечную "Загрузку территории"/"чанки не грузят". */
 public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig> {
     public static final Identifier ID =
             Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_trail");
@@ -41,35 +44,16 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         int minZ = chunkPos.getStartZ();
         int maxZ = chunkPos.getEndZ();
 
-        // 1) ЕДИНАЯ высота тропы для ВСЕЙ тропы: зафиксирована константой,
-        //    чтобы ни один блок тропы в любом чанке не был выше или ниже других.
-        //    Никакой зависимости от шума и базового рельефа.
-        int targetY = TeyvatDragonRidge.TRAIL_Y;
-
-        // 2) Подровнять блоки тропы под целевую высоту + поставить dirt_path.
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
                 double fade = TeyvatDragonRidge.trailFadeFactor(x, z);
                 if (fade <= -0.3) continue;
 
                 int surfaceY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
-                // Срезаем выступы выше целевого уровня
-                if (surfaceY > targetY) {
-                    for (int dy = targetY + 1; dy <= surfaceY; dy++) {
-                        setBlockState(world, new BlockPos(x, dy, z), Blocks.AIR.getDefaultState());
-                        changed = true;
-                    }
-                } else if (surfaceY < targetY) {
-                    // Заполняем ямы до целевого уровня
-                    for (int dy = surfaceY + 1; dy <= targetY; dy++) {
-                        setBlockState(world, new BlockPos(x, dy, z), Blocks.DIRT.getDefaultState());
-                        changed = true;
-                    }
-                }
-
-                BlockPos surface = new BlockPos(x, targetY, z);
+                BlockPos surface = new BlockPos(x, surfaceY, z);
                 var block = world.getBlockState(surface).getBlock();
-                if (block != Blocks.DIRT_PATH && block != Blocks.AIR) {
+                if (block == Blocks.GRASS_BLOCK || block == Blocks.SAND
+                        || block == Blocks.SHORT_GRASS || block == Blocks.TALL_GRASS) {
                     setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
                     changed = true;
                 }
