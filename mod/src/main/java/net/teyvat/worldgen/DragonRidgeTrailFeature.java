@@ -60,32 +60,78 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
             }
         }
 
-        // Точка телепортации: строим в чанке, содержащем начало тропы (TRAILHEAD),
-        // прямо при генерации этого чанка. Это надёжный путь — точка появляется
-        // сразу, без серверного тика и без ожидания, пока игрок подойдёт вплотную.
-        // Работаем только в пределах текущего чанка (без форсирования соседних),
-        // поэтому не замедляет загрузку и не вызывает бесконечную генерацию.
+        // Точка телепортации: строим прямо при генерации содержащих её чанков.
+        // Центр (TRAILHEAD) стоит на границе двух чанков по X, поэтому каждая
+        // половина ромба-платформы кладётся своим чанком — никаких записей в
+        // соседние чанки, никакого замедления генерации.
         if (chunkPos.x == TeyvatDragonRidge.TRAILHEAD_X >> 4
                 && chunkPos.z == TeyvatDragonRidge.TRAILHEAD_Z >> 4) {
-            changed |= buildTeleportAt(context, TeyvatDragonRidge.TRAILHEAD_X, TeyvatDragonRidge.TRAILHEAD_Z);
+            changed |= placeTeleportInChunk(context, TeyvatDragonRidge.TRAILHEAD_X, TeyvatDragonRidge.TRAILHEAD_Z, true);
+        } else if (chunkMayContainTeleportPlatform(chunkPos.getStartX(), chunkPos.getStartZ(),
+                chunkPos.getEndX(), chunkPos.getEndZ())) {
+            changed |= placeTeleportInChunk(context, TeyvatDragonRidge.TRAILHEAD_X, TeyvatDragonRidge.TRAILHEAD_Z, false);
         }
 
         return changed;
     }
 
-    /** Компактно строит точку телепортации на высоте поверхности текущего чанка.
-     *  Использует только TOPMOST heightmap и не выходит за границы чанка. */
-    private boolean buildTeleportAt(FeatureContext<DefaultFeatureConfig> context, int x, int z) {
+    /** Содержит ли чанк хотя бы одну ячейку ромба-платформы точки телепортации. */
+    private static boolean chunkMayContainTeleportPlatform(int minX, int minZ, int maxX, int maxZ) {
+        int x = TeyvatDragonRidge.TRAILHEAD_X;
+        int z = TeyvatDragonRidge.TRAILHEAD_Z;
+        return x - 3 <= maxX && x + 3 >= minX && z - 3 <= maxZ && z + 3 >= minZ;
+    }
+
+    /** Кладёт ячейки ромба-платформы (|dx|+|dz| <= 3), попадающие в ТЕКУЩИЙ чанк:
+     *  расчищает воздух над ячейкой и ставит блок платформы на локальную
+     *  поверхность-1. Если withColumn — дополнительно ставит плиту и колонну
+     *  над центральной ячейкой. Никаких записей за пределы чанка. */
+    private boolean placeTeleportInChunk(FeatureContext<DefaultFeatureConfig> context, int x, int z, boolean withColumn) {
         var world = context.getWorld();
-        int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
-        BlockPos center = new BlockPos(x, y, z);
+        ChunkPos chunkPos = new ChunkPos(context.getOrigin());
+        int cMinX = chunkPos.getStartX();
+        int cMinZ = chunkPos.getStartZ();
+        int cMaxX = cMinX + 15;
+        int cMaxZ = cMinZ + 15;
         boolean changed = false;
 
-        setBlockState(world, center, net.teyvat.TeyvatBlocks.TELEPORT_SLAB_RED.getDefaultState());
-        setBlockState(world, center.up(1), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_BASE_RED.getDefaultState());
-        setBlockState(world, center.up(2), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_SHAFT_RED.getDefaultState());
-        setBlockState(world, center.up(3), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_CAPITAL_RED.getDefaultState());
-        changed = true;
+        // Сначала ромб-платформа r=3.
+        for (int dx = -3; dx <= 3; dx++) {
+            for (int dz = -3; dz <= 3; dz++) {
+                if (Math.abs(dx) + Math.abs(dz) > 3) continue;
+                int px = x + dx;
+                int pz = z + dz;
+                if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
+                int py = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz) - 1;
+                for (int dy = 1; dy <= 5; dy++) {
+                    setBlockState(world, new BlockPos(px, py + dy, pz), net.minecraft.block.Blocks.AIR.getDefaultState());
+                }
+                setBlockState(world, new BlockPos(px, py, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+                changed = true;
+            }
+        }
+        // Тонкое теснение r=1 (поверх центра платформы).
+        for (int dx = -1; dx <= 1; dx++) {
+            for (int dz = -1; dz <= 1; dz++) {
+                if (Math.abs(dx) + Math.abs(dz) > 1) continue;
+                int px = x + dx;
+                int pz = z + dz;
+                if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
+                int py = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz) - 1;
+                setBlockState(world, new BlockPos(px, py, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH_THIN.getDefaultState());
+                changed = true;
+            }
+        }
+
+        // Центр: плита + колонна над уровнем платформы.
+        if (withColumn && x >= cMinX && x <= cMaxX && z >= cMinZ && z <= cMaxZ) {
+            int centerY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
+            setBlockState(world, new BlockPos(x, centerY + 1, z), net.teyvat.TeyvatBlocks.TELEPORT_SLAB_RED.getDefaultState());
+            setBlockState(world, new BlockPos(x, centerY + 2, z), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_BASE_RED.getDefaultState());
+            setBlockState(world, new BlockPos(x, centerY + 3, z), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_SHAFT_RED.getDefaultState());
+            setBlockState(world, new BlockPos(x, centerY + 4, z), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_CAPITAL_RED.getDefaultState());
+            changed = true;
+        }
         return changed;
     }
 }

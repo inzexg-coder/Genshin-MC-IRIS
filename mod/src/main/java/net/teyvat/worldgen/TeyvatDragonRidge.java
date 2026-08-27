@@ -117,26 +117,30 @@ public final class TeyvatDragonRidge {
             // Расстояние от центра тропы
             double dist = trailDistance(x, z);
 
-            // Кольцо холмов: снимаем у самого пляжа (radius < 68) и на внешнем крае.
-            // Внутри кольца холмы стоят по ОБЕ стороны тропы — никакого radius-гейта
-            // у самой тропы, который ранее срезал внутреннюю сторону.
-            double ringIn = smoothstep(68.0, 84.0, warpedRadius);
-            double ringOut = 1.0 - smoothstep(OUTER_RADIUS - 30, OUTER_RADIUS + 50, warpedRadius);
+            // Кольцо холмов: снимаем у самого пляжа (radius < INNER_RADIUS) и
+            // плавно затухаем на внешнем крае (широкий фейд — без вертикальных стен).
+            double ringIn = smoothstep(INNER_RADIUS - 4.0, INNER_RADIUS + 26.0, warpedRadius);
+            double ringOut = 1.0 - smoothstep(OUTER_RADIUS - 45.0, OUTER_RADIUS + 85.0, warpedRadius);
             double ring = ringIn * ringOut;
 
-            // Дно долины: песчаный подъём от пляжа к тропе (radius 60..95),
-            // дальше ровное плато под тропой (floorBand=1 → plate = константа).
+            // Ровное плато под самой тропой (floorBand=1 → plate = константа),
+            // чтобы дно долины было идеально плоским.
             double floorBand = 1.0 - smooth01(dist / 12.0);
-            double plate = TRAIL_FLOOR_AMP * smoothstep(60.0, 95.0, warpedRadius) * floorBand;
+            double plate = TRAIL_FLOOR_AMP * smoothstep(50.0, 95.0, warpedRadius) * floorBand;
 
-            // Холмы: колокол по dist вокруг тропы — 0 на тропе, пик у ~dist 40-60.
+            // Долина: тропа слегка утоплена ниже окружающей земли, чтобы линия долины
+            // читалась. Локально только рядом с тропой (dist < 28), 0 вне её.
+            double valley = -VALLEY_DEPTH * (1.0 - smooth01(dist / 28.0));
+
+            // Холмы по ОБЕ стороны тропы: симметричный колокол по dist —
+            // 0 на тропе, плавно растёт к пику, затем плавно к 0 на HILL_END_DIST.
             double hill = linearHillProfile(dist);
 
-            return ring * (plate + hill);
+            return ring * (plate + hill + valley);
         }
 
-        @Override public double minValue() { return -1.5; }
-        @Override public double maxValue() { return 7.0; }
+        @Override public double minValue() { return -4.0; }
+        @Override public double maxValue() { return 9.0; }
         @Override public CodecHolder<? extends DensityFunction> getCodecHolder() { return CodecHolder.of(MapCodec.unit(HEIGHT)); }
     };
 
@@ -204,17 +208,21 @@ public final class TeyvatDragonRidge {
      * Пик: smoothstep-crest от dist=70 до dist=100 (плавный переход).
      * Спуск: линейный от dist=100 до dist=170.
      */
-    private static final double HILL_END_DIST = 170.0;
-    private static final double HILL_AMPLITUDE = 0.85;
+    private static final double HILL_END_DIST = 175.0;
+    private static final double HILL_AMPLITUDE = 1.18;
+    private static final double VALLEY_DEPTH = 0.5;
     private static final double TRAIL_FLOOR_AMP = 0.1;
 
     /** Плавный колокол: 0 у тропы, пик в середине, 0 на HILL_END_DIST.
-     *  C∞-гладкий — никаких плоских вершин и вертикальных стен. */
+     *  Косинусный профиль — нулевая производная на обоих концах, поэтому
+     *  холмы плавно сходят на нет и не обрезаются вертикальной стеной. */
     private static double linearHillProfile(double dist) {
         if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;
         double s = clamp01(dist / HILL_END_DIST);
-        // Колокол: 4*s*(1-s) даёт пик 1.0 в середине, 0 по краям
-        return HILL_AMPLITUDE * 4.0 * s * (1.0 - s);
+        // Поднятый косинус: 0.5*(1-cos(2*pi*s)) — пик 1.0 в середине (s=0.5),
+        // нулевые производные на обоих концах → плавный подъём и спад,
+        // без вертикальных стен и плоских вершин.
+        return HILL_AMPLITUDE * 0.5 * (1.0 - Math.cos(2.0 * Math.PI * s));
     }
 
     private static double trailDistance(double x, double z) {
