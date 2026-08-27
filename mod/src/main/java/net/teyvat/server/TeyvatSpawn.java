@@ -137,26 +137,40 @@ public final class TeyvatSpawn {
 
         teleportBuilt = true;
         try {
-            // Точка — в 20 блоках В СТОРОНУ ОТ тропы (южнее, в сторону пляжа),
-            // на ровной расчищенной площадке.
-            int px = TeyvatDragonRidge.TRAILHEAD_X;
-            int pz = TeyvatDragonRidge.TRAILHEAD_Z + 20; // 20 блоков от тропы
+            // Точка — строго ПЕРПЕНДИКУЛЯРНО к тропе, в 20 блоках в сторону от неё.
+            // В TRAILHEAD (0, -1270) тропа идёт по дуге, её касательная ≈ ось Z,
+            // перпендикуляр ≈ ось X — ставим на +20 по X (чистая равнина).
+            int px = TeyvatDragonRidge.TRAILHEAD_X + 20; // 20 блоков, перпендикулярно тропе
+            int pz = TeyvatDragonRidge.TRAILHEAD_Z;
             int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, px, pz);
             if (topY < world.getSeaLevel()) topY = world.getSeaLevel() + 1;
             BlockPos spot = new BlockPos(px, topY, pz);
 
-            // Расчищаем территорию: срезаем на 6x6 до уровня земли (только на загруженных чанках)
+            // Расчищаем и РОВНЯЕМ площадку 7x7 вокруг точки телепортации:
+            // срезаем выступы и заполняем ямы до topY, чтобы точка стояла
+            // на ровном участке и ничто её не накрывало (только загруженные чанки).
             for (int sdx = -3; sdx <= 3; sdx++) {
                 for (int sdz = -3; sdz <= 3; sdz++) {
-                    BlockPos top = new BlockPos(px + sdx, topY, pz + sdz);
-                    var b = world.getBlockState(top).getBlock();
-                    if (b == Blocks.GRASS_BLOCK || b == Blocks.SHORT_GRASS
-                            || b == Blocks.TALL_GRASS || b == Blocks.SAND || b == Blocks.GRASS_BLOCK) {
-                        world.setBlockState(top, Blocks.DIRT_PATH.getDefaultState());
+                    int sx = px + sdx;
+                    int sz = pz + sdz;
+                    int localTop = world.getTopY(Heightmap.Type.MOTION_BLOCKING, sx, sz);
+                    if (localTop > topY) {
+                        for (int dy = topY + 1; dy <= localTop; dy++) {
+                            world.setBlockState(new BlockPos(sx, dy, sz), Blocks.AIR.getDefaultState());
+                        }
+                    } else if (localTop < topY) {
+                        for (int dy = localTop + 1; dy <= topY; dy++) {
+                            world.setBlockState(new BlockPos(sx, dy, sz), Blocks.DIRT.getDefaultState());
+                        }
+                    }
+                    BlockPos surf = new BlockPos(sx, topY, sz);
+                    var b = world.getBlockState(surf).getBlock();
+                    if (b != Blocks.DIRT_PATH && b != Blocks.AIR) {
+                        world.setBlockState(surf, Blocks.DIRT_PATH.getDefaultState());
                     }
                     // Убираем кусты/траву выше
                     for (int dy = 1; dy <= 3; dy++) {
-                        BlockPos up = new BlockPos(px + sdx, topY + dy, pz + sdz);
+                        BlockPos up = new BlockPos(sx, topY + dy, sz);
                         if (!world.getBlockState(up).isAir()) {
                             world.setBlockState(up, Blocks.AIR.getDefaultState());
                         }

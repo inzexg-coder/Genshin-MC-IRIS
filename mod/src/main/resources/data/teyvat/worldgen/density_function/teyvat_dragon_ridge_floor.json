@@ -1,0 +1,9 @@
+{
+  "type": "minecraft:flat_cache",
+  "argument": {
+    "type": "minecraft:cache_2d",
+    "argument": {
+      "type": "teyvat:dragon_ridge_floor_raw"
+    }
+  }
+}

@@ -41,22 +41,10 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         int minZ = chunkPos.getStartZ();
         int maxZ = chunkPos.getEndZ();
 
-        // 1) Эталонная высота тропы: берём высоту поверхности в точке НА центральной
-        //    линии тропы (максимальный fade) — все блоки тропы в чанке ровняем на неё,
-        //    чтобы стыки между чанками совпадали (долина непрерывна вдоль тропы).
-        int targetY = -1;
-        double bestFade = -1.0;
-        for (int x = minX; x <= maxX; x++) {
-            for (int z = minZ; z <= maxZ; z++) {
-                double fade = TeyvatDragonRidge.trailFadeFactor(x, z);
-                if (fade <= -0.3) continue;
-                if (fade > bestFade) {
-                    bestFade = fade;
-                    targetY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
-                }
-            }
-        }
-        if (targetY < 0) return false;
+        // 1) ЕДИНАЯ высота тропы для ВСЕЙ тропы: зафиксирована константой,
+        //    чтобы ни один блок тропы в любом чанке не был выше или ниже других.
+        //    Никакой зависимости от шума и базового рельефа.
+        int targetY = TeyvatDragonRidge.TRAIL_Y;
 
         // 2) Подровнять блоки тропы под целевую высоту + поставить dirt_path.
         for (int x = minX; x <= maxX; x++) {

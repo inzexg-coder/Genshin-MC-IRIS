@@ -21,6 +21,7 @@ public final class TeyvatDragonRidge {
     public static final Identifier ZONE_ID = Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_zone_raw");
     public static final Identifier PATH_ID = Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_path_raw");
     public static final Identifier HEIGHT_ID = Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_height_raw");
+    public static final Identifier FLOOR_ID = Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_floor_raw");
 
     private static final int INNER_RADIUS = 72;
     private static final int OUTER_RADIUS = 235;
@@ -30,6 +31,11 @@ public final class TeyvatDragonRidge {
     /** Фиксированный вход на серпантин для структур и серверного поиска. */
     public static final int TRAILHEAD_X = 0;
     public static final int TRAILHEAD_Z = -1270;
+
+    /** Единая абсолютная высота всей тропы (в блоках). Тропа жёстко ровняется
+     *  на это значение во всех чанках, чтобы ни один блок не был выше/ниже.
+     *  Совпадает с плоским плато из density-функций (см. dragon_ridge_floor_raw). */
+    public static final int TRAIL_Y = 72;
 
     private static final double START_RADIUS = 95.0;
     private static final double END_RADIUS = 220.0;
@@ -107,34 +113,60 @@ public final class TeyvatDragonRidge {
             double warpedRadius = radius
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-            double outer = 1.0 - smoothstep(OUTER_RADIUS - 15, OUTER_RADIUS + 215, warpedRadius);
-
-            // Кольцевой вход: дно долины плавно поднимается от пляжа.
-            double landGate = smoothstep(INNER_RADIUS - 35, INNER_RADIUS + 25, warpedRadius);
 
             // Расстояние от центра тропы
             double dist = trailDistance(x, z);
 
-            // Песчаная лестница от пляжа: дно долины поднимается до ВХОДА в тропу
-            // (радиус 57..95), дальше держится ровным плато. Тропа = дно долины,
-            // чуть выше пляжа.
-            double floorBand = 1.0 - smooth01(dist / 10.0);
-            double plate = TRAIL_FLOOR_AMP * smoothstep(57.0, 95.0, warpedRadius) * floorBand;
+            // Кольцо холмов: снимаем у самого пляжа (radius < 68) и на внешнем крае.
+            // Внутри кольца холмы стоят по ОБЕ стороны тропы — никакого radius-гейта
+            // у самой тропы, который ранее срезал внутреннюю сторону.
+            double ringIn = smoothstep(68.0, 84.0, warpedRadius);
+            double ringOut = 1.0 - smoothstep(OUTER_RADIUS - 30, OUTER_RADIUS + 50, warpedRadius);
+            double ring = ringIn * ringOut;
 
-            // Холмы вокруг тропы: по обе стороны её линии. Профиль — колокол по dist
-            // (0 на тропе, пик у ~dist 40-60, плавный спад). Ворота настроены так,
-            // чтобы холмы вставали вместе с долиной (начиная радиус ~95) и плавно
-            // гаснули у внешнего края — без стен.
+            // Дно долины: песчаный подъём от пляжа к тропе (radius 60..95),
+            // дальше ровное плато под тропой (floorBand=1 → plate = константа).
+            double floorBand = 1.0 - smooth01(dist / 12.0);
+            double plate = TRAIL_FLOOR_AMP * smoothstep(60.0, 95.0, warpedRadius) * floorBand;
+
+            // Холмы: колокол по dist вокруг тропы — 0 на тропе, пик у ~dist 40-60.
             double hill = linearHillProfile(dist);
-            double hillGate = smoothstep(85.0, 115.0, warpedRadius)
-                    * (1.0 - smoothstep(OUTER_RADIUS - 55, OUTER_RADIUS + 25, warpedRadius));
 
-            return plate + landGate * outer * hill * hillGate;
+            return ring * (plate + hill);
         }
 
         @Override public double minValue() { return -1.5; }
         @Override public double maxValue() { return 7.0; }
         @Override public CodecHolder<? extends DensityFunction> getCodecHolder() { return CodecHolder.of(MapCodec.unit(HEIGHT)); }
+    };
+
+    /** Плоское дно долины под тропой: 1.0 внутри всего кольца хребта, 0 на пляже
+     *  и за внешним краем. Умножается на teyvat_beach_height, чтобы «вырезать»
+     *  естественный рельеф (обрыв пляжа и шум) внутри кольца — тогда дно долины
+     *  идеально ровное и вся тропа лежит строго на одной высоте TRAIL_Y,
+     *  а у внешнего края плавно сливается с равнинами. */
+    private static final DensityFunction FLOOR = new DensityFunction.Base() {
+        @Override
+        public double sample(NoisePos pos) {
+            double x = pos.blockX();
+            double z = pos.blockZ();
+            if (x < -240 || x > 240 || z < -1600 || z > -1040) return 0.0;
+            double dz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
+            double radius = Math.sqrt(x * x + dz * dz);
+            double angle = Math.atan2(x, dz);
+            double warpedRadius = radius
+                    + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
+                    + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
+            // От края пляжа (62) до внешнего края хребта — плато без естественного рельефа.
+            // Пляж (radius < 62) и равнины (radius >= 285) сохраняют обычный рельеф.
+            double inner = smoothstep(62.0, 92.0, warpedRadius);
+            double outer = 1.0 - smoothstep(205.0, 285.0, warpedRadius);
+            return inner * outer;
+        }
+
+        @Override public double minValue() { return 0.0; }
+        @Override public double maxValue() { return 1.0; }
+        @Override public CodecHolder<? extends DensityFunction> getCodecHolder() { return CodecHolder.of(MapCodec.unit(FLOOR)); }
     };
 
     /** Публичное расстояние от точки до тропы (для поиска точки телепортации). */
@@ -148,6 +180,7 @@ public final class TeyvatDragonRidge {
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, ZONE_ID, MapCodec.unit(ZONE));
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, PATH_ID, MapCodec.unit(PATH));
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, HEIGHT_ID, MapCodec.unit(HEIGHT));
+        Registry.register(Registries.DENSITY_FUNCTION_TYPE, FLOOR_ID, MapCodec.unit(FLOOR));
     }
 
     static boolean isTrailSurface(int x, int z) {
@@ -180,8 +213,8 @@ public final class TeyvatDragonRidge {
      * Спуск: линейный от dist=100 до dist=170.
      */
     private static final double HILL_END_DIST = 170.0;
-    private static final double HILL_AMPLITUDE = 0.55;
-    private static final double TRAIL_FLOOR_AMP = 0.45;
+    private static final double HILL_AMPLITUDE = 0.85;
+    private static final double TRAIL_FLOOR_AMP = 0.1;
 
     /** Плавный колокол: 0 у тропы, пик в середине, 0 на HILL_END_DIST.
      *  C∞-гладкий — никаких плоских вершин и вертикальных стен. */
