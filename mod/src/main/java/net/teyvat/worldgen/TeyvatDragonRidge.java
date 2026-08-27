@@ -48,8 +48,12 @@ public final class TeyvatDragonRidge {
     private static final DensityFunction ZONE = new DensityFunction.Base() {
         @Override
         public double sample(NoisePos pos) {
-            double dx = pos.blockX();
-            double dz = pos.blockZ() - TeyvatOceanEdge.BEACH_CENTER_Z;
+            double x = pos.blockX();
+            double z = pos.blockZ();
+            if (x < -260 || x > 260 || z < TeyvatOceanEdge.BEACH_CENTER_Z - 260
+                    || z > TeyvatOceanEdge.BEACH_CENTER_Z + 260) return -1.0;
+            double dx = x;
+            double dz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
             double radius = Math.sqrt(dx * dx + dz * dz);
             double angle = Math.atan2(dx, dz);
             double warpedRadius = radius
@@ -73,14 +77,15 @@ public final class TeyvatDragonRidge {
         public double sample(NoisePos pos) {
             double x = pos.blockX();
             double z = pos.blockZ();
-            double distance = trailDistance(x, z);
-
-            // Тропа начинается только в долине (radius >= 95), без выхода на пляж.
-            // Постоянная ширина 5 блоков, переход плавный по краю долины.
+            // Быстрые границы кольца тропы (без вычислений вне зоны).
             double pdz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
             double pradius = Math.sqrt(x * x + pdz * pdz);
-            double edgeIn = smoothstep(90.0, 110.0, pradius); // 0 у пляжа, 1 в долине
+            if (pradius < 88.0 || pradius > 235.0
+                    || x < -90.0 || x > 90.0) return -1.0;
 
+            double distance = trailDistance(x, z);
+            // Тропа плавно проявляется от края пляжа к долине.
+            double edgeIn = smoothstep(90.0, 110.0, pradius); // 0 у пляжа, 1 в долине
             double halfWidth = 5.0 * edgeIn;
             if (halfWidth < 0.5) return -1.0; // ещё не в долине — тропы нет
             double edge = (distance - halfWidth) / halfWidth;
