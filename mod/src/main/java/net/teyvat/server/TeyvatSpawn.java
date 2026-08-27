@@ -112,7 +112,11 @@ public final class TeyvatSpawn {
         int cz = TeyvatDragonRidge.TRAILHEAD_Z;
         boolean playerNear = false;
         for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
-            if (p.getBlockPos().getSquaredDistance(new BlockPos(cx, 0, cz)) < 48 * 48) {
+            // Горизонтальное расстояние (без y!), иначе игрок на высоте 70
+            // никогда не попадёт в радиус 48 даже стоя над точкой
+            double dx = p.getX() - cx;
+            double dz = p.getZ() - cz;
+            if (dx * dx + dz * dz < 96 * 96) {
                 playerNear = true;
                 break;
             }

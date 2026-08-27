@@ -16,14 +16,14 @@
     },
     "argument2": {
       "type": "minecraft:mul",
-      "argument1": 0.25,
+      "argument1": 0.08,
       "argument2": {
         "type": "minecraft:shifted_noise",
         "noise": "minecraft:gravel",
         "shift_x": "minecraft:shift_x",
         "shift_y": 0.0,
         "shift_z": "minecraft:shift_z",
-        "xz_scale": 4.0,
+        "xz_scale": 8.0,
         "y_scale": 0.0
       }
     }

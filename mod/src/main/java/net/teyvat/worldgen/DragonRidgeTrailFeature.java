@@ -36,16 +36,53 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         var world = context.getWorld();
         boolean changed = false;
 
-        for (int x = chunkPos.getStartX(); x <= chunkPos.getEndX(); x++) {
-            for (int z = chunkPos.getStartZ(); z <= chunkPos.getEndZ(); z++) {
+        int minX = chunkPos.getStartX();
+        int maxX = chunkPos.getEndX();
+        int minZ = chunkPos.getStartZ();
+        int maxZ = chunkPos.getEndZ();
+
+        // 1) Собрать высоты поверхности блоков тропы (узкая полоса) для медианы.
+        int[] ys = new int[256];
+        int count = 0;
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                double fade = TeyvatDragonRidge.trailFadeFactor(x, z);
+                if (fade <= -0.3) continue;
+                if (count >= ys.length) break;
+                ys[count++] = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
+            }
+            if (count >= ys.length) break;
+        }
+        if (count == 0) return false;
+        int[] sample = new int[count];
+        System.arraycopy(ys, 0, sample, 0, count);
+        java.util.Arrays.sort(sample);
+        int targetY = sample[count / 2];
+
+        // 2) Подровнять блоки тропы под целевую высоту + поставить dirt_path.
+        for (int x = minX; x <= maxX; x++) {
+            for (int z = minZ; z <= maxZ; z++) {
                 double fade = TeyvatDragonRidge.trailFadeFactor(x, z);
                 if (fade <= -0.3) continue;
 
                 int surfaceY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
-                BlockPos surface = new BlockPos(x, surfaceY, z);
-                var block = world.getBlockState(surface).getBlock();
+                // Срезаем выступы выше целевого уровня
+                if (surfaceY > targetY) {
+                    for (int dy = targetY + 1; dy <= surfaceY; dy++) {
+                        setBlockState(world, new BlockPos(x, dy, z), Blocks.AIR.getDefaultState());
+                        changed = true;
+                    }
+                } else if (surfaceY < targetY) {
+                    // Заполняем ямы до целевого уровня
+                    for (int dy = surfaceY + 1; dy <= targetY; dy++) {
+                        setBlockState(world, new BlockPos(x, dy, z), Blocks.DIRT.getDefaultState());
+                        changed = true;
+                    }
+                }
 
-                if (block == Blocks.GRASS_BLOCK || block == Blocks.SAND || block == Blocks.SHORT_GRASS || block == Blocks.TALL_GRASS) {
+                BlockPos surface = new BlockPos(x, targetY, z);
+                var block = world.getBlockState(surface).getBlock();
+                if (block != Blocks.DIRT_PATH && block != Blocks.AIR) {
                     setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
                     changed = true;
                 }
