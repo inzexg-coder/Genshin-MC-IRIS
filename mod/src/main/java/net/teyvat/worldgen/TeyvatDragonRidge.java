@@ -106,7 +106,7 @@ public final class TeyvatDragonRidge {
             double warpedRadius = radius
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-            double outer = 1.0 - smoothstep(OUTER_RADIUS - 85, OUTER_RADIUS + 85, warpedRadius);
+            double outer = 1.0 - smoothstep(OUTER_RADIUS - 130, OUTER_RADIUS + 130, warpedRadius);
 
             // Ворота: плавное затухание холмов к пляжу (без notch — непрерывное кольцо)
             double landGate = dz > 20.0 ? 1.0 : smoothstep(0.0, 20.0, dz);
@@ -117,11 +117,10 @@ public final class TeyvatDragonRidge {
             // Чистый линейный профиль холмов вокруг тропы
             double hill = linearHillProfile(dist);
 
-            // «Этаж» тропы: плавно поднимается от низшей точки пляжа (радиус ~57)
-            // до уровня долины (радиус ~155). Ограничен узкой полосой тропы,
-            // чтобы холмы по бокам оставались нетронутыми.
-            double floorBand = 1.0 - smooth01(dist / 6.0);
-            double trailFloor = TRAIL_FLOOR_AMP * smoothstep(57.0, 155.0, warpedRadius) * floorBand;
+            // «Прорезь»: у входа на тропу с пляжа делаем узкий плавный пандус.
+            // Малый масштаб (0.27 density ≈ 3 блока подъёма) — без уноса в небо.
+            double floorBand = 1.0 - smooth01(dist / 5.0);
+            double trailFloor = TRAIL_FLOOR_AMP * smoothstep(57.0, 100.0, warpedRadius) * floorBand;
 
             return landGate * outer * (trailFloor + hill);
         }
@@ -176,13 +175,15 @@ public final class TeyvatDragonRidge {
     private static final double HILL_AMPLITUDE = 1.1;
     private static final double CREST_START = 30.0;
     private static final double CREST_END = 70.0;
-    private static final double TRAIL_FLOOR_AMP = 6.0;
+    private static final double TRAIL_FLOOR_AMP = 0.27;
 
     private static double linearHillProfile(double dist) {
         if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;
+        // плавное затухание хвоста, чтобы не было резкого обрыва на дальнем крае
+        double tailFade = 1.0 - smooth01((dist - HILL_END_DIST * 0.8) / (HILL_END_DIST * 0.2));
         if (dist <= CREST_START) {
             // Линейный подъём: постоянный уклон от тропы
-            return HILL_AMPLITUDE * (dist / HILL_PEAK_DIST);
+            return HILL_AMPLITUDE * (dist / HILL_PEAK_DIST) * tailFade;
         } else if (dist <= CREST_END) {
             // Плавный пик: smoothstep-crest соединяет подъём и спуск
             double t = (dist - CREST_START) / (CREST_END - CREST_START);
@@ -190,10 +191,10 @@ public final class TeyvatDragonRidge {
             double toFall = HILL_AMPLITUDE * (1.0 - (dist - HILL_PEAK_DIST) / (HILL_END_DIST - HILL_PEAK_DIST));
             // Smoothstep interpolation between the two linear segments
             double s = t * t * (3.0 - 2.0 * t);
-            return fromRise * (1.0 - s) + toFall * s;
+            return (fromRise * (1.0 - s) + toFall * s) * tailFade;
         } else {
             // Линейный спуск
-            return HILL_AMPLITUDE * (1.0 - (dist - HILL_PEAK_DIST) / (HILL_END_DIST - HILL_PEAK_DIST));
+            return HILL_AMPLITUDE * (1.0 - (dist - HILL_PEAK_DIST) / (HILL_END_DIST - HILL_PEAK_DIST)) * tailFade;
         }
     }
 
