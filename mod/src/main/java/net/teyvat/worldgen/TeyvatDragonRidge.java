@@ -109,22 +109,27 @@ public final class TeyvatDragonRidge {
                     + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
             double outer = 1.0 - smoothstep(OUTER_RADIUS - 15, OUTER_RADIUS + 215, warpedRadius);
 
-            // Кольцевой вход холмов: плавно появляются вокруг пляжа по радиусу,
-            // а не резкой линией по z — нет «вертикальных стен» у пляжа
+            // Кольцевой вход: дно долины плавно поднимается от пляжа.
             double landGate = smoothstep(INNER_RADIUS - 35, INNER_RADIUS + 25, warpedRadius);
 
             // Расстояние от центра тропы
             double dist = trailDistance(x, z);
 
-            // Чистый линейный профиль холмов вокруг тропы
-            double hill = linearHillProfile(dist);
-
-            // Песчаная лестница от пляжа: подъём разгоняется до ВХОДА в тропу
-            // (радиус 57..95), дальше тропа лежит на РОВНОМ плато долины.
+            // Песчаная лестница от пляжа: дно долины поднимается до ВХОДА в тропу
+            // (радиус 57..95), дальше держится ровным плато. Тропа = дно долины,
+            // чуть выше пляжа.
             double floorBand = 1.0 - smooth01(dist / 10.0);
-            double trailFloor = TRAIL_FLOOR_AMP * smoothstep(57.0, 95.0, warpedRadius) * floorBand;
+            double plate = TRAIL_FLOOR_AMP * smoothstep(57.0, 95.0, warpedRadius) * floorBand;
 
-            return landGate * outer * (trailFloor + hill);
+            // Холмы вокруг тропы: по обе стороны её линии. Профиль — колокол по dist
+            // (0 на тропе, пик у ~dist 40-60, плавный спад). Ворота настроены так,
+            // чтобы холмы вставали вместе с долиной (начиная радиус ~95) и плавно
+            // гаснули у внешнего края — без стен.
+            double hill = linearHillProfile(dist);
+            double hillGate = smoothstep(85.0, 115.0, warpedRadius)
+                    * (1.0 - smoothstep(OUTER_RADIUS - 55, OUTER_RADIUS + 25, warpedRadius));
+
+            return plate + landGate * outer * hill * hillGate;
         }
 
         @Override public double minValue() { return -1.5; }
