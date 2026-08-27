@@ -60,7 +60,32 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
             }
         }
 
+        // Точка телепортации: строим в чанке, содержащем начало тропы (TRAILHEAD),
+        // прямо при генерации этого чанка. Это надёжный путь — точка появляется
+        // сразу, без серверного тика и без ожидания, пока игрок подойдёт вплотную.
+        // Работаем только в пределах текущего чанка (без форсирования соседних),
+        // поэтому не замедляет загрузку и не вызывает бесконечную генерацию.
+        if (chunkPos.x == TeyvatDragonRidge.TRAILHEAD_X >> 4
+                && chunkPos.z == TeyvatDragonRidge.TRAILHEAD_Z >> 4) {
+            changed |= buildTeleportAt(context, TeyvatDragonRidge.TRAILHEAD_X, TeyvatDragonRidge.TRAILHEAD_Z);
+        }
+
         return changed;
     }
 
+    /** Компактно строит точку телепортации на высоте поверхности текущего чанка.
+     *  Использует только TOPMOST heightmap и не выходит за границы чанка. */
+    private boolean buildTeleportAt(FeatureContext<DefaultFeatureConfig> context, int x, int z) {
+        var world = context.getWorld();
+        int y = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, z);
+        BlockPos center = new BlockPos(x, y, z);
+        boolean changed = false;
+
+        setBlockState(world, center, net.teyvat.TeyvatBlocks.TELEPORT_SLAB_RED.getDefaultState());
+        setBlockState(world, center.up(1), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_BASE_RED.getDefaultState());
+        setBlockState(world, center.up(2), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_SHAFT_RED.getDefaultState());
+        setBlockState(world, center.up(3), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_CAPITAL_RED.getDefaultState());
+        changed = true;
+        return changed;
+    }
 }

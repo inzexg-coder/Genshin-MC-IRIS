@@ -106,6 +106,14 @@ public final class TeyvatSpawn {
      *  уже рядом (чанки вокруг гарантированно загружены). Это безопасно:
      *  без форсирования генерации чужих чанков — только isChunkLoaded. */
     public static void serverTickMaybeBuildTeleport(MinecraftServer server) {
+        // Точка телепортации теперь строится прямо в фиче на чанке начала тропы,
+        // поэтому серверный тик больше не нужен (не создаём вторую точку).
+        teleportBuilt = true;
+        return;
+    }
+
+    // (реализация прежнего серверного построения больше не используется)
+    private static void serverTickBuildTeleportUnused(MinecraftServer server) {
         if (teleportBuilt) return;
         ServerWorld world = server.getOverworld();
 
