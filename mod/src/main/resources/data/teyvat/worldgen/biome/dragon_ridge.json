@@ -22,8 +22,7 @@
     [
       "minecraft:trees_plains",
       "minecraft:flower_plains",
-      "minecraft:patch_grass_plain",
-      "teyvat:dragon_ridge_trail"
+      "minecraft:patch_grass_plain"
     ],
     []
   ],

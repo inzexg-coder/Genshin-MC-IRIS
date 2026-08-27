@@ -45,7 +45,6 @@ public final class TeyvatSpawn {
 
     private static BlockPos beachSpawn;
     private static float beachYaw;
-    private static boolean teleportBuilt = false;
 
     private TeyvatSpawn() {
     }
@@ -99,74 +98,6 @@ public final class TeyvatSpawn {
         WorldBorder border = world.getWorldBorder();
         border.setCenter(0, 0);
         border.setSize(TeyvatOceanEdge.BORDER_SIZE);
-    }
-
-    /** Серверный тик: безопасно строим точку телепортации у начала тропы,
-     *  когда чанк TRAILHEAD уже загружен (без принудительной генерации,
-     *  которая вызывает бесконечную "Загрузку территории"). */
-    public static void serverTickMaybeBuildTeleport(MinecraftServer server) {
-        if (teleportBuilt) return;
-        ServerWorld world = server.getOverworld();
-        int chunkX = TeyvatDragonRidge.TRAILHEAD_X >> 4;
-        int chunkZ = TeyvatDragonRidge.TRAILHEAD_Z >> 4;
-        if (!world.isChunkLoaded(chunkX, chunkZ)) {
-            return; // ждём, пока чанк сам загрузится
-        }
-        teleportBuilt = true;
-        try {
-            buildTeleportNearTrailhead(world);
-        } catch (Exception e) {
-            LOGGER.warn("Не удалось построить точку телепортации", e);
-        }
-    }
-
-    /** Находит ровную площадку возле TRAILHEAD и строит точку телепортации.
-     *  Чанк уже загружен (проверено в serverTickMaybeBuildTeleport), поэтому
-     *  getTopY/setBlockState безопасны и не форсируют генерацию. */
-    private static void buildTeleportNearTrailhead(ServerWorld world) {
-        int centerX = TeyvatDragonRidge.TRAILHEAD_X;
-        int centerZ = TeyvatDragonRidge.TRAILHEAD_Z;
-
-        // Ищем ровную площадку по обе стороны тропы (по X), шаг 1 блок
-        int[] xs = new int[41];
-        for (int i = 0; i < 41; i++) xs[i] = centerX - 20 + i;
-        for (int x : xs) {
-            int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x, centerZ);
-            if (topY < world.getSeaLevel()) continue;
-            if (!world.getFluidState(new BlockPos(x, topY, centerZ)).isEmpty()) continue;
-
-            // Проверяем ровность 5x5 (макс перепад 1 блок)
-            int baseY = topY;
-            boolean flat = true;
-            for (int sdx = -2; sdx <= 2 && flat; sdx++) {
-                for (int sdz = -2; sdz <= 2 && flat; sdz++) {
-                    int ny = world.getTopY(Heightmap.Type.MOTION_BLOCKING, x + sdx, centerZ + sdz);
-                    if (Math.abs(ny - baseY) > 1) flat = false;
-                }
-            }
-            if (!flat) continue;
-
-            // Ставим точку в самом начале, ближе к пляжу (южнее), не на самой тропе
-            BlockPos spot = new BlockPos(x, topY, centerZ);
-            if (x == centerX && topY == baseY) {
-                // Ставим чуть в сторону от середины
-                spot = new BlockPos(x + 3, topY, centerZ);
-            }
-            LOGGER.info("Точка телепортации (тик): x={}, z={}, y={}", spot.getX(), spot.getZ(), spot.getY());
-            buildTeleportPoint(world, spot);
-            LOGGER.info(">>> ТЕЛЕПОРТ ПОСТРОЕН (тик) <<<");
-            return;
-        }
-
-        // Фолбэк: просто offset 20 от TRAILHEAD
-        int fx = centerX + 20;
-        int fz = centerZ;
-        int fy = world.getTopY(Heightmap.Type.MOTION_BLOCKING, fx, fz);
-        if (fy < world.getSeaLevel()) fy = world.getSeaLevel() + 1;
-        BlockPos fallback = new BlockPos(fx, fy, fz);
-        LOGGER.info("Точка телепортации (фолбэк-тик): x={}, z={}, y={}", fx, fz, fy);
-        buildTeleportPoint(world, fallback);
-        LOGGER.info(">>> ТЕЛЕПОРТ ПОСТРОЕН (фолбэк-тик) <<<");
     }
 
     /** Вызывается при входе игрока: пометить как приветствованного.

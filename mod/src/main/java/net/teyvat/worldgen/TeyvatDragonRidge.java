@@ -73,7 +73,15 @@ public final class TeyvatDragonRidge {
             double x = pos.blockX();
             double z = pos.blockZ();
             double distance = trailDistance(x, z);
-            double edge = (distance - 5.0) / 5.0;
+
+            // У пляжа (радиус < 75) тропа растекается веером: ширина растёт
+            // до 3x у выхода на песок, чтобы с пляжа было видно, куда идти.
+            double pdz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
+            double pradius = Math.sqrt(x * x + pdz * pdz);
+            double spread = smoothstep(75.0, 58.0, pradius);
+            double halfWidth = 5.0 * (1.0 + 2.0 * spread);
+
+            double edge = (distance - halfWidth) / halfWidth;
             double mask = 1.0 - smooth01(edge);
             return Math.max(-1.0, Math.min(1.0, mask * 2.0 - 1.0));
         }
