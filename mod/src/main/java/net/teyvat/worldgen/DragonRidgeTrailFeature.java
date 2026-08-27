@@ -13,9 +13,9 @@ import net.minecraft.world.gen.feature.util.FeatureContext;
 import net.teyvat.TeyvatMod;
 
 /** Тропа: ЛЁГКИЙ фича-генератор. Ровность тропы обеспечивает сама density-функция
- *  (плоское плато на высоте TRAIL_Y), поэтому здесь мы только подменяем поверхностные
- *  блоки на dirt_path. НИКАКИХ тяжёлых циклов по getTopY и выравнивания — именно
- *  они вызывали бесконечную "Загрузку территории"/"чанки не грузят". */
+ *  (шум вдоль тропы выключен, профиль константен), поэтому здесь мы только
+ *  подменяем поверхностные блоки на dirt_path. НИКАКИХ тяжёлых циклов по getTopY
+ *  и выравнивания — именно они вызывали бесконечную "Загрузку территории". */
 public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig> {
     public static final Identifier ID =
             Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_trail");

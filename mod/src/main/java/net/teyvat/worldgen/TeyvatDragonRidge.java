@@ -32,11 +32,6 @@ public final class TeyvatDragonRidge {
     public static final int TRAILHEAD_X = 0;
     public static final int TRAILHEAD_Z = -1270;
 
-    /** Единая абсолютная высота всей тропы (в блоках). Тропа жёстко ровняется
-     *  на это значение во всех чанках, чтобы ни один блок не был выше/ниже.
-     *  Совпадает с плоским плато из density-функций (см. dragon_ridge_floor_raw). */
-    public static final int TRAIL_Y = 72;
-
     private static final double START_RADIUS = 95.0;
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
@@ -140,28 +135,20 @@ public final class TeyvatDragonRidge {
         @Override public CodecHolder<? extends DensityFunction> getCodecHolder() { return CodecHolder.of(MapCodec.unit(HEIGHT)); }
     };
 
-    /** Плоское дно долины под тропой: 1.0 внутри всего кольца хребта, 0 на пляже
-     *  и за внешним краем. Умножается на teyvat_beach_height, чтобы «вырезать»
-     *  естественный рельеф (обрыв пляжа и шум) внутри кольца — тогда дно долины
-     *  идеально ровное и вся тропа лежит строго на одной высоте TRAIL_Y,
-     *  а у внешнего края плавно сливается с равнинами. */
+    /** Узкая полоса вдоль тропы: 1.0 на самой тропе (dist < 16), 0 вне её.
+     *  Используется как «выключатель шума»: внутри полосы убирается случайная
+     *  составляющая teyvat_beach_height (erosion), а детерминированный профиль
+     *  (cliff_profile) остаётся. На всей тропе cliff_profile константен (1.35),
+     *  поэтому дно долины становится идеально ровным, а море/пляж/равнины
+     *  не затрагиваются. */
     private static final DensityFunction FLOOR = new DensityFunction.Base() {
         @Override
         public double sample(NoisePos pos) {
             double x = pos.blockX();
             double z = pos.blockZ();
             if (x < -240 || x > 240 || z < -1600 || z > -1040) return 0.0;
-            double dz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
-            double radius = Math.sqrt(x * x + dz * dz);
-            double angle = Math.atan2(x, dz);
-            double warpedRadius = radius
-                    + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
-                    + 4.0 * Math.sin(x * 0.019 - dz * 0.016);
-            // От края пляжа (62) до внешнего края хребта — плато без естественного рельефа.
-            // Пляж (radius < 62) и равнины (radius >= 285) сохраняют обычный рельеф.
-            double inner = smoothstep(62.0, 92.0, warpedRadius);
-            double outer = 1.0 - smoothstep(205.0, 285.0, warpedRadius);
-            return inner * outer;
+            double dist = trailDistance(x, z);
+            return 1.0 - smooth01(dist / 16.0);
         }
 
         @Override public double minValue() { return 0.0; }
