@@ -82,10 +82,13 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         return x - 3 <= maxX && x + 3 >= minX && z - 3 <= maxZ && z + 3 >= minZ;
     }
 
-    /** Кладёт ячейки ромба-платформы (|dx|+|dz| <= 3), попадающие в ТЕКУЩИЙ чанк:
-     *  расчищает воздух над ячейкой и ставит блок платформы на локальную
-     *  поверхность-1. Если withColumn — дополнительно ставит плиту и колонну
-     *  над центральной ячейкой. Никаких записей за пределы чанка. */
+    /** Кладёт ячейки ромба-платформы (|dx|+|dz| <= 3), попадающие в ТЕКУЩИЙ чанк.
+     *  ВСЕ ячейки платформы кладутся на ОДИН общий уровень centerY (высота
+     *  поверхности в центре - 1), чтобы блоки платформы не «плыли» друг
+     *  относительно друга. Вокруг платформы расчищается территория: воздух
+     *  над каждой ячейкой, боковые 1-2 блока и растительность снимаются,
+     *  поэтому точку видно издалека. Если withColumn — дополнительно ставится
+     *  плита и колонна над центральной ячейкой. Никаких записей за пределы чанка. */
     private boolean placeTeleportInChunk(FeatureContext<DefaultFeatureConfig> context, int x, int z, boolean withColumn) {
         var world = context.getWorld();
         ChunkPos chunkPos = new ChunkPos(context.getOrigin());
@@ -95,37 +98,65 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         int cMaxZ = cMinZ + 15;
         boolean changed = false;
 
-        // Сначала ромб-платформа r=3.
+        // Единый уровень платформы: высота поверхности в центре (трайлхед) - 1.
+        int centerY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
+        if (centerY < world.getBottomY() + 1) {
+            for (int dx = -3; dx <= 3 && centerY < world.getBottomY() + 1; dx++) {
+                for (int dz = -3; dz <= 3; dz++) {
+                    if (Math.abs(dx) + Math.abs(dz) > 3) continue;
+                    int px = x + dx;
+                    int pz = z + dz;
+                    if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
+                    centerY = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz) - 1;
+                }
+            }
+        }
+
+        // Ромб-платформа r=3 на ОДНОМ уровне centerY + расчистка воздуха над ней.
         for (int dx = -3; dx <= 3; dx++) {
             for (int dz = -3; dz <= 3; dz++) {
                 if (Math.abs(dx) + Math.abs(dz) > 3) continue;
                 int px = x + dx;
                 int pz = z + dz;
                 if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
-                int py = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz) - 1;
-                for (int dy = 1; dy <= 5; dy++) {
-                    setBlockState(world, new BlockPos(px, py + dy, pz), net.minecraft.block.Blocks.AIR.getDefaultState());
+                for (int dy = 1; dy <= 7; dy++) {
+                    setBlockState(world, new BlockPos(px, centerY + dy, pz), net.minecraft.block.Blocks.AIR.getDefaultState());
                 }
-                setBlockState(world, new BlockPos(px, py, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+                setBlockState(world, new BlockPos(px, centerY, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
                 changed = true;
             }
         }
-        // Тонкое теснение r=1 (поверх центра платформы).
+        // Тонкое теснение r=1 (поверх платформы, тоже на общем уровне).
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 if (Math.abs(dx) + Math.abs(dz) > 1) continue;
                 int px = x + dx;
                 int pz = z + dz;
                 if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
-                int py = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz) - 1;
-                setBlockState(world, new BlockPos(px, py, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH_THIN.getDefaultState());
+                setBlockState(world, new BlockPos(px, centerY, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH_THIN.getDefaultState());
                 changed = true;
+            }
+        }
+        // Расчистка территории ВОКРУГ платформы (радиус 5): снимаем растительность
+        // и лишние блоки чуть выше уровня платформы, чтобы точку было видно.
+        for (int dx = -5; dx <= 5; dx++) {
+            for (int dz = -5; dz <= 5; dz++) {
+                if (Math.abs(dx) <= 3 && Math.abs(dz) <= 3 && Math.abs(dx) + Math.abs(dz) <= 3) continue;
+                if (Math.abs(dx) + Math.abs(dz) > 6) continue;
+                int px = x + dx;
+                int pz = z + dz;
+                if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
+                int localTop = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz);
+                if (localTop > centerY + 2) {
+                    for (int dy = centerY + 2; dy <= centerY + 7 && dy <= localTop; dy++) {
+                        setBlockState(world, new BlockPos(px, dy, pz), net.minecraft.block.Blocks.AIR.getDefaultState());
+                    }
+                }
             }
         }
 
         // Центр: плита + колонна над уровнем платформы.
         if (withColumn && x >= cMinX && x <= cMaxX && z >= cMinZ && z <= cMaxZ) {
-            int centerY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
             setBlockState(world, new BlockPos(x, centerY + 1, z), net.teyvat.TeyvatBlocks.TELEPORT_SLAB_RED.getDefaultState());
             setBlockState(world, new BlockPos(x, centerY + 2, z), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_BASE_RED.getDefaultState());
             setBlockState(world, new BlockPos(x, centerY + 3, z), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_SHAFT_RED.getDefaultState());

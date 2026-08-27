@@ -60,8 +60,8 @@ public final class TeyvatDragonRidge {
                     + 7.0 * Math.sin(angle * 3.0 + radius * 0.024)
                     + 4.0 * Math.sin(dx * 0.019 - dz * 0.016);
 
-            double inner = smoothstep(INNER_RADIUS + 4, INNER_RADIUS + 26, warpedRadius);
-            double outer = 1.0 - smoothstep(OUTER_RADIUS - 34, OUTER_RADIUS, warpedRadius);
+            double inner = smoothstep(INNER_RADIUS + 2, INNER_RADIUS + 30, warpedRadius);
+            double outer = 1.0 - smoothstep(OUTER_RADIUS - 75, OUTER_RADIUS + 40, warpedRadius);
             double land = smoothstep(18.0, 52.0, dz);
             double value = inner * outer * land;
             return Math.max(-1.0, Math.min(1.0, value * 2.0 - 1.0));
@@ -119,8 +119,8 @@ public final class TeyvatDragonRidge {
 
             // Кольцо холмов: снимаем у самого пляжа (radius < INNER_RADIUS) и
             // плавно затухаем на внешнем крае (широкий фейд — без вертикальных стен).
-            double ringIn = smoothstep(INNER_RADIUS - 4.0, INNER_RADIUS + 26.0, warpedRadius);
-            double ringOut = 1.0 - smoothstep(OUTER_RADIUS - 45.0, OUTER_RADIUS + 85.0, warpedRadius);
+            double ringIn = smoothstep(INNER_RADIUS - 18.0, INNER_RADIUS + 30.0, warpedRadius);
+            double ringOut = 1.0 - smoothstep(OUTER_RADIUS - 90.0, OUTER_RADIUS + 70.0, warpedRadius);
             double ring = ringIn * ringOut;
 
             // Ровное плато под самой тропой (floorBand=1 → plate = константа),
@@ -157,7 +157,8 @@ public final class TeyvatDragonRidge {
             double z = pos.blockZ();
             if (x < -240 || x > 240 || z < -1600 || z > -1040) return 0.0;
             double dist = trailDistance(x, z);
-            return 1.0 - smooth01(dist / 16.0);
+            double fade = smooth01((dist - 140.0) / 80.0);
+            return Math.max(0.0, 1.0 - fade);
         }
 
         @Override public double minValue() { return 0.0; }
@@ -208,21 +209,29 @@ public final class TeyvatDragonRidge {
      * Пик: smoothstep-crest от dist=70 до dist=100 (плавный переход).
      * Спуск: линейный от dist=100 до dist=170.
      */
-    private static final double HILL_END_DIST = 175.0;
-    private static final double HILL_AMPLITUDE = 1.18;
+    private static final double HILL_END_DIST = 190.0;
+    private static final double HILL_AMPLITUDE = 1.32;
     private static final double VALLEY_DEPTH = 0.5;
     private static final double TRAIL_FLOOR_AMP = 0.1;
 
-    /** Плавный колокол: 0 у тропы, пик в середине, 0 на HILL_END_DIST.
-     *  Косинусный профиль — нулевая производная на обоих концах, поэтому
-     *  холмы плавно сходят на нет и не обрезаются вертикальной стеной. */
+    /** Плавный колокол с мягкой плоской вершиной: 0 у тропы, плавный подъём
+     *  к широкому гребню, симметричный плавный спуск к HILL_END_DIST.
+     *  Косинусные сегменты дают нулевые производные на всех стыках — холмы
+     *  не имеют резких пиков и вертикальных стен. */
     private static double linearHillProfile(double dist) {
         if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;
         double s = clamp01(dist / HILL_END_DIST);
-        // Поднятый косинус: 0.5*(1-cos(2*pi*s)) — пик 1.0 в середине (s=0.5),
-        // нулевые производные на обоих концах → плавный подъём и спад,
-        // без вертикальных стен и плоских вершин.
-        return HILL_AMPLITUDE * 0.5 * (1.0 - Math.cos(2.0 * Math.PI * s));
+        double riseEnd = 0.52;
+        double crestEnd = 0.68;
+        if (s < riseEnd) {
+            double f = s / riseEnd;
+            return HILL_AMPLITUDE * 0.5 * (1.0 - Math.cos(Math.PI * f));
+        } else if (s < crestEnd) {
+            return HILL_AMPLITUDE;
+        } else {
+            double f = (s - crestEnd) / (1.0 - crestEnd);
+            return HILL_AMPLITUDE * 0.5 * (1.0 + Math.cos(Math.PI * f));
+        }
     }
 
     private static double trailDistance(double x, double z) {
@@ -234,21 +243,31 @@ public final class TeyvatDragonRidge {
                 bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
                         TRAIL_CURVE[idx], TRAIL_CURVE[idx + 1]));
             }
-        } else {
-            // Фолбэк: проверяем соседние ячейки
-            int cx = spatialCellCoordinate(x);
-            int cz = spatialCellCoordinate(z);
-            for (int ddx = -1; ddx <= 1; ddx++) {
-                for (int ddz = -1; ddz <= 1; ddz++) {
-                    long nk = ((long)(cx + ddx) << 32) | ((cz + ddz) & 0xFFFFFFFFL);
-                    int[] ns = TRAIL_SEGMENTS_BY_CELL.get(nk);
-                    if (ns != null) {
-                        for (int idx : ns) {
-                            bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
-                                    TRAIL_CURVE[idx], TRAIL_CURVE[idx + 1]));
-                        }
+        }
+        // Фолбэк: проверяем соседние ячейки (ближайший сегмент может лежать
+        // в одной из соседних 32-блочных ячеек индекса).
+        int cx = spatialCellCoordinate(x);
+        int cz = spatialCellCoordinate(z);
+        for (int ddx = -1; ddx <= 1; ddx++) {
+            for (int ddz = -1; ddz <= 1; ddz++) {
+                long nk = ((long)(cx + ddx) << 32) | ((cz + ddz) & 0xFFFFFFFFL);
+                int[] ns = TRAIL_SEGMENTS_BY_CELL.get(nk);
+                if (ns != null) {
+                    for (int idx : ns) {
+                        bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
+                                TRAIL_CURVE[idx], TRAIL_CURVE[idx + 1]));
                     }
                 }
+            }
+        }
+        // Дальние точки кольца: тропа может оказаться за пределами 3x3 соседних
+        // ячеек индекса (например, восточный склон долины). Полный перебор
+        // сегментов гарантирует корректное расстояние в любой точке мира —
+        // иначе холмы пропадали бы целыми чанками (вертикальные стены).
+        if (bestSquared == Double.MAX_VALUE) {
+            for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
+                bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
+                        TRAIL_CURVE[i], TRAIL_CURVE[i + 1]));
             }
         }
         return Math.sqrt(bestSquared);
