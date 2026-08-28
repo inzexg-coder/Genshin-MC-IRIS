@@ -132,11 +132,17 @@ public final class TeyvatDragonRidge {
             // читалась. Локально только рядом с тропой (dist < 28), 0 вне её.
             double valley = -VALLEY_DEPTH * (1.0 - smooth01(dist / 28.0));
 
-            // Холмы по ОБЕ стороны тропы: симметричный колокол по dist —
-            // 0 на тропе, плавно растёт к пику, затем плавно к 0 на HILL_END_DIST.
+            // Холмы по ОБЕ стороны тропы: симметричный купол по dist —
+            // 0 на тропе, мягкая округлая вершина, плавный спуск к HILL_END_DIST.
             double hill = linearHillProfile(dist);
 
-            return ring * (plate + hill + valley);
+            // Микро-шум для разбиения 4×4-квантования: не на самой тропе
+            // (floorBand=1 там), затухает к краю холмов. ±~2 блока, гладкий.
+            double micro = HILL_MICRO_AMP * microNoise(x, z)
+                    * smoothstep(18.0, 34.0, dist)
+                    * (1.0 - smoothstep(150.0, HILL_END_DIST, dist));
+
+            return ring * (plate + hill + valley + micro);
         }
 
         @Override public double minValue() { return -4.0; }
@@ -213,25 +219,46 @@ public final class TeyvatDragonRidge {
     private static final double HILL_AMPLITUDE = 1.32;
     private static final double VALLEY_DEPTH = 0.5;
     private static final double TRAIL_FLOOR_AMP = 0.1;
+    /** Амплитуда микро-шума на склонах холмов (≈±2 блока) —
+     *  ломает 4×4-квантование поверхности без грязного эффекта. */
+    private static final double HILL_MICRO_AMP = 0.08;
 
-    /** Плавный колокол с мягкой плоской вершиной: 0 у тропы, плавный подъём
-     *  к широкому гребню, симметричный плавный спуск к HILL_END_DIST.
-     *  Косинусные сегменты дают нулевые производные на всех стыках — холмы
-     *  не имеют резких пиков и вертикальных стен. */
+    /** Плавный симметричный купол: 0 у тропы, мягкая округлая вершина
+     *  на dist ≈ HILL_END_DIST/2, плавный спуск в равнины.
+     *  Никакой плоской крыши — верхушки холмов не «выпирают»,
+     *  производные нулевые на тропе, вершине и крае. */
     private static double linearHillProfile(double dist) {
         if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;
         double s = clamp01(dist / HILL_END_DIST);
-        double riseEnd = 0.52;
-        double crestEnd = 0.68;
-        if (s < riseEnd) {
-            double f = s / riseEnd;
-            return HILL_AMPLITUDE * 0.5 * (1.0 - Math.cos(Math.PI * f));
-        } else if (s < crestEnd) {
-            return HILL_AMPLITUDE;
-        } else {
-            double f = (s - crestEnd) / (1.0 - crestEnd);
-            return HILL_AMPLITUDE * 0.5 * (1.0 + Math.cos(Math.PI * f));
-        }
+        return HILL_AMPLITUDE * 0.5 * (1.0 - Math.cos(2.0 * Math.PI * s));
+    }
+
+    /** Мягкий детерминированный value-noise (-1..1) на сетке 4 блока:
+     *  разбивает 4×4-квантование поверхности, не добавляя грязи. */
+    private static double microNoise(double x, double z) {
+        double gx = x * 0.25;
+        double gz = z * 0.25;
+        int xi = (int) Math.floor(gx);
+        int zi = (int) Math.floor(gz);
+        double fx = gx - xi;
+        double fz = gz - zi;
+        double sx = fx * fx * (3.0 - 2.0 * fx);
+        double sz = fz * fz * (3.0 - 2.0 * fz);
+        double n00 = hash01(xi, zi);
+        double n10 = hash01(xi + 1, zi);
+        double n01 = hash01(xi, zi + 1);
+        double n11 = hash01(xi + 1, zi + 1);
+        double a = n00 + (n10 - n00) * sx;
+        double b = n01 + (n11 - n01) * sx;
+        return (a + (b - a) * sz) * 2.0 - 1.0;
+    }
+
+    private static double hash01(int x, int z) {
+        long h = (long) x * 0x9E3779B97F4A7C15L ^ (long) z * 0xBF58476D1CE4E5B9L;
+        h = (h ^ (h >>> 30)) * 0xBF58476D1CE4E5B9L;
+        h = (h ^ (h >>> 27)) * 0x94D049BB133111EBL;
+        h = h ^ (h >>> 31);
+        return (h & 0xFFFFFFFFL) / 4294967296.0;
     }
 
     private static double trailDistance(double x, double z) {
