@@ -144,7 +144,7 @@ public final class TeyvatDragonRidge {
                     * smoothstep(20.0, 42.0, dist)
                     * (1.0 - smoothstep(150.0, HILL_END_DIST, dist));
 
-            return ring * (plate + hill + valley) + micro;
+            return ring * (plate + hill + valley + micro);
         }
 
         @Override public double minValue() { return -4.0; }
@@ -224,9 +224,9 @@ public final class TeyvatDragonRidge {
     /** Амплитуда микро-шума на склонах холмов — ломает 4×4-квантование
      *  поверхности. Многократная шумовая рябь с основательным разбросом высот,
      *  чтобы блоки выглядели как живая майнкрафт-terrain, а не сетка. */
-    private static final double HILL_MICRO_AMP = 0.45;
+    private static final double HILL_MICRO_AMP = 0.06;
     /** Базовая частота микро-шума (период в блоках). */
-    private static final double MICRO_BASE_FREQ = 0.22;
+    private static final double MICRO_BASE_FREQ = 0.25;
 
     /** Плавный симметричный купол: 0 у тропы, мягкая округлая вершина
      *  на dist ≈ HILL_END_DIST/2, плавный спуск в равнины.
@@ -257,14 +257,11 @@ public final class TeyvatDragonRidge {
         return (a + (b - a) * sz) * 2.0 - 1.0;
     }
 
-    /** Многооктавный микро-шум для всей территории холмов: складываем
-     *  3 частоты с разными масштабами, чтобы убрать и 4×4-сетку, и более
-     *  крупную квантованную рябь. Возвращает примерно в [-1.3, 1.3]. */
+    /** Одиноктавный микро-шум: ровно на частоте 4-блочной сетки (freq=0.25),
+     *  каждая ячейка 4×4 получает уникальное значение с плавной интерполяцией
+     *  между соседями — как ванильные равнины. Без острых ступеней, без ряби. */
     private static double microNoise(double x, double z) {
-        double base = MICRO_BASE_FREQ;
-        return 0.55 * valueNoise(x * base, z * base)
-             + 0.35 * valueNoise(x * base * 2.0 + 31.7, z * base * 2.0 + 17.3)
-             + 0.20 * valueNoise(x * base * 4.0 + 7.9, z * base * 4.0 - 53.1);
+        return valueNoise(x * MICRO_BASE_FREQ + 7.3, z * MICRO_BASE_FREQ - 13.7);
     }
 
     private static double hash01(int x, int z) {

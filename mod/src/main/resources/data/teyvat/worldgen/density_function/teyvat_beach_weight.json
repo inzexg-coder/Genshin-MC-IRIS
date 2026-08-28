@@ -12,7 +12,7 @@
      },
      "argument2": {
       "type": "minecraft:mul",
-      "argument1": 0.08,
+      "argument1": 0.02,
       "argument2": {
        "type": "minecraft:shifted_noise",
        "noise": "minecraft:surface_secondary",
