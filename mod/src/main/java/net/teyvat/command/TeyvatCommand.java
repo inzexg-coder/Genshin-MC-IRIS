@@ -48,6 +48,8 @@ public final class TeyvatCommand {
                         .executes(TeyvatCommand::selfTest))
                 .then(CommandManager.literal("ridge")
                         .executes(TeyvatCommand::ridgeDebug))
+                .then(CommandManager.literal("debugbiome")
+                        .executes(TeyvatCommand::debugBiome))
                 .then(progression()));
     }
 
@@ -242,6 +244,23 @@ public final class TeyvatCommand {
                         + "§f/" + ProgressionStore.expToNextAr(player)
                         + "§f, примогемы: §b" + ProgressionStore.getPrimogems(player)
                         + "§f. Персонажи: §e" + ProgressionStore.getRoster(player).keySet()), false);
+        return 1;
+    }
+
+    /** Debug: print biome at player position. */
+    private static int debugBiome(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
+        ServerPlayerEntity player = ctx.getSource().getPlayerOrThrow();
+        ServerWorld world = ctx.getSource().getWorld();
+        int px = (int) Math.floor(player.getX());
+        int pz = (int) Math.floor(player.getZ());
+        int py = (int) Math.floor(player.getY());
+        var biomeKey = world.getBiome(new BlockPos(px, py, pz)).getKey();
+        String biome = biomeKey.map(k -> k.getValue().toString()).orElse("?");
+        int topY = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz);
+        ctx.getSource().sendFeedback(() -> Text.literal(
+            "§e[Teyvat debug] §fPos: §b" + px + "," + py + "," + pz
+            + "§f Biome: §a" + biome
+            + "§f SurfaceY: §b" + topY), false);
         return 1;
     }
 
