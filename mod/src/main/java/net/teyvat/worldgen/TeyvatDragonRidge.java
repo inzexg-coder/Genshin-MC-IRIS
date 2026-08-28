@@ -170,11 +170,12 @@ public final class TeyvatDragonRidge {
             // чтобы поверхность блоков выглядела естественной, а не сеткой.
             double microFade = smoothstep(15.0, 35.0, dist)
                     * (1.0 - smoothstep(155.0, HILL_END_DIST, dist));
-            // На вершинах холмов (dist 60-110) микро-шум усиливается для
-            // естественной рельефности, как на ванильных холмах.
-            double microPeakBoost = 1.0 + 0.5 * smoothstep(55.0, 80.0, dist)
-                    * (1.0 - smoothstep(100.0, 130.0, dist));
-            double micro = HILL_MICRO_AMP * microPeakBoost * microFade * ring * microNoise(x, z);
+            // Лёгкий микро-шум для естественности, НО приглушён на самой вершине
+            // (dist 70-130), чтобы склоны оставались гладким округлым куполом,
+            // а не распадались на несколько отдельных пиков.
+            double crestSuppress = 1.0 - 0.55 * smoothstep(55.0, 75.0, dist)
+                    * (1.0 - smoothstep(115.0, 140.0, dist));
+            double micro = HILL_MICRO_AMP * crestSuppress * microFade * ring * microNoise(x, z);
 
             return ring * (plate + hill + valley + micro);
         }
@@ -256,7 +257,7 @@ public final class TeyvatDragonRidge {
     /** Амплитуда микро-шума на склонах холмов — ломает 4×4-квантование
      *  поверхности. Многократная шумовая рябь с основательным разбросом высот,
      *  чтобы блоки выглядели как живая майнкрафт-terrain, а не сетка. */
-    private static final double HILL_MICRO_AMP = 0.10;
+    private static final double HILL_MICRO_AMP = 0.08;
     /** Базовая частота микро-шума (период в блоках). */
     private static final double MICRO_BASE_FREQ = 0.25;
 

@@ -112,17 +112,26 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
             }
         }
 
-        // Ромб-платформа r=3 на ОДНОМ уровне centerY + расчистка воздуха над ней.
-        for (int dx = -3; dx <= 3; dx++) {
-            for (int dz = -3; dz <= 3; dz++) {
-                if (Math.abs(dx) + Math.abs(dz) > 3) continue;
+        // Нижний ромб-подставка r=4 на уровне centerY-2 и centerY-1:
+        // сплошная широкая ромбовидная база, чтобы точка телепортации стояла
+        // на отдельной заметной платформе-ромбе, а не на траве.
+        for (int dx = -4; dx <= 4; dx++) {
+            for (int dz = -4; dz <= 4; dz++) {
+                if (Math.abs(dx) + Math.abs(dz) > 4) continue;
                 int px = x + dx;
                 int pz = z + dz;
                 if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
-                for (int dy = 1; dy <= 7; dy++) {
+                for (int dy = 1; dy <= 9; dy++) {
                     setBlockState(world, new BlockPos(px, centerY + dy, pz), net.minecraft.block.Blocks.AIR.getDefaultState());
                 }
-                setBlockState(world, new BlockPos(px, centerY, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+                int ringDistance = Math.abs(dx) + Math.abs(dz);
+                // Сплошной ромб r=4 на нижней ступени (centerY-2 и centerY-1).
+                setBlockState(world, new BlockPos(px, centerY - 2, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+                setBlockState(world, new BlockPos(px, centerY - 1, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+                // Верхняя ступень r=3 (centerY).
+                if (ringDistance <= 3) {
+                    setBlockState(world, new BlockPos(px, centerY, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+                }
                 changed = true;
             }
         }
@@ -141,9 +150,9 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         // блоки от уровня платформы и выше, чтобы НИЧЕГО не наезжало и не
         // прорастало сквозь точку. Платформа остаётся на общем уровне centerY,
         // вокруг неё — ровный пол из TELEPORT_PATH на том же уровне.
-        for (int dx = -7; dx <= 7; dx++) {
-            for (int dz = -7; dz <= 7; dz++) {
-                if (Math.abs(dx) + Math.abs(dz) > 10) continue;
+        for (int dx = -8; dx <= 8; dx++) {
+            for (int dz = -8; dz <= 8; dz++) {
+                if (Math.abs(dx) + Math.abs(dz) > 11) continue;
                 int px = x + dx;
                 int pz = z + dz;
                 if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
