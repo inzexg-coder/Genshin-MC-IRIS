@@ -82,13 +82,11 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         return x - 3 <= maxX && x + 3 >= minX && z - 3 <= maxZ && z + 3 >= minZ;
     }
 
-    /** Кладёт ячейки ромба-платформы (|dx|+|dz| <= 3), попадающие в ТЕКУЩИЙ чанк.
-     *  ВСЕ ячейки платформы кладутся на ОДИН общий уровень centerY (высота
-     *  поверхности в центре - 1), чтобы блоки платформы не «плыли» друг
-     *  относительно друга. Вокруг платформы расчищается территория: воздух
-     *  над каждой ячейкой, боковые 1-2 блока и растительность снимаются,
-     *  поэтому точку видно издалека. Если withColumn — дополнительно ставится
-     *  плита и колонна над центральной ячейкой. Никаких записей за пределы чанка. */
+    /** Кладёт ступенчатый ромб-пьедестал точки телепортации в ТЕКУЩИЙ чанк.
+     *   Нижняя подставка r=4, средняя ступень r=3, малый ромб r=2 — все на
+     *   общем уровне centerY (+нижние). Всё сплошное (без земли). Вокруг
+     *   расчищается воздух выше центрального уровня, чтобы точку было видно.
+     *   Если withColumn — ставится плита и колонна над центральной ячейкой. */
     private boolean placeTeleportInChunk(FeatureContext<DefaultFeatureConfig> context, int x, int z, boolean withColumn) {
         var world = context.getWorld();
         ChunkPos chunkPos = new ChunkPos(context.getOrigin());
@@ -101,9 +99,9 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         // Единый уровень платформы: высота поверхности в центре (трайлхед) - 1.
         int centerY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
         if (centerY < world.getBottomY() + 1) {
-            for (int dx = -3; dx <= 3 && centerY < world.getBottomY() + 1; dx++) {
-                for (int dz = -3; dz <= 3; dz++) {
-                    if (Math.abs(dx) + Math.abs(dz) > 3) continue;
+            for (int dx = -2; dx <= 2 && centerY < world.getBottomY() + 1; dx++) {
+                for (int dz = -2; dz <= 2; dz++) {
+                    if (Math.abs(dx) + Math.abs(dz) > 2) continue;
                     int px = x + dx;
                     int pz = z + dz;
                     if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
@@ -112,9 +110,11 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
             }
         }
 
-        // Нижний ромб-подставка r=4 на уровне centerY-2 и centerY-1:
-        // сплошная широкая ромбовидная база, чтобы точка телепортации стояла
-        // на отдельной заметной платформе-ромбе, а не на траве.
+        // Двухуровневый ромб-пьедестал под точкой телепортации:
+        //   - нижний ромб r=4 (подставка) на centerY-2 и centerY-1
+        //   - средний ромб r=3 на centerY-1 (вьступающая ступень)
+        //   - малый ромб r=2 на centerY — платформа, на которой стоит колонна
+        // Всё сплошное (без земли), чтобы точка стояла на заметном ромбе.
         for (int dx = -4; dx <= 4; dx++) {
             for (int dz = -4; dz <= 4; dz++) {
                 if (Math.abs(dx) + Math.abs(dz) > 4) continue;
@@ -125,11 +125,14 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                     setBlockState(world, new BlockPos(px, centerY + dy, pz), net.minecraft.block.Blocks.AIR.getDefaultState());
                 }
                 int ringDistance = Math.abs(dx) + Math.abs(dz);
-                // Сплошной ромб r=4 на нижней ступени (centerY-2 и centerY-1).
+                // Нижняя подставка r=4 (centerY-2).
                 setBlockState(world, new BlockPos(px, centerY - 2, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
-                setBlockState(world, new BlockPos(px, centerY - 1, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
-                // Верхняя ступень r=3 (centerY).
+                // Средняя ступень r=3 (centerY-1).
                 if (ringDistance <= 3) {
+                    setBlockState(world, new BlockPos(px, centerY - 1, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+                }
+                // Малый ромб r=2 (centerY) — платформа под колонной.
+                if (ringDistance <= 2) {
                     setBlockState(world, new BlockPos(px, centerY, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
                 }
                 changed = true;

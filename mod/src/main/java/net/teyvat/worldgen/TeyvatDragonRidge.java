@@ -250,8 +250,8 @@ public final class TeyvatDragonRidge {
      * Пик: smoothstep-crest от dist=70 до dist=100 (плавный переход).
      * Спуск: линейный от dist=100 до dist=170.
      */
-    private static final double HILL_END_DIST = 190.0;
-    private static final double HILL_AMPLITUDE = 1.32;
+    private static final double HILL_END_DIST = 230.0;
+    private static final double HILL_AMPLITUDE = 1.15;
     private static final double VALLEY_DEPTH = 0.5;
     private static final double TRAIL_FLOOR_AMP = 0.1;
     /** Амплитуда микро-шума на склонах холмов — ломает 4×4-квантование
@@ -261,14 +261,16 @@ public final class TeyvatDragonRidge {
     /** Базовая частота микро-шума (период в блоках). */
     private static final double MICRO_BASE_FREQ = 0.25;
 
-    /** Плавный симметричный купол: 0 у тропы, мягкая округлая вершина
-     *  на dist ≈ HILL_END_DIST/2, плавный спуск в равнины.
-     *  Никакой плоской крыши — верхушки холмов не «выпирают»,
-     *  производные нулевые на тропе, вершине и крае. */
+    /** Плавный симметричный купол: 0 у тропы, широкая округлая вершина
+     *  в середине, плавный спуск в равнины. Профиль — чистый синус
+     *  (не косинус-квадрат): склон круче у подножия и максимально
+     *  пологий у самой вершины, поэтому холм не «выпирает» резким
+     *  пиком из пологого склона, а плавно скругляется.
+     *  Производные нулевые на тропе, вершине и крае. */
     private static double linearHillProfile(double dist) {
         if (dist <= 0.0 || dist >= HILL_END_DIST) return 0.0;
         double s = clamp01(dist / HILL_END_DIST);
-        return HILL_AMPLITUDE * 0.5 * (1.0 - Math.cos(2.0 * Math.PI * s));
+        return HILL_AMPLITUDE * Math.sin(Math.PI * s);
     }
 
     /** Мягкий детерминированный value-noise (-1..1) на заданной частоте:
