@@ -45,6 +45,35 @@ public final class TeyvatDragonRidge {
     private static final Map<Long, int[]> TRAIL_SEGMENTS_BY_CELL =
             buildTrailSegmentIndex();
 
+
+    /** Предвычисленная сетка расстояний до тропы (ячейка 4×4, билинейная
+     *  интерполяция). Инициализируется один раз при загрузке класса —
+     *  полностью убирает перебор 256 сегментов на каждый блок. */
+    private static final double TRAIL_GRID_MIN_X = -256.0;
+    private static final double TRAIL_GRID_MIN_Z = -1664.0;
+    private static final double TRAIL_GRID_STEP = 4.0;
+    private static final double TRAIL_GRID_INV_STEP = 1.0 / TRAIL_GRID_STEP;
+    private static final int TRAIL_GRID_WIDTH = (int) ((256.0 + 256.0) / TRAIL_GRID_STEP) + 1;  // -256..+256
+    private static final int TRAIL_GRID_HEIGHT = (int) ((-1050.0 + 1664.0) / TRAIL_GRID_STEP) + 1; // -1664..-1050
+    private static final double[] TRAIL_DIST_GRID = buildTrailDistGrid();
+
+    private static double[] buildTrailDistGrid() {
+        double[] grid = new double[TRAIL_GRID_WIDTH * TRAIL_GRID_HEIGHT];
+        for (int gz = 0; gz < TRAIL_GRID_HEIGHT; gz++) {
+            for (int gx = 0; gx < TRAIL_GRID_WIDTH; gx++) {
+                double x = TRAIL_GRID_MIN_X + gx * TRAIL_GRID_STEP;
+                double z = TRAIL_GRID_MIN_Z + gz * TRAIL_GRID_STEP;
+                double best = Double.MAX_VALUE;
+                for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
+                    best = Math.min(best, segmentDistanceSquared(x, z,
+                            TRAIL_CURVE[i], TRAIL_CURVE[i + 1]));
+                }
+                grid[gz * TRAIL_GRID_WIDTH + gx] = Math.sqrt(best);
+            }
+        }
+        return grid;
+    }
+
     private static final DensityFunction ZONE = new DensityFunction.Base() {
         @Override
         public double sample(NoisePos pos) {
@@ -139,10 +168,13 @@ public final class TeyvatDragonRidge {
             // Микро-шум для разбиения 4×4-квантования: полностью убран на самой
             // тропе (floorBand=1), затухает на краях холмов. Многооктавный,
             // чтобы поверхность блоков выглядела естественной, а не сеткой.
-            double micro = HILL_MICRO_AMP * microNoise(x, z)
-                    * ring
-                    * smoothstep(20.0, 42.0, dist)
-                    * (1.0 - smoothstep(150.0, HILL_END_DIST, dist));
+            double microFade = smoothstep(15.0, 35.0, dist)
+                    * (1.0 - smoothstep(155.0, HILL_END_DIST, dist));
+            // На вершинах холмов (dist 60-110) микро-шум усиливается для
+            // естественной рельефности, как на ванильных холмах.
+            double microPeakBoost = 1.0 + 0.5 * smoothstep(55.0, 80.0, dist)
+                    * (1.0 - smoothstep(100.0, 130.0, dist));
+            double micro = HILL_MICRO_AMP * microPeakBoost * microFade * ring * microNoise(x, z);
 
             return ring * (plate + hill + valley + micro);
         }
@@ -224,7 +256,7 @@ public final class TeyvatDragonRidge {
     /** Амплитуда микро-шума на склонах холмов — ломает 4×4-квантование
      *  поверхности. Многократная шумовая рябь с основательным разбросом высот,
      *  чтобы блоки выглядели как живая майнкрафт-terrain, а не сетка. */
-    private static final double HILL_MICRO_AMP = 0.06;
+    private static final double HILL_MICRO_AMP = 0.10;
     /** Базовая частота микро-шума (период в блоках). */
     private static final double MICRO_BASE_FREQ = 0.25;
 
@@ -272,58 +304,42 @@ public final class TeyvatDragonRidge {
         return (h & 0xFFFFFFFFL) / 4294967296.0;
     }
 
+    /** Расстояние до тропы: быстрый lookup по предвычисленной сетке расстояний
+     *  (ячейка 4x4 + билинейная интерполяция). Никаких переборов сегментов на
+     *  каждый блок — чанкогенерация дальних областей больше не тормозит. */
     private static double trailDistance(double x, double z) {
-        long key = spatialCellKey(x, z);
-        int[] segments = TRAIL_SEGMENTS_BY_CELL.get(key);
-        double bestSquared = Double.MAX_VALUE;
-        if (segments != null) {
-            for (int idx : segments) {
-                bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
-                        TRAIL_CURVE[idx], TRAIL_CURVE[idx + 1]));
-            }
+        double gx = (x - TRAIL_GRID_MIN_X) * TRAIL_GRID_INV_STEP;
+        double gz = (z - TRAIL_GRID_MIN_Z) * TRAIL_GRID_INV_STEP;
+        if (gx < 0.0 || gz < 0.0 || gx > TRAIL_GRID_WIDTH - 1.0 || gz > TRAIL_GRID_HEIGHT - 1.0) {
+            return 9999.0;
         }
-        // Фолбэк: проверяем соседние ячейки (ближайший сегмент может лежать
-        // в одной из соседних 32-блочных ячеек индекса).
-        int cx = spatialCellCoordinate(x);
-        int cz = spatialCellCoordinate(z);
-        for (int ddx = -1; ddx <= 1; ddx++) {
-            for (int ddz = -1; ddz <= 1; ddz++) {
-                long nk = ((long)(cx + ddx) << 32) | ((cz + ddz) & 0xFFFFFFFFL);
-                int[] ns = TRAIL_SEGMENTS_BY_CELL.get(nk);
-                if (ns != null) {
-                    for (int idx : ns) {
-                        bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
-                                TRAIL_CURVE[idx], TRAIL_CURVE[idx + 1]));
-                    }
-                }
-            }
-        }
-        // Дальние точки кольца: тропа может оказаться за пределами 3x3 соседних
-        // ячеек индекса (например, восточный склон долины). Полный перебор
-        // сегментов гарантирует корректное расстояние в любой точке мира —
-        // иначе холмы пропадали бы целыми чанками (вертикальные стены).
-        if (bestSquared == Double.MAX_VALUE) {
-            for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
-                bestSquared = Math.min(bestSquared, segmentDistanceSquared(x, z,
-                        TRAIL_CURVE[i], TRAIL_CURVE[i + 1]));
-            }
-        }
-        return Math.sqrt(bestSquared);
+        int ix = (int) gx;
+        int iz = (int) gz;
+        if (ix >= TRAIL_GRID_WIDTH - 1) ix = TRAIL_GRID_WIDTH - 2;
+        if (iz >= TRAIL_GRID_HEIGHT - 1) iz = TRAIL_GRID_HEIGHT - 2;
+        double fx = gx - ix;
+        double fz = gz - iz;
+        int idx00 = iz * TRAIL_GRID_WIDTH + ix;
+        int idx10 = idx00 + 1;
+        int idx01 = idx00 + TRAIL_GRID_WIDTH;
+        int idx11 = idx01 + 1;
+        double d00 = TRAIL_DIST_GRID[idx00];
+        double d10 = TRAIL_DIST_GRID[idx10];
+        double d01 = TRAIL_DIST_GRID[idx01];
+        double d11 = TRAIL_DIST_GRID[idx11];
+        double sx = fx * fx * (3.0 - 2.0 * fx);
+        double sz = fz * fz * (3.0 - 2.0 * fz);
+        double a = d00 + (d10 - d00) * sx;
+        double b = d01 + (d11 - d01) * sx;
+        return a + (b - a) * sz;
     }
 
     public static boolean chunkMayContainTrail(int minX, int minZ, int maxX, int maxZ) {
         double margin = TRAIL_HALF_WIDTH + 1.0;
-        for (int i = 0; i < TRAIL_CURVE.length - 1; i++) {
-            double[] start = TRAIL_CURVE[i];
-            double[] end = TRAIL_CURVE[i + 1];
-            if (Math.max(start[0], end[0]) + margin >= minX
-                    && Math.min(start[0], end[0]) - margin <= maxX
-                    && Math.max(start[1], end[1]) + margin >= minZ
-                    && Math.min(start[1], end[1]) - margin <= maxZ) {
-                return true;
-            }
-        }
-        return false;
+        return maxX + margin >= TRAIL_CURVE[0][0] - 5.0
+                && minX - margin <= TRAIL_CURVE[TRAIL_CURVE.length - 1][0] + 5.0
+                && maxZ + margin >= -1270.0
+                && minZ - margin <= -1149.0;
     }
 
     private static Map<Long, int[]> buildTrailSegmentIndex() {
