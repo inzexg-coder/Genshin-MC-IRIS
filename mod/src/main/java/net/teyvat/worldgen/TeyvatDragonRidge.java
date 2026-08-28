@@ -136,13 +136,15 @@ public final class TeyvatDragonRidge {
             // 0 на тропе, мягкая округлая вершина, плавный спуск к HILL_END_DIST.
             double hill = linearHillProfile(dist);
 
-            // Микро-шум для разбиения 4×4-квантования: не на самой тропе
-            // (floorBand=1 там), затухает к краю холмов. ±~2 блока, гладкий.
+            // Микро-шум для разбиения 4×4-квантования: полностью убран на самой
+            // тропе (floorBand=1), затухает на краях холмов. Многооктавный,
+            // чтобы поверхность блоков выглядела естественной, а не сеткой.
             double micro = HILL_MICRO_AMP * microNoise(x, z)
-                    * smoothstep(18.0, 34.0, dist)
+                    * ring
+                    * smoothstep(20.0, 42.0, dist)
                     * (1.0 - smoothstep(150.0, HILL_END_DIST, dist));
 
-            return ring * (plate + hill + valley + micro);
+            return ring * (plate + hill + valley) + micro;
         }
 
         @Override public double minValue() { return -4.0; }
@@ -219,9 +221,12 @@ public final class TeyvatDragonRidge {
     private static final double HILL_AMPLITUDE = 1.32;
     private static final double VALLEY_DEPTH = 0.5;
     private static final double TRAIL_FLOOR_AMP = 0.1;
-    /** Амплитуда микро-шума на склонах холмов (≈±2 блока) —
-     *  ломает 4×4-квантование поверхности без грязного эффекта. */
-    private static final double HILL_MICRO_AMP = 0.08;
+    /** Амплитуда микро-шума на склонах холмов — ломает 4×4-квантование
+     *  поверхности. Многократная шумовая рябь с основательным разбросом высот,
+     *  чтобы блоки выглядели как живая майнкрафт-terrain, а не сетка. */
+    private static final double HILL_MICRO_AMP = 0.45;
+    /** Базовая частота микро-шума (период в блоках). */
+    private static final double MICRO_BASE_FREQ = 0.22;
 
     /** Плавный симметричный купол: 0 у тропы, мягкая округлая вершина
      *  на dist ≈ HILL_END_DIST/2, плавный спуск в равнины.
@@ -233,11 +238,10 @@ public final class TeyvatDragonRidge {
         return HILL_AMPLITUDE * 0.5 * (1.0 - Math.cos(2.0 * Math.PI * s));
     }
 
-    /** Мягкий детерминированный value-noise (-1..1) на сетке 4 блока:
-     *  разбивает 4×4-квантование поверхности, не добавляя грязи. */
-    private static double microNoise(double x, double z) {
-        double gx = x * 0.25;
-        double gz = z * 0.25;
+    /** Мягкий детерминированный value-noise (-1..1) на заданной частоте:
+     *  октавная ряд превращает гладкий купол холма в лёгкую неровную
+     *  поверхность, плотно ломающую 4×4-квантование. */
+    private static double valueNoise(double gx, double gz) {
         int xi = (int) Math.floor(gx);
         int zi = (int) Math.floor(gz);
         double fx = gx - xi;
@@ -251,6 +255,16 @@ public final class TeyvatDragonRidge {
         double a = n00 + (n10 - n00) * sx;
         double b = n01 + (n11 - n01) * sx;
         return (a + (b - a) * sz) * 2.0 - 1.0;
+    }
+
+    /** Многооктавный микро-шум для всей территории холмов: складываем
+     *  3 частоты с разными масштабами, чтобы убрать и 4×4-сетку, и более
+     *  крупную квантованную рябь. Возвращает примерно в [-1.3, 1.3]. */
+    private static double microNoise(double x, double z) {
+        double base = MICRO_BASE_FREQ;
+        return 0.55 * valueNoise(x * base, z * base)
+             + 0.35 * valueNoise(x * base * 2.0 + 31.7, z * base * 2.0 + 17.3)
+             + 0.20 * valueNoise(x * base * 4.0 + 7.9, z * base * 4.0 - 53.1);
     }
 
     private static double hash01(int x, int z) {
