@@ -137,20 +137,31 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                 changed = true;
             }
         }
-        // Расчистка территории ВОКРУГ платформы (радиус 5): снимаем растительность
-        // и лишние блоки чуть выше уровня платформы, чтобы точку было видно.
-        for (int dx = -5; dx <= 5; dx++) {
-            for (int dz = -5; dz <= 5; dz++) {
-                if (Math.abs(dx) <= 3 && Math.abs(dz) <= 3 && Math.abs(dx) + Math.abs(dz) <= 3) continue;
-                if (Math.abs(dx) + Math.abs(dz) > 6) continue;
+        // Расчистка территории ВОКРУГ платформы (радиус 7): полностью убираем все
+        // блоки от уровня платформы и выше, чтобы НИЧЕГО не наезжало и не
+        // прорастало сквозь точку. Платформа остаётся на общем уровне centerY,
+        // вокруг неё — ровный пол из TELEPORT_PATH на том же уровне.
+        for (int dx = -7; dx <= 7; dx++) {
+            for (int dz = -7; dz <= 7; dz++) {
+                if (Math.abs(dx) + Math.abs(dz) > 10) continue;
                 int px = x + dx;
                 int pz = z + dz;
                 if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
+                boolean isPlatform = Math.abs(dx) <= 3 && Math.abs(dz) <= 3 && Math.abs(dx) + Math.abs(dz) <= 3;
+                // Всё, что выше уровней платформы/пола, убираем в воздух.
+                int floorY = centerY;
                 int localTop = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz);
-                if (localTop > centerY + 2) {
-                    for (int dy = centerY + 2; dy <= centerY + 7 && dy <= localTop; dy++) {
+                if (localTop >= floorY + 1) {
+                    for (int dy = floorY + 1; dy <= Math.min(localTop, floorY + 9); dy++) {
                         setBlockState(world, new BlockPos(px, dy, pz), net.minecraft.block.Blocks.AIR.getDefaultState());
                     }
+                }
+                // Если здесь террейн ВЫШЕ платформы — срезаем его до уровня пола:
+                // ставим пол из path-блока, чтобы не оставалось травы/земли вровень
+                // с платформой и вокруг неё.
+                if (localTop > floorY) {
+                    setBlockState(world, new BlockPos(px, floorY, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
+                    changed = true;
                 }
             }
         }
