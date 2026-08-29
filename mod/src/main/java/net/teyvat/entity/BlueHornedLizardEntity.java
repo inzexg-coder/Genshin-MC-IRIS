@@ -11,7 +11,10 @@ import net.minecraft.entity.ai.goal.WanderAroundGoal;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.mob.PathAwareEntity;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
@@ -63,5 +66,11 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
         this.goalSelector.add(2, new WanderAroundGoal(this, 0.8));
         this.goalSelector.add(3, new LookAtEntityGoal(this, PlayerEntity.class, 6.0f));
         this.goalSelector.add(4, new LookAroundGoal(this));
+    }
+    @Override
+    protected void dropLoot(ServerWorld world, DamageSource damageSource, boolean causedByPlayer) {
+        super.dropLoot(world, damageSource, causedByPlayer);
+        // Ящерица дропает хвост (как в Genshin).
+        this.dropStack(world, new ItemStack(net.teyvat.item.TeyvatItems.LIZARD_TAIL));
     }
 }

@@ -56,5 +56,6 @@
   "block.teyvat.teleport_column_capital_red": "Капитель колонны (красная)",
   "block.teyvat.teleport_column_capital_blue": "Капитель колонны (активированная)",
   "entity.teyvat.blue_horned_lizard": "Синяя рогатая ящерица",
-  "item.teyvat.blue_horned_lizard_spawn_egg": "Яйцо призыва синей рогатой ящерицы"
+  "item.teyvat.blue_horned_lizard_spawn_egg": "Яйцо призыва синей рогатой ящерицы",
+  "item.teyvat.lizard_tail": "Хвост ящерицы"
 }

@@ -30,9 +30,12 @@ public final class TeyvatItems {
     /** Яйцо призыва синей рогатой ящерицы. */
     public static final Item BLUE_HORNED_LIZARD_SPAWN_EGG = registerLizardSpawnEgg();
 
+    /** Хвост ящерицы — дроп с синей рогатой ящерицы. */
+    public static final Item LIZARD_TAIL = register("lizard_tail");
+
     public static final List<Item> ALL = List.of(
             SLIME_CONDENSATE, SLIME_SECRETIONS, SLIME_CONCENTRATE, MORA,
-            DULL_BLADE, HYDRO_SLIME_SPAWN_EGG, BLUE_HORNED_LIZARD_SPAWN_EGG);
+            DULL_BLADE, HYDRO_SLIME_SPAWN_EGG, BLUE_HORNED_LIZARD_SPAWN_EGG, LIZARD_TAIL);
 
     private TeyvatItems() {}
 
