@@ -28,8 +28,11 @@ public final class TeyvatDragonRidge {
     private static final double SUMMIT_X = 0.0;
     private static final double SUMMIT_Z = -1165.0;
 
-    /** Фиксированный вход на серпантин для структур и серверного поиска. */
-    public static final int TRAILHEAD_X = 0;
+    /** Фиксированный вход на серпантин для структур и серверного поиска.
+     *  X=2: видимая полоса dirt_path в мире смещена относительно центральной
+     *  линии тропы на ~2.5 блока в +X, поэтому точку тeлепортации ставим сюда,
+     *  чтобы она была по центру дороги, а не сбоку. */
+    public static final int TRAILHEAD_X = 2;
     public static final int TRAILHEAD_Z = -1270;
 
     private static final double START_RADIUS = 68.0;
@@ -163,7 +166,9 @@ public final class TeyvatDragonRidge {
 
             // Холмы по ОБЕ стороны тропы: симметричный купол по dist —
             // 0 на тропе, мягкая округлая вершина, плавный спуск к HILL_END_DIST.
-            double hill = linearHillProfile(dist);
+            // Подавляем холмы в самой полосе тропы (dist<10), чтобы ни один блок
+            // дороги не возвышался над единым уровнем дна долины.
+            double hill = linearHillProfile(dist) * smoothstep(10.0, 25.0, dist);
 
             // Микро-шум для разбиения 4×4-квантования: полностью убран на самой
             // тропе (floorBand=1), затухает на краях холмов. Многооктавный,
@@ -179,7 +184,10 @@ public final class TeyvatDragonRidge {
                     * (1.0 - smoothstep(150.0, 180.0, dist));
             double micro = HILL_MICRO_AMP * crestSuppress * microFade * ring * microNoise(x, z);
 
-            return ring * (plate + hill + valley + micro);
+            // Плато+долина (ровное дно дороги) НЕ зависят от кольца ring, поэтому
+            // дно тропы ровное на любой её длине и не волнуется вместе с холмами.
+            // Холмы и микро-шум, наоборот, масштабируются ring'ом.
+            return (plate + valley) + ring * (hill + micro);
         }
 
         @Override public double minValue() { return -4.0; }
