@@ -34,9 +34,11 @@ import net.teyvat.client.StaminaController;
 import net.teyvat.client.PickupController;
 import net.teyvat.client.hydro.HydroSlimeEntityRenderer;
 import net.teyvat.client.hydro.HydroSlimeProjectileRenderer;
+import net.teyvat.client.lizard.BlueHornedLizardEntityRenderer;
 import net.teyvat.client.paimon.PaimonEntityRenderer;
 import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.entity.HydroSlimeEntity;
+import net.teyvat.entity.BlueHornedLizardEntity;
 import net.teyvat.entity.HydroSlimeProjectileEntity;
 import net.teyvat.client.paimon.PaimonManager;
 import net.teyvat.client.ProgressionClient;
@@ -114,6 +116,8 @@ public class TeyvatClient implements ClientModInitializer {
         // Рендеры Гидро слайма и его водяного шара.
         EntityRendererRegistry.register(HydroSlimeEntity.TYPE, HydroSlimeEntityRenderer::new);
         EntityRendererRegistry.register(HydroSlimeProjectileEntity.TYPE, HydroSlimeProjectileRenderer::new);
+        // Рендер синей рогатой ящерицы.
+        EntityRendererRegistry.register(BlueHornedLizardEntity.TYPE, BlueHornedLizardEntityRenderer::new);
 
         // Кастомный всплеск воды при смерти слайма: кольцо на текстуре water_splash.
         ParticleFactoryRegistry.getInstance().register(TeyvatParticles.WATER_SPLASH,

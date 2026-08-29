@@ -27,9 +27,12 @@ public final class TeyvatItems {
     /** Яйцо призыва гидро слайма для тестов и творческого режима. */
     public static final Item HYDRO_SLIME_SPAWN_EGG = registerSpawnEgg();
 
+    /** Яйцо призыва синей рогатой ящерицы. */
+    public static final Item BLUE_HORNED_LIZARD_SPAWN_EGG = registerLizardSpawnEgg();
+
     public static final List<Item> ALL = List.of(
             SLIME_CONDENSATE, SLIME_SECRETIONS, SLIME_CONCENTRATE, MORA,
-            DULL_BLADE, HYDRO_SLIME_SPAWN_EGG);
+            DULL_BLADE, HYDRO_SLIME_SPAWN_EGG, BLUE_HORNED_LIZARD_SPAWN_EGG);
 
     private TeyvatItems() {}
 
@@ -45,6 +48,14 @@ public final class TeyvatItems {
         Item.Settings settings = ToolMaterial.WOOD.applySwordSettings(
                 new Item.Settings(), 23.0f, -2.0f);
         return Registry.register(Registries.ITEM, id, new Item(settings.registryKey(RegistryKey.of(RegistryKeys.ITEM, id))));
+    }
+
+    /** Раскраска яйца уже в текстуре, без двойного тинта. */
+    private static Item registerLizardSpawnEgg() {
+        Identifier id = Identifier.of(TeyvatMod.MOD_ID, "blue_horned_lizard_spawn_egg");
+        return Registry.register(Registries.ITEM, id,
+                new BlueHornedLizardSpawnEggItem(
+                        new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, id))));
     }
 
     /** Раскраска яйца уже в текстуре, без двойного тинта. */
