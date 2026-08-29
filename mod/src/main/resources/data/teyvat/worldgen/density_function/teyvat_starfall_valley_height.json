@@ -12,7 +12,7 @@
     "argument1": {
       "type": "minecraft:cache_2d",
       "argument": {
-        "type": "teyvat:dragon_ridge_height_raw"
+        "type": "teyvat:starfall_valley_height_raw"
       }
     },
     "argument2": 1.0

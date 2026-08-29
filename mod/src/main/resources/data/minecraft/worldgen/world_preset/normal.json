@@ -159,7 +159,7 @@
        }
       },
       {
-       "biome": "teyvat:dragon_ridge",
+       "biome": "teyvat:starfall_valley",
        "parameters": {
         "temperature": [
          -0.7,
@@ -189,7 +189,7 @@
        }
       },
       {
-       "biome": "teyvat:dragon_ridge_path",
+       "biome": "teyvat:starfall_valley_path",
        "parameters": {
         "temperature": [
          0.4,

@@ -20,7 +20,7 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.border.WorldBorder;
 import net.teyvat.TeyvatBlocks;
 import net.teyvat.config.TeyvatConfig;
-import net.teyvat.worldgen.TeyvatDragonRidge;
+import net.teyvat.worldgen.TeyvatStarfallValley;
 import net.teyvat.worldgen.TeyvatOceanEdge;
 import net.teyvat.worldgen.TeyvatXEdge;
 
@@ -38,7 +38,7 @@ public final class TeyvatSpawn {
     private static final RegistryKey<Biome> BEACH_BIOME = RegistryKey.of(RegistryKeys.BIOME, BEACH_BIOME_ID);
     private static final Identifier GRASS_BIOME_ID = Identifier.of("teyvat", "teyvat_plains");
     private static final RegistryKey<Biome> GRASS_BIOME = RegistryKey.of(RegistryKeys.BIOME, GRASS_BIOME_ID);
-    private static final Identifier TRAIL_BIOME_ID = Identifier.of("teyvat", "dragon_ridge_path");
+    private static final Identifier TRAIL_BIOME_ID = Identifier.of("teyvat", "starfall_valley_path");
     private static final RegistryKey<Biome> TRAIL_BIOME = RegistryKey.of(RegistryKeys.BIOME, TRAIL_BIOME_ID);
     private static final Identifier EDGE_BIOME_ID = Identifier.of("teyvat", "teyvat_beach_edge");
     private static final RegistryKey<Biome> EDGE_BIOME = RegistryKey.of(RegistryKeys.BIOME, EDGE_BIOME_ID);
@@ -117,8 +117,8 @@ public final class TeyvatSpawn {
         if (teleportBuilt) return;
         ServerWorld world = server.getOverworld();
 
-        int cx = TeyvatDragonRidge.TRAILHEAD_X;
-        int cz = TeyvatDragonRidge.TRAILHEAD_Z;
+        int cx = TeyvatStarfallValley.TRAILHEAD_X;
+        int cz = TeyvatStarfallValley.TRAILHEAD_Z;
         boolean playerNear = false;
         for (ServerPlayerEntity p : server.getPlayerManager().getPlayerList()) {
             // Горизонтальное расстояние (без y!), иначе игрок на высоте 70
@@ -148,8 +148,8 @@ public final class TeyvatSpawn {
             // Точка — строго ПЕРПЕНДИКУЛЯРНО к тропе, в 20 блоках в сторону от неё.
             // В TRAILHEAD (0, -1270) тропа идёт по дуге, её касательная ≈ ось Z,
             // перпендикуляр ≈ ось X — ставим на +20 по X (чистая равнина).
-            int px = TeyvatDragonRidge.TRAILHEAD_X + 20; // 20 блоков, перпендикулярно тропе
-            int pz = TeyvatDragonRidge.TRAILHEAD_Z;
+            int px = TeyvatStarfallValley.TRAILHEAD_X + 20; // 20 блоков, перпендикулярно тропе
+            int pz = TeyvatStarfallValley.TRAILHEAD_Z;
             int topY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, px, pz);
             if (topY < world.getSeaLevel()) topY = world.getSeaLevel() + 1;
             BlockPos spot = new BlockPos(px, topY, pz);
@@ -254,7 +254,7 @@ public final class TeyvatSpawn {
                 LOGGER.info(">>> ТЕЛЕПОРТ УЖЕ СУЩЕСТВУЕТ <<<");
             }
         } else {
-            LOGGER.warn("Не удалось найти начало Драконьего хребта для точки телепортации!");
+            LOGGER.warn("Не удалось найти начало Звездопадной Долины для точки телепортации!");
         }
 
         return pos;
@@ -600,7 +600,7 @@ public final class TeyvatSpawn {
     }
 
     /**
-     * Находит сухую площадку непосредственно на входе серпантина Драконьего хребта.
+     * Находит сухую площадку непосредственно на входе серпантина Звездопадной Долины.
      * Целевые координаты задаются генератором, поэтому поиск не зависит от случайного
      * порядка загрузки биомов вдоль одной линии.
      */
@@ -608,8 +608,8 @@ public final class TeyvatSpawn {
 
 
     private static BlockPos findTrailheadSpawn(ServerWorld world, BlockPos beachPos) {
-        int centerX = TeyvatDragonRidge.TRAILHEAD_X;
-        int centerZ = TeyvatDragonRidge.TRAILHEAD_Z;
+        int centerX = TeyvatStarfallValley.TRAILHEAD_X;
+        int centerZ = TeyvatStarfallValley.TRAILHEAD_Z;
 
         // Используем TRAILHEAD напрямую — не ищем dirt_path
         int trailY = world.getTopY(Heightmap.Type.MOTION_BLOCKING, centerX, centerZ);
@@ -717,8 +717,8 @@ public final class TeyvatSpawn {
         }
 
         // Строим дорожку от тропы к точке телепортации (по X)
-        int trailX = TeyvatDragonRidge.TRAILHEAD_X;
-        int trailZ = TeyvatDragonRidge.TRAILHEAD_Z;
+        int trailX = TeyvatStarfallValley.TRAILHEAD_X;
+        int trailZ = TeyvatStarfallValley.TRAILHEAD_Z;
         int dir = Integer.compare(x, trailX);
         for (int cx = x; cx != trailX; cx += dir) {
             int tz = z;

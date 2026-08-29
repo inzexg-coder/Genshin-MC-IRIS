@@ -6,7 +6,7 @@
   "when_in_range": 1.0,
   "when_out_of_range": {
     "type": "minecraft:range_choice",
-    "input": "teyvat:teyvat_dragon_ridge_path",
+    "input": "teyvat:teyvat_starfall_valley_path",
     "min_inclusive": 0.35,
     "max_exclusive": 2.0,
     "when_in_range": 0.5,
@@ -18,7 +18,7 @@
       "when_in_range": 0.0,
       "when_out_of_range": {
         "type": "minecraft:range_choice",
-        "input": "teyvat:teyvat_dragon_ridge_zone",
+        "input": "teyvat:teyvat_starfall_valley_zone",
         "min_inclusive": -0.05,
         "max_exclusive": 2.0,
         "when_in_range": -0.65,

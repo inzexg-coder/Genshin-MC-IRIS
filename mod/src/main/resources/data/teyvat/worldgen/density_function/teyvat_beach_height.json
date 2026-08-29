@@ -31,7 +31,7 @@
             "argument2": {
               "type": "minecraft:mul",
               "argument1": -1.0,
-              "argument2": "teyvat:teyvat_dragon_ridge_floor"
+              "argument2": "teyvat:teyvat_starfall_valley_floor"
             }
           },
           "argument2": {

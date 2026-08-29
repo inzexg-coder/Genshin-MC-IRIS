@@ -14,14 +14,14 @@ import net.minecraft.world.gen.densityfunction.DensityFunction;
 import net.teyvat.TeyvatMod;
 
 /**
- * Кольцо Драконьего хребта вокруг пляжа и широкая серпантинная тропа.
+ * Кольцо Звездопадной Долины вокруг пляжа и широкая серпантинная тропа.
  * Все функции зависят только от X/Z и кэшируются в JSON как 2D.
  */
-public final class TeyvatDragonRidge {
-    public static final Identifier ZONE_ID = Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_zone_raw");
-    public static final Identifier PATH_ID = Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_path_raw");
-    public static final Identifier HEIGHT_ID = Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_height_raw");
-    public static final Identifier FLOOR_ID = Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_floor_raw");
+public final class TeyvatStarfallValley {
+    public static final Identifier ZONE_ID = Identifier.of(TeyvatMod.MOD_ID, "starfall_valley_zone_raw");
+    public static final Identifier PATH_ID = Identifier.of(TeyvatMod.MOD_ID, "starfall_valley_path_raw");
+    public static final Identifier HEIGHT_ID = Identifier.of(TeyvatMod.MOD_ID, "starfall_valley_height_raw");
+    public static final Identifier FLOOR_ID = Identifier.of(TeyvatMod.MOD_ID, "starfall_valley_floor_raw");
 
     private static final int INNER_RADIUS = 72;
     private static final int OUTER_RADIUS = 235;
@@ -222,7 +222,7 @@ public final class TeyvatDragonRidge {
         return trailDistance(x, z);
     }
 
-    private TeyvatDragonRidge() {}
+    private TeyvatStarfallValley() {}
 
     public static void register() {
         Registry.register(Registries.DENSITY_FUNCTION_TYPE, ZONE_ID, MapCodec.unit(ZONE));

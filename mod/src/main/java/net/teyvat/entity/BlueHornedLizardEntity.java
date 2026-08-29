@@ -46,14 +46,14 @@ import java.util.EnumSet;
 
 /**
  * Синяя рогатая ящерица (Blue Horned Lizard) из Genshin: пугливое пассивное
- * животное. Спавнится только на Драконьем хребте, довольно редко (макс. ~3
+ * животное. Спавнится только на Звездопадной Долине, довольно редко (макс. ~3
  * особи в радиусе). Почти всегда в движении — никогда не стоит на месте,
  * замирает только прячась под деревом. При приближении игрока убегает,
  * с другими ящерицами не встречается.
  */
 public class BlueHornedLizardEntity extends PathAwareEntity {
     private static final Identifier TYPE_ID = Identifier.of("teyvat", "blue_horned_lizard");
-    private static final Identifier DRAGON_RIDGE = Identifier.of("teyvat", "dragon_ridge");
+    private static final Identifier STARFALL_VALLEY = Identifier.of("teyvat", "starfall_valley");
 
     // --- Настраиваемые параметры поведения ---
     /** Максимум особей в радиусе MAX_SPAWN_AREA (чтобы «максимум 3, очень редко»). */
@@ -115,9 +115,9 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
         if (TYPE == null) {
             throw new IllegalStateException("BlueHornedLizard entity type not registered");
         }
-        // Спавн только на Драконьем хребте, редко (вес 4), в одиночку.
+        // Спавн только на Звездопадной Долине, редко (вес 4), в одиночку.
         BiomeModifications.addSpawn(
-                BiomeSelectors.includeByKey(RegistryKey.of(RegistryKeys.BIOME, DRAGON_RIDGE)),
+                BiomeSelectors.includeByKey(RegistryKey.of(RegistryKeys.BIOME, STARFALL_VALLEY)),
                 SpawnGroup.CREATURE, TYPE, SPAWN_WEIGHT, 1, 1);
         // Ограничения спавна: твёрдая земля, не вода, макс. ~3 рядом,
         // не спавниться рядом с другой ящерицей.

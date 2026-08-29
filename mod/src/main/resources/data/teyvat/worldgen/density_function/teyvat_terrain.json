@@ -14,7 +14,7 @@
       "argument1": {
         "type": "minecraft:add",
         "argument1": "teyvat:teyvat_beach_height",
-        "argument2": "teyvat:teyvat_dragon_ridge_height"
+        "argument2": "teyvat:teyvat_starfall_valley_height"
       },
       "argument2": {
         "type": "minecraft:mul",

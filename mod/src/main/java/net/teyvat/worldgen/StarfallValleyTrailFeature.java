@@ -16,22 +16,22 @@ import net.teyvat.TeyvatMod;
  *  (шум вдоль тропы выключен, профиль константен), поэтому здесь мы только
  *  подменяем поверхностные блоки на dirt_path. НИКАКИХ тяжёлых циклов по getTopY
  *  и выравнивания — именно они вызывали бесконечную "Загрузку территории". */
-public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig> {
+public final class StarfallValleyTrailFeature extends Feature<DefaultFeatureConfig> {
     public static final Identifier ID =
-            Identifier.of(TeyvatMod.MOD_ID, "dragon_ridge_trail");
+            Identifier.of(TeyvatMod.MOD_ID, "starfall_valley_trail");
 
-    public DragonRidgeTrailFeature() {
+    public StarfallValleyTrailFeature() {
         super(DefaultFeatureConfig.CODEC);
     }
 
     public static void register() {
-        Registry.register(Registries.FEATURE, ID, new DragonRidgeTrailFeature());
+        Registry.register(Registries.FEATURE, ID, new StarfallValleyTrailFeature());
     }
 
     @Override
     public boolean generate(FeatureContext<DefaultFeatureConfig> context) {
         ChunkPos chunkPos = new ChunkPos(context.getOrigin());
-        if (!TeyvatDragonRidge.chunkMayContainTrail(chunkPos.getStartX(), chunkPos.getStartZ(),
+        if (!TeyvatStarfallValley.chunkMayContainTrail(chunkPos.getStartX(), chunkPos.getStartZ(),
                 chunkPos.getEndX(), chunkPos.getEndZ())) {
             return false;
         }
@@ -46,7 +46,7 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
 
         for (int x = minX; x <= maxX; x++) {
             for (int z = minZ; z <= maxZ; z++) {
-                double fade = TeyvatDragonRidge.trailFadeFactor(x, z);
+                double fade = TeyvatStarfallValley.trailFadeFactor(x, z);
                 if (fade <= -0.3) continue;
 
                 int surfaceY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
@@ -64,12 +64,12 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         // Центр (TRAILHEAD) стоит на границе двух чанков по X, поэтому каждая
         // половина ромба-платформы кладётся своим чанком — никаких записей в
         // соседние чанки, никакого замедления генерации.
-        if (chunkPos.x == TeyvatDragonRidge.TRAILHEAD_X >> 4
-                && chunkPos.z == TeyvatDragonRidge.TRAILHEAD_Z >> 4) {
-            changed |= placeTeleportInChunk(context, TeyvatDragonRidge.TRAILHEAD_X, TeyvatDragonRidge.TRAILHEAD_Z, true);
+        if (chunkPos.x == TeyvatStarfallValley.TRAILHEAD_X >> 4
+                && chunkPos.z == TeyvatStarfallValley.TRAILHEAD_Z >> 4) {
+            changed |= placeTeleportInChunk(context, TeyvatStarfallValley.TRAILHEAD_X, TeyvatStarfallValley.TRAILHEAD_Z, true);
         } else if (chunkMayContainTeleportPlatform(chunkPos.getStartX(), chunkPos.getStartZ(),
                 chunkPos.getEndX(), chunkPos.getEndZ())) {
-            changed |= placeTeleportInChunk(context, TeyvatDragonRidge.TRAILHEAD_X, TeyvatDragonRidge.TRAILHEAD_Z, false);
+            changed |= placeTeleportInChunk(context, TeyvatStarfallValley.TRAILHEAD_X, TeyvatStarfallValley.TRAILHEAD_Z, false);
         }
 
         return changed;
@@ -77,8 +77,8 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
 
     /** Содержит ли чанк хотя бы одну ячейку расчистки вокруг точки телепортации. */
     private static boolean chunkMayContainTeleportPlatform(int minX, int minZ, int maxX, int maxZ) {
-        int x = TeyvatDragonRidge.TRAILHEAD_X;
-        int z = TeyvatDragonRidge.TRAILHEAD_Z;
+        int x = TeyvatStarfallValley.TRAILHEAD_X;
+        int z = TeyvatStarfallValley.TRAILHEAD_Z;
         return x - 6 <= maxX && x + 6 >= minX && z - 6 <= maxZ && z + 6 >= minZ;
     }
 

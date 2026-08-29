@@ -24,7 +24,7 @@ import net.teyvat.network.TravelerChoiceOpenPayload;
 import net.teyvat.progression.ProgressionStore;
 import net.teyvat.server.AutoPickupStats;
 import net.teyvat.server.PickupSelfTest;
-import net.teyvat.worldgen.TeyvatDragonRidge;
+import net.teyvat.worldgen.TeyvatStarfallValley;
 
 /** Корневая команда /teyvat: column, notes, choose и прогрессия (ar/char/reset). */
 public final class TeyvatCommand {
@@ -46,8 +46,8 @@ public final class TeyvatCommand {
                         .executes(TeyvatCommand::pickupDebug))
                 .then(CommandManager.literal("selftest")
                         .executes(TeyvatCommand::selfTest))
-                .then(CommandManager.literal("ridge")
-                        .executes(TeyvatCommand::ridgeDebug))
+                .then(CommandManager.literal("starfall")
+                        .executes(TeyvatCommand::starfallValleyDebug))
                 .then(CommandManager.literal("debugbiome")
                         .executes(TeyvatCommand::debugBiome))
                 .then(progression()));
@@ -86,12 +86,12 @@ public final class TeyvatCommand {
         return 1;
     }
 
-    /** Телепорт к эталонному входу серпантина с диагностикой биомов хребта. */
-    private static int ridgeDebug(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
+    /** Телепорт к эталонному входу серпантина с диагностикой биомов Звездопадной Долины. */
+    private static int starfallValleyDebug(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
         ServerPlayerEntity player = ctx.getSource().getPlayerOrThrow();
         ServerWorld world = ctx.getSource().getWorld();
-        int centerX = TeyvatDragonRidge.TRAILHEAD_X;
-        int centerZ = TeyvatDragonRidge.TRAILHEAD_Z;
+        int centerX = TeyvatStarfallValley.TRAILHEAD_X;
+        int centerZ = TeyvatStarfallValley.TRAILHEAD_Z;
 
         BlockPos best = null;
         String bestBiome = "?";
@@ -112,7 +112,7 @@ public final class TeyvatCommand {
                     boolean safe = world.getFluidState(top).isEmpty()
                             && world.getFluidState(top.up()).isEmpty()
                             && world.getBlockState(top.down()).isFullCube(world, top.down());
-                    if (biomeId.equals("teyvat:dragon_ridge_path") && safe) {
+                    if (biomeId.equals("teyvat:starfall_valley_path") && safe) {
                         best = top;
                         bestBiome = biomeId;
                     }
@@ -129,19 +129,19 @@ public final class TeyvatCommand {
                 java.util.Set.of(), player.getYaw(), player.getPitch(), false);
 
         BlockPos trailColumn = new BlockPos(centerX, 64, centerZ);
-        BlockPos ridgeColumn = new BlockPos(33, 64, -1260);
+        BlockPos valleyColumn = new BlockPos(33, 64, -1260);
         String trailBiome = world.getBiome(trailColumn).getKey().map(key -> key.getValue().toString()).orElse("?");
-        String ridgeBiome = world.getBiome(ridgeColumn).getKey().map(key -> key.getValue().toString()).orElse("?");
-        String result = best != null && bestBiome.equals("teyvat:dragon_ridge_path")
+        String valleyBiome = world.getBiome(valleyColumn).getKey().map(key -> key.getValue().toString()).orElse("?");
+        String result = best != null && bestBiome.equals("teyvat:starfall_valley_path")
                 ? "§aгенерация активна"
                 : "§cбиом тропы не найден";
         ctx.getSource().sendFeedback(() -> Text.literal("""
-                §e[Teyvat] §fДраконий Хребет: %s
+                §e[Teyvat] §fЗвездопадная Долина: %s
                 §fТелепорт: §b%d, %d, %d§f, биом: §b%s
-                §fЭталонные биомы: тропа §b%s§f, хребет §b%s
+                §fЭталонные биомы: тропа §b%s§f, долина §b%s
                 §7Если оба биома — teyvat:* и телепорт состоялся, мир правильный."""
                 .formatted(result, teleportPos.getX(), teleportPos.getY(), teleportPos.getZ(),
-                        currentBiome, trailBiome, ridgeBiome)), false);
+                        currentBiome, trailBiome, valleyBiome)), false);
         return 1;
     }
 

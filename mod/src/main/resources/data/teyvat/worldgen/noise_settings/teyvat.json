@@ -537,7 +537,7 @@
     "if_true": {
      "type": "minecraft:biome",
      "biome_is": [
-      "teyvat:dragon_ridge_path"
+      "teyvat:starfall_valley_path"
      ]
     },
     "then_run": {
@@ -599,7 +599,7 @@
     "if_true": {
      "type": "minecraft:biome",
      "biome_is": [
-      "teyvat:dragon_ridge"
+      "teyvat:starfall_valley"
      ]
     },
     "then_run": {

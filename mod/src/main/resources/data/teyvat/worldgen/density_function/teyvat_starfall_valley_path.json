@@ -1,6 +1,6 @@
 {
   "type": "minecraft:cache_2d",
   "argument": {
-    "type": "teyvat:dragon_ridge_zone_raw"
+    "type": "teyvat:starfall_valley_path_raw"
   }
 }

@@ -208,8 +208,8 @@ public final class MinimapRenderer {
             String biome = world.getBiome(pos).getKey().map(k -> k.getValue().getPath()).orElse("");
             return switch (biome) {
                 case "teyvat_beach", "teyvat_beach_edge" -> 0xFFE0D090;
-                case "dragon_ridge" -> 0xFF6F7D62;
-                case "dragon_ridge_path" -> 0xFFA08B5C;
+                case "starfall_valley" -> 0xFF6F7D62;
+                case "starfall_valley_path" -> 0xFFA08B5C;
                 case "teyvat_plains" -> 0xFF5B8C3A;
                 case "teyvat_lake" -> 0xFF3A7A5C;
                 case "teyvat_rocky_sea" -> 0xFF707068;
