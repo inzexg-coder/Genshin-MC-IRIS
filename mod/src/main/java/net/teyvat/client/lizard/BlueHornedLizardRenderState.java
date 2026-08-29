@@ -14,4 +14,6 @@ public class BlueHornedLizardRenderState extends EntityRenderState {
     public float limbSwing;
     /** Амплитуда шага: 0 = стоит, >0 = идёт/бежит. */
     public float limbSwingAmount;
+    /** Прогресс уползания под землю: 0 — на поверхности, 1 — скрылась. */
+    public float burrowProgress;
 }

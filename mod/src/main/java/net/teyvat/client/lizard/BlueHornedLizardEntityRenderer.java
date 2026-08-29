@@ -39,6 +39,7 @@ public class BlueHornedLizardEntityRenderer extends EntityRenderer<BlueHornedLiz
         state.headYaw = entity.getHeadYaw() - entity.getYaw(tickDelta);
         state.limbSwing = entity.limbAnimator.getAnimationProgress(tickDelta);
         state.limbSwingAmount = entity.limbAnimator.getSpeed();
+        state.burrowProgress = entity.getBurrowProgress();
     }
 
     @Override
@@ -46,6 +47,11 @@ public class BlueHornedLizardEntityRenderer extends EntityRenderer<BlueHornedLiz
                        OrderedRenderCommandQueue queue, CameraRenderState cameraState) {
         matrices.push();
         matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0f - state.yaw));
+        // Уползание под землю: проваливаем модель вниз по мере прогресса.
+        if (state.burrowProgress > 0.0f) {
+            float sink = state.burrowProgress * state.burrowProgress * 1.2f;
+            matrices.translate(0.0f, -sink, 0.0f);
+        }
         RenderLayer layer = RenderLayer.getEntityCutout(TEXTURE);
         queue.submitModel(this.model, state, matrices, layer, state.light,
                 OverlayTexture.DEFAULT_UV, -1, null, 0, null);

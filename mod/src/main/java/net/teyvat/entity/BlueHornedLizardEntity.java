@@ -7,6 +7,9 @@ import net.minecraft.entity.SpawnGroup;
 import net.minecraft.entity.SpawnLocationTypes;
 import net.minecraft.entity.SpawnReason;
 import net.minecraft.entity.SpawnRestriction;
+import net.minecraft.entity.data.DataTracker;
+import net.minecraft.entity.data.TrackedData;
+import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.ai.goal.EscapeDangerGoal;
 import net.minecraft.entity.ai.goal.FleeEntityGoal;
 import net.minecraft.entity.ai.goal.Goal;
@@ -19,6 +22,9 @@ import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.mob.PathAwareEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.particle.ParticleTypes;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKey;
@@ -85,12 +91,20 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
     private static final double WANDER_MIN = 4.0;
     private static final double WANDER_MAX = 14.0;
 
+    // --- Уползание под землю при ударе ---
+    /** Сколько тиков длится анимация уползания (полсекунды). */
+    private static final int BURROW_TOTAL = 24;
+
     public static final EntityType<BlueHornedLizardEntity> TYPE = Registry.register(
             Registries.ENTITY_TYPE, TYPE_ID,
             EntityType.Builder.create(BlueHornedLizardEntity::new, SpawnGroup.CREATURE)
                     .dimensions(0.5f, 0.45f)
                     .maxTrackingRange(48)
                     .build(RegistryKey.of(RegistryKeys.ENTITY_TYPE, TYPE_ID)));
+
+    /** Счётчик тиков уползания (BURROW_TOTAL..0 при уползании, -1 — жива на поверхности). */
+    private static final TrackedData<Integer> BURROW_TICKS = DataTracker.registerData(
+            BlueHornedLizardEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
     /** Сколько тиков ещё прячемся под деревом (0 — не прячемся). */
     private int hideTicks = 0;
@@ -149,6 +163,13 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
     public BlueHornedLizardEntity(EntityType<? extends BlueHornedLizardEntity> type, World world) {
         super(type, world);
         this.experiencePoints = 0;
+        this.dataTracker.set(BURROW_TICKS, -1);
+    }
+
+    @Override
+    protected void initDataTracker(DataTracker.Builder builder) {
+        super.initDataTracker(builder);
+        builder.add(BURROW_TICKS, -1);
     }
 
     @Override
@@ -171,7 +192,37 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
     }
 
     @Override
+    public boolean damage(ServerWorld world, DamageSource source, float amount) {
+        // Бесконечное HP: ящерица не умирает от удара, а уползает под землю.
+        if (isBurrowing()) {
+            return false;
+        }
+        startBurrow(world);
+        return false;
+    }
+
+    @Override
     public void tick() {
+        if (isBurrowing()) {
+            if (getEntityWorld() instanceof ServerWorld server) {
+                int t = this.dataTracker.get(BURROW_TICKS);
+                if (t >= 0) {
+                    t--;
+                    this.dataTracker.set(BURROW_TICKS, t);
+                    // Замираем на месте и проваливаемся.
+                    this.setVelocity(Vec3d.ZERO);
+                    this.getNavigation().stop();
+                    if (t < 0) {
+                        // Полностью скрылась — удаляем из мира.
+                        this.discard();
+                        server.spawnParticles(ParticleTypes.POOF,
+                                this.getX(), this.getY() - 0.5, this.getZ(),
+                                10, 0.3, 0.2, 0.3, 0.0);
+                    }
+                }
+            }
+            return;
+        }
         super.tick();
         if (hideTicks > 0) {
             hideTicks--;
@@ -182,11 +233,34 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
         return hideTicks > 0;
     }
 
-    @Override
-    protected void dropLoot(ServerWorld world, DamageSource damageSource, boolean causedByPlayer) {
-        super.dropLoot(world, damageSource, causedByPlayer);
-        // Ящерица дропает хвост (как в Genshin).
+    /** Уползает ли ящерица под землю прямо сейчас. */
+    public boolean isBurrowing() {
+        return this.dataTracker.get(BURROW_TICKS) >= 0;
+    }
+
+    /** Прогресс уползания 0..1 (1 = уже скрылась под землёй). */
+    public float getBurrowProgress() {
+        int t = this.dataTracker.get(BURROW_TICKS);
+        if (t < 0) {
+            return 0.0f;
+        }
+        return 1.0f - Math.max(0.0f, t) / (float) BURROW_TOTAL;
+    }
+
+    /** Начинает уползание: дропает хвост, проваливается и скоро исчезнет. */
+    private void startBurrow(ServerWorld world) {
+        if (isBurrowing()) {
+            return;
+        }
+        this.dataTracker.set(BURROW_TICKS, BURROW_TOTAL);
+        // Дроп хвоста (как в Genshin: ящерица отбрасывает хвост при ударе).
         this.dropStack(world, new ItemStack(net.teyvat.item.TeyvatItems.LIZARD_TAIL));
+        // Пыль при уходе в землю.
+        world.spawnParticles(ParticleTypes.POOF,
+                this.getX(), this.getY() + 0.2, this.getZ(),
+                12, 0.3, 0.1, 0.3, 0.0);
+        world.playSound(null, this.getBlockPos(), SoundEvents.BLOCK_GRAVEL_BREAK,
+                SoundCategory.BLOCKS, 0.7f, 1.1f);
     }
 
     // ------------------------------------------------------------------
