@@ -1,0 +1,31 @@
+{
+  "type": "minecraft:mul",
+  "argument1": {
+    "type": "minecraft:mul",
+    "argument1": {
+      "type": "minecraft:y_clamped_gradient",
+      "from_value": 0.0,
+      "from_y": 67,
+      "to_value": 3.0,
+      "to_y": 60
+    },
+    "argument2": {
+      "type": "minecraft:range_choice",
+      "input": {
+        "type": "teyvat:z_edge"
+      },
+      "min_inclusive": 0.44,
+      "max_exclusive": 2.0,
+      "when_in_range": 1.0,
+      "when_out_of_range": 0.0
+    }
+  },
+  "argument2": {
+    "type": "minecraft:range_choice",
+    "input": "teyvat:teyvat_beach_zone",
+    "min_inclusive": 0.5,
+    "max_exclusive": 2.0,
+    "when_in_range": 1.0,
+    "when_out_of_range": 0.0
+  }
+}

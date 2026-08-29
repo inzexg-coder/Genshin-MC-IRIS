@@ -75,18 +75,13 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         return changed;
     }
 
-    /** Содержит ли чанк хотя бы одну ячейку ромба-платформы точки телепортации. */
+    /** Содержит ли чанк хотя бы одну ячейку расчистки вокруг точки телепортации. */
     private static boolean chunkMayContainTeleportPlatform(int minX, int minZ, int maxX, int maxZ) {
         int x = TeyvatDragonRidge.TRAILHEAD_X;
         int z = TeyvatDragonRidge.TRAILHEAD_Z;
-        return x - 3 <= maxX && x + 3 >= minX && z - 3 <= maxZ && z + 3 >= minZ;
+        return x - 6 <= maxX && x + 6 >= minX && z - 6 <= maxZ && z + 6 >= minZ;
     }
 
-    /** Кладёт ступенчатый ромб-пьедестал точки телепортации в ТЕКУЩИЙ чанк.
-     *   Нижняя подставка r=4, средняя ступень r=3, малый ромб r=2 — все на
-     *   общем уровне centerY (+нижние). Всё сплошное (без земли). Вокруг
-     *   расчищается воздух выше центрального уровня, чтобы точку было видно.
-     *   Если withColumn — ставится плита и колонна над центральной ячейкой. */
     private boolean placeTeleportInChunk(FeatureContext<DefaultFeatureConfig> context, int x, int z, boolean withColumn) {
         var world = context.getWorld();
         ChunkPos chunkPos = new ChunkPos(context.getOrigin());
@@ -97,48 +92,36 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         boolean changed = false;
 
         // Единый уровень платформы: высота поверхности в центре (трайлхед) - 1.
+        // ВСЕ части точки кладутся относительно этого одного уровня, чтобы ничто
+        // не поднималось отдельно из-за неровной земли вокруг.
         int centerY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
         if (centerY < world.getBottomY() + 1) {
-            for (int dx = -2; dx <= 2 && centerY < world.getBottomY() + 1; dx++) {
-                for (int dz = -2; dz <= 2; dz++) {
-                    if (Math.abs(dx) + Math.abs(dz) > 2) continue;
+            for (int dx = -1; dx <= 1 && centerY < world.getBottomY() + 1; dx++) {
+                for (int dz = -1; dz <= 1; dz++) {
+                    if (Math.abs(dx) + Math.abs(dz) > 1) continue;
                     int px = x + dx;
                     int pz = z + dz;
                     if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
-                    centerY = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz) - 1;
+                    int ty = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz) - 1;
+                    if (ty > centerY) centerY = ty;
                 }
             }
         }
 
-        // Двухуровневый ромб-пьедестал под точкой телепортации:
-        //   - нижний ромб r=4 (подставка) на centerY-2 и centerY-1
-        //   - средний ромб r=3 на centerY-1 (вьступающая ступень)
-        //   - малый ромб r=2 на centerY — платформа, на которой стоит колонна
-        // Всё сплошное (без земли), чтобы точка стояла на заметном ромбе.
-        for (int dx = -4; dx <= 4; dx++) {
-            for (int dz = -4; dz <= 4; dz++) {
-                if (Math.abs(dx) + Math.abs(dz) > 4) continue;
+        // Ромб радиусом 2 (|dx|+|dz| <= 2): платформа из ТОЛСТОЙ каменной кладки
+        // на едином уровне centerY. Внутри неё — крест из 5 блоков тонкой резьбы.
+        for (int dx = -2; dx <= 2; dx++) {
+            for (int dz = -2; dz <= 2; dz++) {
+                if (Math.abs(dx) + Math.abs(dz) > 2) continue;
                 int px = x + dx;
                 int pz = z + dz;
                 if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
-                for (int dy = 1; dy <= 9; dy++) {
-                    setBlockState(world, new BlockPos(px, centerY + dy, pz), net.minecraft.block.Blocks.AIR.getDefaultState());
-                }
-                int ringDistance = Math.abs(dx) + Math.abs(dz);
-                // Нижняя подставка r=4 (centerY-2).
-                setBlockState(world, new BlockPos(px, centerY - 2, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
-                // Средняя ступень r=3 (centerY-1).
-                if (ringDistance <= 3) {
-                    setBlockState(world, new BlockPos(px, centerY - 1, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
-                }
-                // Малый ромб r=2 (centerY) — платформа под колонной.
-                if (ringDistance <= 2) {
-                    setBlockState(world, new BlockPos(px, centerY, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
-                }
+                setBlockState(world, new BlockPos(px, centerY, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
                 changed = true;
             }
         }
-        // Тонкое теснение r=1 (поверх платформы, тоже на общем уровне).
+
+        // Крест из 5 блоков (|dx|+|dz| <= 1): центр + 4 стороны — ТОНКАЯ резьба.
         for (int dx = -1; dx <= 1; dx++) {
             for (int dz = -1; dz <= 1; dz++) {
                 if (Math.abs(dx) + Math.abs(dz) > 1) continue;
@@ -149,36 +132,30 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                 changed = true;
             }
         }
-        // Расчистка территории ВОКРУГ платформы (радиус 7): полностью убираем все
-        // блоки от уровня платформы и выше, чтобы НИЧЕГО не наезжало и не
-        // прорастало сквозь точку. Платформа остаётся на общем уровне centerY,
-        // вокруг неё — ровный пол из TELEPORT_PATH на том же уровне.
-        for (int dx = -8; dx <= 8; dx++) {
-            for (int dz = -8; dz <= 8; dz++) {
-                if (Math.abs(dx) + Math.abs(dz) > 11) continue;
+
+        // Расчистка ПОЛА вокруг платформы (радиус 6): весь тeppейн выше единого
+        // уровня centerY убираем в воздух, чтобы посторонние блоки (трава/земля/
+        // горки) не поднимали части точки отдельно. Платформа остаётся ровной.
+        for (int dx = -6; dx <= 6; dx++) {
+            for (int dz = -6; dz <= 6; dz++) {
+                if (Math.abs(dx) + Math.abs(dz) > 8) continue;
                 int px = x + dx;
                 int pz = z + dz;
                 if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
-                boolean isPlatform = Math.abs(dx) <= 3 && Math.abs(dz) <= 3 && Math.abs(dx) + Math.abs(dz) <= 3;
-                // Всё, что выше уровней платформы/пола, убираем в воздух.
-                int floorY = centerY;
                 int localTop = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz);
-                if (localTop >= floorY + 1) {
-                    for (int dy = floorY + 1; dy <= Math.min(localTop, floorY + 9); dy++) {
+                if (localTop > centerY) {
+                    // Убираем ВСЁ выше единого уровня платформы — включая ячейки
+                    // самой платформы, чтобы посторонние блоки не поднимали её части
+                    // отдельно друг от друга. Блоки платформы на centerY остаются.
+                    for (int dy = centerY + 1; dy <= Math.min(localTop, centerY + 10); dy++) {
                         setBlockState(world, new BlockPos(px, dy, pz), net.minecraft.block.Blocks.AIR.getDefaultState());
                     }
-                }
-                // Если здесь террейн ВЫШЕ платформы — срезаем его до уровня пола:
-                // ставим пол из path-блока, чтобы не оставалось травы/земли вровень
-                // с платформой и вокруг неё.
-                if (localTop > floorY) {
-                    setBlockState(world, new BlockPos(px, floorY, pz), net.teyvat.TeyvatBlocks.TELEPORT_PATH.getDefaultState());
                     changed = true;
                 }
             }
         }
 
-        // Центр: плита + колонна над уровнем платформы.
+        // Центр: плита-полублок лежит на кресте, над ней колонна.
         if (withColumn && x >= cMinX && x <= cMaxX && z >= cMinZ && z <= cMaxZ) {
             setBlockState(world, new BlockPos(x, centerY + 1, z), net.teyvat.TeyvatBlocks.TELEPORT_SLAB_RED.getDefaultState());
             setBlockState(world, new BlockPos(x, centerY + 2, z), net.teyvat.TeyvatBlocks.TELEPORT_COLUMN_BASE_RED.getDefaultState());
