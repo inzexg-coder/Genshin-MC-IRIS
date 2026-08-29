@@ -10,6 +10,7 @@ import net.minecraft.entity.SpawnRestriction;
 import net.minecraft.entity.ai.goal.EscapeDangerGoal;
 import net.minecraft.entity.ai.goal.FleeEntityGoal;
 import net.minecraft.entity.ai.goal.Goal;
+import net.minecraft.entity.ai.NoPenaltyTargeting;
 import net.minecraft.entity.ai.goal.LookAroundGoal;
 import net.minecraft.entity.ai.goal.LookAtEntityGoal;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
@@ -28,6 +29,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.TypeFilter;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.ServerWorldAccess;
@@ -49,19 +51,20 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
 
     // --- Настраиваемые параметры поведения ---
     /** Максимум особей в радиусе MAX_SPAWN_AREA (чтобы «максимум 3, очень редко»). */
-    private static final int MAX_NEARBY = 3;
+    private static final int MAX_NEARBY = 2;
     /** Радиус (блоки), в котором считаем соседних ящериц при спавне. */
     private static final double SPAWN_MAX_AREA = 64.0;
     /** Минимальная дистанция до другой ящерицы при спавне (не встречаться). */
     private static final double SPAWN_SEPARATION = 24.0;
     /** Яндекс сплавный вес (редкость) в биоме. */
-    private static final int SPAWN_WEIGHT = 4;
+    private static final int SPAWN_WEIGHT = 2;
 
     // --- Обнаружение игрока ---
-    /** Радиус обнаружения игрока (рычаг: дать игроку возможность догнать рывком). */
-    private static final float PLAYER_FLEE_RADIUS = 4.0f;
-    private static final double PLAYER_FLEE_FAST = 1.6; // скорость паники (рывок игрока всё равно догонит)
-    private static final double PLAYER_FLEE_SLOW = 1.2;
+    /** Радиус обнаружения игрока: стал больше (4 не срабатывало — игрок
+     *  оказывался почти вплотную). Рывок игрока всё равно догоняет ящерицу. */
+    private static final float PLAYER_FLEE_RADIUS = 8.0f;
+    private static final double PLAYER_FLEE_FAST = 1.9; // скорость паники (рывок игрока всё равно догонит)
+    private static final double PLAYER_FLEE_SLOW = 1.4;
 
     // --- Другие ящерицы (не встречаются) ---
     private static final float LIZARD_FLEE_RADIUS = 10.0f;
@@ -69,7 +72,7 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
     private static final double LIZARD_FLEE_SLOW = 1.1;
 
     // --- Прятанье под деревьями ---
-    private static final double HIDE_PLAYER_RANGE = 8.0;   // игрок ближе — идём прятаться
+    private static final double HIDE_PLAYER_RANGE = 12.0;  // игрок рядом (8-12) — прячемся
     private static final double HIDE_TOO_CLOSE = 3.0;      // совсем близко — не прячемся, убегаем
     private static final int HIDE_SCAN_RADIUS = 8;         // радиус поиска дерева
     private static final int HIDE_SCAN_STEP = 2;
@@ -78,7 +81,7 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
     private static final int HIDE_DESIRE_INTERVAL = 200;   // как часто ящерица сама хочет отдохнуть
 
     // --- Непрерывное движение ---
-    private static final double WANDER_SPEED = 0.8;
+    private static final double WANDER_SPEED = 0.9;
     private static final double WANDER_MIN = 4.0;
     private static final double WANDER_MAX = 14.0;
 
@@ -138,7 +141,7 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
     public static DefaultAttributeContainer createAttributes() {
         return PathAwareEntity.createMobAttributes()
                 .add(EntityAttributes.MAX_HEALTH, 8.0)
-                .add(EntityAttributes.MOVEMENT_SPEED, 0.3)
+                .add(EntityAttributes.MOVEMENT_SPEED, 0.34)
                 .add(EntityAttributes.FOLLOW_RANGE, 8.0)
                 .build();
     }
@@ -155,9 +158,9 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
         // 1 — разбегаться с другими ящерицами (не встречаются).
         this.goalSelector.add(1, new FleeEntityGoal<>(this, BlueHornedLizardEntity.class,
                 LIZARD_FLEE_RADIUS, LIZARD_FLEE_FAST, LIZARD_FLEE_SLOW));
-        // 2 — убегать от игрока (радиус 4). Быстрая ящерица, но рывок игрока догоняет.
-        this.goalSelector.add(2, new FleeEntityGoal<>(this, PlayerEntity.class,
-                PLAYER_FLEE_RADIUS, PLAYER_FLEE_FAST, PLAYER_FLEE_SLOW));
+        // 2 — убегать от игрока. Надёжный гол: бежит прочь, даже если путь не строится.
+        this.goalSelector.add(2, new FleePlayerGoal(this, PLAYER_FLEE_RADIUS,
+                PLAYER_FLEE_FAST, PLAYER_FLEE_SLOW));
         // 3 — прятаться под деревом (при угрозе с умеренной дистанции или сама).
         this.goalSelector.add(3, new HideUnderTreeGoal(this));
         // 4 — непрерывное движение, никогда не стоит на месте.
@@ -184,6 +187,79 @@ public class BlueHornedLizardEntity extends PathAwareEntity {
         super.dropLoot(world, damageSource, causedByPlayer);
         // Ящерица дропает хвост (как в Genshin).
         this.dropStack(world, new ItemStack(net.teyvat.item.TeyvatItems.LIZARD_TAIL));
+    }
+
+    // ------------------------------------------------------------------
+    // Гол: убегание от игрока. Надёжнее ванильного FleeEntityGoal:
+    // если не удаётся построить путь — разворачивается и бежит прочь напрямую.
+    // ------------------------------------------------------------------
+    private static class FleePlayerGoal extends Goal {
+        private final BlueHornedLizardEntity lizard;
+        private final float radius;
+        private final double fastSpeed;
+        private final double slowSpeed;
+        private PlayerEntity player;
+
+        FleePlayerGoal(BlueHornedLizardEntity lizard, float radius, double fastSpeed, double slowSpeed) {
+            this.lizard = lizard;
+            this.radius = radius;
+            this.fastSpeed = fastSpeed;
+            this.slowSpeed = slowSpeed;
+            setControls(EnumSet.of(Control.MOVE));
+        }
+
+        @Override
+        public boolean canStart() {
+            player = lizard.getEntityWorld().getClosestPlayer(lizard, radius);
+            return player != null && player.isAlive();
+        }
+
+        @Override
+        public boolean shouldContinue() {
+            if (player == null || !player.isAlive()) {
+                return false;
+            }
+            // Продолжаем, пока игрок в разумной близости (≈3 радиуса).
+            return lizard.squaredDistanceTo(player) < (radius * 3.0) * (radius * 3.0);
+        }
+
+        @Override
+        public void tick() {
+            if (player == null || !player.isAlive()) {
+                return;
+            }
+            double distSq = lizard.squaredDistanceTo(player);
+            if (distSq >= radius * radius) {
+                return;
+            }
+            // Пытаемся убежать по маршруту от игрока (поиск в большом радиусе).
+            Vec3d target = NoPenaltyTargeting.findFrom(lizard, 24, 10, player.getEntityPos());
+            if (target != null) {
+                double dist = Math.sqrt(distSq);
+                double speed = dist < radius * 0.5 ? fastSpeed : slowSpeed;
+                lizard.getNavigation().startMovingTo(target.x, target.y, target.z, speed);
+                return;
+            }
+            // Путь не нашёлся — разворачиваемся от игрока и бежим напрямую.
+            Vec3d away = lizard.getEntityPos().subtract(player.getEntityPos());
+            if (away.lengthSquared() < 1.0E-6) {
+                away = new Vec3d(1.0, 0.0, 0.0);
+            }
+            away = away.normalize();
+            float yaw = (float) Math.toDegrees(Math.atan2(-away.x, away.z));
+            lizard.setYaw(yaw);
+            lizard.setBodyYaw(yaw);
+            lizard.setHeadYaw(yaw);
+            lizard.getNavigation().stop();
+            double speed = Math.sqrt(distSq) < radius * 0.5 ? fastSpeed : slowSpeed;
+            lizard.setMovementSpeed((float) speed);
+            lizard.getMoveControl().strafeTo(1.0f, 0.0f);
+        }
+
+        @Override
+        public void stop() {
+            player = null;
+        }
     }
 
     // ------------------------------------------------------------------
