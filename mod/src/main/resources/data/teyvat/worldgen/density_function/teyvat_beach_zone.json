@@ -54,7 +54,7 @@
         }
       },
       "min_inclusive": 1.0,
-      "max_exclusive": 1.2,
+      "max_exclusive": 1.08,
       "when_in_range": 0.0,
       "when_out_of_range": -1.0
     }
