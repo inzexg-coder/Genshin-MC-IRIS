@@ -7,7 +7,9 @@ import net.minecraft.client.option.KeyBinding;
 import net.minecraft.particle.ParticleTypes;
 import net.minecraft.util.PlayerInput;
 import net.minecraft.util.math.Vec3d;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.teyvat.TeyvatClient;
+import net.teyvat.network.ClimbStaminaPayload;
 import net.teyvat.player.TravelerProfile;
 
 /**
@@ -52,12 +54,31 @@ public final class StaminaController {
     private static long lastForwardPressTick = -1000;
     /** Ввод, сохранённый на время рывка (рывок «залочен», ввод движения выключен). */
     private static Input savedInput;
+    /** Карабкается ли игрок прямо сейчас (состояние приходит с сервера).
+     *  Пока карабкается, стаминой владеет сервер — клиент её не тратит и не копит. */
+    private static boolean climbing;
+    private static boolean sliding;
+    private static int climbSyncCounter;
     /** События для квестов Паймон: побежал двойным W / сделал рывок по Ctrl.
      *  Съедаются клиентом раз за тик (см. consumeSprintEvent/consumeDashEvent). */
     private static boolean sprintEvent;
     private static boolean dashEvent;
 
     private StaminaController() {}
+
+    /** Сервер передал состояние карабканья и авторитетную стамину. */
+    public static void setServerClimbState(boolean climbing, boolean sliding, float stamina) {
+        StaminaController.climbing = climbing;
+        StaminaController.sliding = sliding;
+        if (climbing || sliding) {
+            StaminaController.stamina = Math.max(0f, Math.min(MAX_STAMINA, stamina));
+        }
+    }
+
+    /** Карабкается ли игрок (для анимаций/UI). */
+    public static boolean isClimbing() {
+        return climbing;
+    }
 
     /** Вызывается каждый клиентский тик. */
     public static void tick() {
@@ -66,6 +87,20 @@ public final class StaminaController {
             return;
         }
         ClientPlayerEntity player = client.player;
+
+        // Карабканье: стамина авторитетна на сервере. Пока карабкаемся,
+        // клиент не тратит/не копит свою стамину (сервер шлёт актуальную).
+        if (climbing || sliding) {
+            StaminaOverlay.tick(stamina);
+            return;
+        }
+        // Периодически шлём серверу свою текущую стамину (база для карабканья).
+        if (++climbSyncCounter >= 5) {
+            climbSyncCounter = 0;
+            if (client.getNetworkHandler() != null) {
+                ClientPlayNetworking.send(new ClimbStaminaPayload(stamina));
+            }
+        }
 
         // Рывок по тапу Ctrl: короткий бросок вперёд, удержание ничего не делает.
         boolean pressed = TeyvatClient.SPRINT_DASH.isPressed();

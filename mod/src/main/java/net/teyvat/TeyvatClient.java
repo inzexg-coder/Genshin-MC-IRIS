@@ -70,6 +70,8 @@ import net.teyvat.network.TeleportStatePayload;
 import net.teyvat.network.SkipTrainingPayload;
 import net.teyvat.network.MinimapSyncPayload;
 import net.teyvat.network.MinimapExplorePayload;
+import net.teyvat.network.ClimbSyncPayload;
+import net.teyvat.network.ClimbStaminaPayload;
 import org.lwjgl.glfw.GLFW;
 
 public class TeyvatClient implements ClientModInitializer {
@@ -320,6 +322,11 @@ public class TeyvatClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(TeleportStatePayload.ID, (payload, context) -> {
             context.client().execute(() -> TeleportActivationClient.setActivatedPositions(
                     new HashSet<>(payload.positions())));
+        });
+        // Сервер передаёт состояние карабканья и авторитетную стамину.
+        ClientPlayNetworking.registerGlobalReceiver(ClimbSyncPayload.ID, (payload, context) -> {
+            context.client().execute(() -> StaminaController.setServerClimbState(
+                    payload.climbing(), payload.sliding(), payload.stamina()));
         });
     }
 }

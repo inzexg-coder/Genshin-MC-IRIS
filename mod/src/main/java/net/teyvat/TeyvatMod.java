@@ -48,6 +48,9 @@ import net.teyvat.server.BeachGuard;
 import net.teyvat.server.ItemPickup;
 import net.teyvat.server.PickupSelfTest;
 import net.teyvat.server.PlayerCombat;
+import net.teyvat.network.ClimbStaminaPayload;
+import net.teyvat.network.ClimbSyncPayload;
+import net.teyvat.server.ClimbController;
 import net.teyvat.server.SlimeTraining;
 import net.teyvat.server.TeyvatQuests;
 import net.teyvat.server.TeyvatSpawn;
@@ -145,6 +148,8 @@ public class TeyvatMod implements ModInitializer {
         PayloadTypeRegistry.playC2S().register(PlayerAttackPayload.ID, PlayerAttackPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(PickupRequestPayload.ID, PickupRequestPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(AdminNotesRequestPayload.ID, AdminNotesRequestPayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(ClimbStaminaPayload.ID, ClimbStaminaPayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(ClimbSyncPayload.ID, ClimbSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(QuestCompletePayload.ID, QuestCompletePayload.CODEC);
         PayloadTypeRegistry.playS2C().register(TravelerChoiceSyncPayload.ID, TravelerChoiceSyncPayload.CODEC);
         PayloadTypeRegistry.playS2C().register(QuestStatePayload.ID, QuestStatePayload.CODEC);
@@ -177,6 +182,14 @@ public class TeyvatMod implements ModInitializer {
         CommandRegistrationCallback.EVENT.register(TeyvatCommand::register);
         ServerLifecycleEvents.SERVER_STARTED.register(TeyvatSpawn::prepare);
         LOGGER.info("Teyvat mod initialized: {} blocks registered", TeyvatBlocks.ALL_BLOCKS.size());
+
+        // Клиент передаёт серверу свою текущую стамину (база на время карабканья).
+        ServerPlayNetworking.registerGlobalReceiver(ClimbStaminaPayload.ID, (payload, context) -> {
+            ServerPlayerEntity player = context.player();
+            if (player != null) {
+                ClimbController.onClientStamina(player, payload.stamina());
+            }
+        });
 
         ServerPlayNetworking.registerGlobalReceiver(TravelerChoicePayload.ID, (payload, context) -> {
             ServerPlayerEntity player = context.player();
@@ -457,6 +470,7 @@ public class TeyvatMod implements ModInitializer {
             ProgressionStore.onDisconnect(handler.getPlayer());
             MobXp.onDisconnect(handler.getPlayer());
             PlayerCombat.onDisconnect(handler.getPlayer());
+            ClimbController.clear(handler.getPlayer());
         });
 
         ServerLifecycleEvents.SERVER_STOPPING.register(server -> MobXp.resetSession());
@@ -468,6 +482,12 @@ public class TeyvatMod implements ModInitializer {
         ServerTickEvents.END_SERVER_TICK.register(server -> {
             for (ServerWorld world : server.getWorlds()) {
                 PlayerCombat.tick(world);
+            }
+        });
+        // Карабканье: серверно-авторитетная трата стамины и движение по стене.
+        ServerTickEvents.END_SERVER_TICK.register(server -> {
+            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
+                ClimbController.tick(player);
             }
         });
     }
