@@ -32,7 +32,7 @@ public final class TeyvatDragonRidge {
     public static final int TRAILHEAD_X = 0;
     public static final int TRAILHEAD_Z = -1270;
 
-    private static final double START_RADIUS = 95.0;
+    private static final double START_RADIUS = 68.0;
     private static final double END_RADIUS = 220.0;
     private static final int SPATIAL_CELL_SIZE = 32;
     private static final double TRAIL_CLIMB = 1.5;
@@ -109,12 +109,12 @@ public final class TeyvatDragonRidge {
             // Быстрые границы кольца тропы (без вычислений вне зоны).
             double pdz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
             double pradius = Math.sqrt(x * x + pdz * pdz);
-            if (pradius < 88.0 || pradius > 235.0
+            if (pradius < 60.0 || pradius > 235.0
                     || x < -90.0 || x > 90.0) return -1.0;
 
             double distance = trailDistance(x, z);
             // Тропа плавно проявляется от края пляжа к долине.
-            double edgeIn = smoothstep(90.0, 110.0, pradius); // 0 у пляжа, 1 в долине
+            double edgeIn = smoothstep(64.0, 84.0, pradius); // 0 у кромки песка, 1 в долине
             double halfWidth = 5.0 * edgeIn;
             if (halfWidth < 0.5) return -1.0; // ещё не в долине — тропы нет
             double edge = (distance - halfWidth) / halfWidth;
@@ -240,7 +240,7 @@ public final class TeyvatDragonRidge {
         double dz = z - TeyvatOceanEdge.BEACH_CENTER_Z;
         double radius = Math.sqrt(x * x + dz * dz);
         // Тропа рисуется только в долине (radius >= 95), без спуска на пляж
-        double edgeIn = smoothstep(92.0, 112.0, radius);
+        double edgeIn = smoothstep(64.0, 84.0, radius);
         double halfWidth = (TRAIL_HALF_WIDTH + 2.0) * edgeIn;
         if (halfWidth < 0.5) return -1.0;
         return 1.0 - dist / halfWidth;
@@ -343,7 +343,7 @@ public final class TeyvatDragonRidge {
         double margin = TRAIL_HALF_WIDTH + 1.0;
         return maxX + margin >= TRAIL_CURVE[0][0] - 5.0
                 && minX - margin <= TRAIL_CURVE[TRAIL_CURVE.length - 1][0] + 5.0
-                && maxZ + margin >= -1270.0
+                && maxZ + margin >= -1300.0
                 && minZ - margin <= -1149.0;
     }
 

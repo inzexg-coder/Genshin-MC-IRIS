@@ -94,7 +94,10 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
         // Единый уровень платформы: высота поверхности в центре (трайлхед) - 1.
         // ВСЕ части точки кладутся относительно этого одного уровня, чтобы ничто
         // не поднималось отдельно из-за неровной земли вокруг.
-        int centerY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z) - 1;
+        // Платформа лежит ПОВЕРХ земли (на y поверхности, а не под травой):
+        // нижний ромб кладём на уровень верхнего блока травы, чтобы он был
+        // виден как «на земле», а не закопанным. Единый уровень на весь ромб.
+        int centerY = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
         if (centerY < world.getBottomY() + 1) {
             for (int dx = -1; dx <= 1 && centerY < world.getBottomY() + 1; dx++) {
                 for (int dz = -1; dz <= 1; dz++) {
@@ -102,7 +105,7 @@ public final class DragonRidgeTrailFeature extends Feature<DefaultFeatureConfig>
                     int px = x + dx;
                     int pz = z + dz;
                     if (px < cMinX || px > cMaxX || pz < cMinZ || pz > cMaxZ) continue;
-                    int ty = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz) - 1;
+                    int ty = world.getTopY(Heightmap.Type.WORLD_SURFACE, px, pz);
                     if (ty > centerY) centerY = ty;
                 }
             }
