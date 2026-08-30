@@ -5,8 +5,8 @@
       "uvlock": true,
       "y": 0
     },
-    "facing=north,in_wall=true,open=false,powered=true": {
-      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+    "facing=north,in_wall=false,open=false,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate",
       "uvlock": true,
       "y": 0
     },
@@ -15,8 +15,28 @@
       "uvlock": true,
       "y": 0
     },
-    "facing=north,in_wall=true,open=true,powered=true": {
+    "facing=north,in_wall=false,open=true,powered=true": {
       "model": "teyvat:block/sunnsettia_fence_gate_open",
+      "uvlock": true,
+      "y": 0
+    },
+    "facing=north,in_wall=true,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+      "uvlock": true,
+      "y": 0
+    },
+    "facing=north,in_wall=true,open=false,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+      "uvlock": true,
+      "y": 0
+    },
+    "facing=north,in_wall=true,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall_open",
+      "uvlock": true,
+      "y": 0
+    },
+    "facing=north,in_wall=true,open=true,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall_open",
       "uvlock": true,
       "y": 0
     },
@@ -25,8 +45,8 @@
       "uvlock": true,
       "y": 180
     },
-    "facing=south,in_wall=true,open=false,powered=true": {
-      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+    "facing=south,in_wall=false,open=false,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate",
       "uvlock": true,
       "y": 180
     },
@@ -35,8 +55,28 @@
       "uvlock": true,
       "y": 180
     },
-    "facing=south,in_wall=true,open=true,powered=true": {
+    "facing=south,in_wall=false,open=true,powered=true": {
       "model": "teyvat:block/sunnsettia_fence_gate_open",
+      "uvlock": true,
+      "y": 180
+    },
+    "facing=south,in_wall=true,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+      "uvlock": true,
+      "y": 180
+    },
+    "facing=south,in_wall=true,open=false,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+      "uvlock": true,
+      "y": 180
+    },
+    "facing=south,in_wall=true,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall_open",
+      "uvlock": true,
+      "y": 180
+    },
+    "facing=south,in_wall=true,open=true,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall_open",
       "uvlock": true,
       "y": 180
     },
@@ -45,8 +85,8 @@
       "uvlock": true,
       "y": 90
     },
-    "facing=east,in_wall=true,open=false,powered=true": {
-      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+    "facing=east,in_wall=false,open=false,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate",
       "uvlock": true,
       "y": 90
     },
@@ -55,8 +95,28 @@
       "uvlock": true,
       "y": 90
     },
-    "facing=east,in_wall=true,open=true,powered=true": {
+    "facing=east,in_wall=false,open=true,powered=true": {
       "model": "teyvat:block/sunnsettia_fence_gate_open",
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=east,in_wall=true,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=east,in_wall=true,open=false,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=east,in_wall=true,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall_open",
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=east,in_wall=true,open=true,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall_open",
       "uvlock": true,
       "y": 90
     },
@@ -65,8 +125,8 @@
       "uvlock": true,
       "y": 270
     },
-    "facing=west,in_wall=true,open=false,powered=true": {
-      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+    "facing=west,in_wall=false,open=false,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate",
       "uvlock": true,
       "y": 270
     },
@@ -75,8 +135,28 @@
       "uvlock": true,
       "y": 270
     },
-    "facing=west,in_wall=true,open=true,powered=true": {
+    "facing=west,in_wall=false,open=true,powered=true": {
       "model": "teyvat:block/sunnsettia_fence_gate_open",
+      "uvlock": true,
+      "y": 270
+    },
+    "facing=west,in_wall=true,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+      "uvlock": true,
+      "y": 270
+    },
+    "facing=west,in_wall=true,open=false,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall",
+      "uvlock": true,
+      "y": 270
+    },
+    "facing=west,in_wall=true,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall_open",
+      "uvlock": true,
+      "y": 270
+    },
+    "facing=west,in_wall=true,open=true,powered=true": {
+      "model": "teyvat:block/sunnsettia_fence_gate_wall_open",
       "uvlock": true,
       "y": 270
     }
