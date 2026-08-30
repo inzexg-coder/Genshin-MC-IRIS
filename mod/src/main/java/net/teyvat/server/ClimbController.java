@@ -35,6 +35,10 @@ public final class ClimbController {
     public static final float CLIMB_DRAIN_PER_TICK = 8f / 20f;
     /** Стоимость прыжка от стены. */
     public static final float CLIMB_JUMP_COST = 20f;
+    /** Вертикаль прыжка от стены (вверх или вперёд-вверх). */
+    private static final double CLIMB_JUMP_UP = 0.85;
+    /** Горизонталь прыжка от стены — по направлению движения. */
+    private static final double CLIMB_JUMP_SPEED = 0.55;
     /** Скорость подъёма, блоков/тик (~0.45 — быстрее бега, но без рывка). */
     private static final double CLIMB_SPEED = 0.45;
     /** Скорость плавного спуска при пустой стамине, блоков/тик. */
@@ -76,20 +80,27 @@ public final class ClimbController {
         BlockPos feet = player.getBlockPos();
         Direction wall = findWall(world, player, feet);
 
-        boolean canClimb = jumpPressed && wall != null
+        // Рядом со стеной (для продолжения подъёма/спуска).
+        boolean onWall = wall != null
                 && !player.isSneaking()
                 && !player.hasVehicle()
                 && !player.getAbilities().flying
                 && !player.isTouchingWater()
                 && !player.isSubmergedInWater();
+        // Старт карабканья — только стена высотой >= 2 блоков. Один блок
+        // игрок перешагивает обычным бегом (ванильный авто-прыжок).
+        boolean canClimb = onWall && jumpPressed && isStartableWall(world, feet, wall);
 
         if (d.climbing) {
-            tickClimbing(player, d, canClimb, wall, jumpPressed);
+            tickClimbing(player, d, onWall, wall, jumpPressed);
         } else if (d.sliding) {
-            tickSliding(player, d, canClimb);
+            tickSliding(player, d, onWall);
         } else if (canClimb && d.stamina > 0f) {
             d.climbing = true;
             d.wallDir = wall;
+            // Space уже зажат (он запустил карабканье) — повторное нажатие
+            // считается только когда игрок отпустит и нажмёт снова.
+            d.wasJumping = true;
             sync(player, d);
         }
 
@@ -102,8 +113,8 @@ public final class ClimbController {
     }
 
     private static void tickClimbing(ServerPlayerEntity player, ClimbData d,
-                                     boolean canClimb, Direction wall, boolean jumpPressed) {
-        if (!canClimb || wall == null) {
+                                     boolean onWall, Direction wall, boolean jumpPressed) {
+        if (!onWall || wall == null) {
             // Отпустили Space, отошли от стены, сели/сел в воду — отпустить.
             release(player, d);
             return;
@@ -111,8 +122,8 @@ public final class ClimbController {
         // Прыжок от стены: повторное Space во время карабканья (фронт нажатия).
         if (jumpPressed && !d.wasJumping && d.stamina >= CLIMB_JUMP_COST) {
             d.stamina -= CLIMB_JUMP_COST;
-            Vec3d v = player.getVelocity();
-            player.setVelocity(v.x, 0.9, v.z);
+            Vec3d j = climbJumpVelocity(player);
+            player.setVelocity(j.x, j.y, j.z);
             player.velocityModified = true;
             release(player, d);
             return;
@@ -134,8 +145,8 @@ public final class ClimbController {
         player.velocityModified = true;
     }
 
-    private static void tickSliding(ServerPlayerEntity player, ClimbData d, boolean canClimb) {
-        if (canClimb && d.stamina > 0f) {
+    private static void tickSliding(ServerPlayerEntity player, ClimbData d, boolean onWall) {
+        if (onWall && d.stamina > 0f) {
             // Снова зажали Space с достаточной стаминой — снова цепляемся.
             d.sliding = false;
             d.climbing = true;
@@ -177,7 +188,49 @@ public final class ClimbController {
         DATA.remove(player.getUuid());
     }
 
-    /** Ищет рядом сплошной блок-стену на высоте тела (feet..feet+1). */
+    /** Направление прыжка от стены, как в Genshin: по движению игрока.
+     *  - Без движения — подскок вверх с места.
+     *  - Вперёд/вбок — прыжок в сторону движения с подъёмом.
+     *  - Диагональ вниз (назад+вбок) — чисто горизонтальный прыжок от стены.
+     *  - Только назад — полный отрыв от поверхности (прыжок от стены вниз). */
+    private static Vec3d climbJumpVelocity(ServerPlayerEntity player) {
+        PlayerInput in = player.getPlayerInput();
+        if (in == null) {
+            return new Vec3d(0, CLIMB_JUMP_UP, 0);
+        }
+        double forward = (in.forward() ? 1 : 0) - (in.backward() ? 1 : 0);
+        double strafe = (in.right() ? 1 : 0) - (in.left() ? 1 : 0);
+        if (forward == 0 && strafe == 0) {
+            return new Vec3d(0, CLIMB_JUMP_UP, 0);
+        }
+        double yaw = Math.toRadians(player.getYaw());
+        double dx = -Math.sin(yaw) * forward - Math.cos(yaw) * strafe;
+        double dz = Math.cos(yaw) * forward - Math.sin(yaw) * strafe;
+        double len = Math.hypot(dx, dz);
+        if (len < 1e-6) {
+            return new Vec3d(0, CLIMB_JUMP_UP, 0);
+        }
+        dx /= len;
+        dz /= len;
+        if (forward < 0 && strafe != 0) {
+            return new Vec3d(dx * CLIMB_JUMP_SPEED * 1.2, 0, dz * CLIMB_JUMP_SPEED * 1.2);
+        }
+        if (forward < 0) {
+            return new Vec3d(dx * CLIMB_JUMP_SPEED * 1.6, 0.45, dz * CLIMB_JUMP_SPEED * 1.6);
+        }
+        return new Vec3d(dx * CLIMB_JUMP_SPEED, CLIMB_JUMP_UP, dz * CLIMB_JUMP_SPEED);
+    }
+
+    /** Карабкается или сползает ли игрок прямо сейчас (для блокировки атак). */
+    public static boolean isClimbing(ServerPlayerEntity player) {
+        ClimbData d = DATA.get(player.getUuid());
+        return d != null && (d.climbing || d.sliding);
+    }
+
+    /** Ищет рядом сплошной блок-стену на уровне тела (feet или feet+1).
+     *  Проверка на старт разрешена только для стен высотой >= 2 блоков
+     *  (см. isStartableWall), а во время подъёма стена ищется так, чтобы
+     *  игрок добрался до самого верха. */
     private static Direction findWall(World world, ServerPlayerEntity player, BlockPos feet) {
         Direction best = null;
         double bestDist = Double.MAX_VALUE;
@@ -199,6 +252,16 @@ public final class ClimbController {
             return best;
         }
         return null;
+    }
+
+    /** Можно ли начать карабканье: стена высотой не меньше двух блоков
+     *  (блок на уровне ног и блок над ним). Одиночный блок не считается. */
+    private static boolean isStartableWall(World world, BlockPos feet, Direction wall) {
+        if (wall == null) {
+            return false;
+        }
+        BlockPos side = feet.offset(wall);
+        return isWallBlock(world, side) && isWallBlock(world, side.up());
     }
 
     private static boolean isWallBlock(World world, BlockPos pos) {

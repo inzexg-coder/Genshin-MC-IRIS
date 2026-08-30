@@ -7,6 +7,11 @@ import net.fabricmc.fabric.api.entity.event.v1.ServerLivingEntityEvents;
 import net.fabricmc.fabric.api.entity.event.v1.ServerPlayerEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
+import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
+import net.fabricmc.fabric.api.event.player.AttackEntityCallback;
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.fabricmc.fabric.api.event.player.UseItemCallback;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -22,6 +27,7 @@ import net.minecraft.entity.passive.PassiveEntity;
 import net.minecraft.entity.passive.SquidEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ActionResult;
 import net.minecraft.item.Items;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -228,10 +234,24 @@ public class TeyvatMod implements ModInitializer {
         // Удар комбо путешественника: сервер ищет цели в конусе перед игроком
         // и наносит урон с множителем текущего удара (как размах мечом в Genshin).
         ServerPlayNetworking.registerGlobalReceiver(PlayerAttackPayload.ID, (payload, context) -> {
-            if (context.player() != null) {
-                PlayerCombat.onAttack(context.player(), payload.hitIndex(), payload.chargeLevel());
+            ServerPlayerEntity p = context.player();
+            if (p != null && !ClimbController.isClimbing(p)) {
+                PlayerCombat.onAttack(p, payload.hitIndex(), payload.chargeLevel());
             }
         });
+
+        // Во время карабканья (как в Genshin) нельзя атаковать и использовать предметы:
+        // блокируем ванильные атаки по блокам/мобам, клики-использования и useItem.
+        AttackBlockCallback.EVENT.register((player, world, hand, pos, dir) ->
+                blockedByClimb(player) ? ActionResult.FAIL : ActionResult.PASS);
+        AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) ->
+                blockedByClimb(player) ? ActionResult.FAIL : ActionResult.PASS);
+        UseBlockCallback.EVENT.register((player, world, hand, hitResult) ->
+                blockedByClimb(player) ? ActionResult.FAIL : ActionResult.PASS);
+        UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) ->
+                blockedByClimb(player) ? ActionResult.FAIL : ActionResult.PASS);
+        UseItemCallback.EVENT.register((player, world, hand) ->
+                blockedByClimb(player) ? ActionResult.FAIL : ActionResult.PASS);
 
         // F: игрок подбирает ближайший предмет с земли (автоподбор отключён).
         ServerPlayNetworking.registerGlobalReceiver(PickupRequestPayload.ID, (payload, context) -> {
@@ -490,5 +510,10 @@ public class TeyvatMod implements ModInitializer {
                 ClimbController.tick(player);
             }
         });
+    }
+
+    /** Атаки/использование заблокированы, пока игрок карабкается (только на сервере). */
+    private static boolean blockedByClimb(PlayerEntity player) {
+        return player instanceof ServerPlayerEntity serverPlayer && ClimbController.isClimbing(serverPlayer);
     }
 }
