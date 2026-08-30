@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/fence_inventory",
+  "textures": {
+    "texture": "teyvat:block/sunnsettia_planks"
+  }
+}

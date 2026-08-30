@@ -61,6 +61,7 @@ import net.teyvat.server.SlimeTraining;
 import net.teyvat.server.TeyvatQuests;
 import net.teyvat.server.TeyvatSpawn;
 import net.teyvat.worldgen.StarfallValleyTrailFeature;
+import net.teyvat.worldgen.SunsettiaTreeFeature;
 import net.teyvat.worldgen.TeyvatBeachRadius;
 import net.teyvat.worldgen.TeyvatStarfallValley;
 import net.teyvat.worldgen.TeyvatOceanEdge;
@@ -134,6 +135,8 @@ public class TeyvatMod implements ModInitializer {
         TeyvatBeachRadius.register();
         TeyvatStarfallValley.register();
         StarfallValleyTrailFeature.register();
+        SunsettiaTreeFeature.register();
+        TeyvatWood.register();
         BeachGuard.register();
         BeachBoundary.register();
         PaimonEntity.register();

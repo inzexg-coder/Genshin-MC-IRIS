@@ -57,5 +57,20 @@
   "block.teyvat.teleport_column_capital_blue": "Капитель колонны (активированная)",
   "entity.teyvat.blue_horned_lizard": "Синяя рогатая ящерица",
   "item.teyvat.blue_horned_lizard_spawn_egg": "Яйцо призыва синей рогатой ящерицы",
-  "item.teyvat.lizard_tail": "Хвост ящерицы"
+  "item.teyvat.lizard_tail": "Хвост ящерицы",
+  "item.teyvat.sunnsettia": "Закатник",
+  "block.teyvat.sunnsettia_log": "Бревно Закатника",
+  "block.teyvat.sunnsettia_wood": "Древесина Закатника",
+  "block.teyvat.stripped_sunnsettia_log": "Очищенное бревно Закатника",
+  "block.teyvat.stripped_sunnsettia_wood": "Очищенная древесина Закатника",
+  "block.teyvat.sunnsettia_planks": "Закатниковые доски",
+  "block.teyvat.sunnsettia_stairs": "Закатниковые ступени",
+  "block.teyvat.sunnsettia_slab": "Закатниковая плита",
+  "block.teyvat.sunnsettia_fence": "Закатниковый забор",
+  "block.teyvat.sunnsettia_fence_gate": "Закатниковая калитка",
+  "block.teyvat.sunnsettia_door": "Закатниковая дверь",
+  "block.teyvat.sunnsettia_trapdoor": "Закатниковый люк",
+  "block.teyvat.sunnsettia_leaves": "Закатниковая листва",
+  "block.teyvat.sunnsettia_sapling": "Саженец Закатника",
+  "block.teyvat.sunnsettia_fruit": "Плод Закатника"
 }

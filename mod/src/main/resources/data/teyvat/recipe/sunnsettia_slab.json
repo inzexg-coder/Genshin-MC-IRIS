@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "PPP"
+  ],
+  "key": {
+    "P": {
+      "item": "teyvat:sunnsettia_planks"
+    }
+  },
+  "result": {
+    "id": "teyvat:sunnsettia_slab",
+    "count": 6
+  }
+}

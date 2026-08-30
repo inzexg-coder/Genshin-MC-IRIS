@@ -33,9 +33,13 @@ public final class TeyvatItems {
     /** Хвост ящерицы — дроп с синей рогатой ящерицы. */
     public static final Item LIZARD_TAIL = register("lizard_tail");
 
+    /** Закатник — плод дерева Закатника, восстанавливает 300 HP. */
+    public static final Item SUNSETTIA = registerSunsettia();
+
     public static final List<Item> ALL = List.of(
             SLIME_CONDENSATE, SLIME_SECRETIONS, SLIME_CONCENTRATE, MORA,
-            DULL_BLADE, HYDRO_SLIME_SPAWN_EGG, BLUE_HORNED_LIZARD_SPAWN_EGG, LIZARD_TAIL);
+            DULL_BLADE, HYDRO_SLIME_SPAWN_EGG, BLUE_HORNED_LIZARD_SPAWN_EGG, LIZARD_TAIL,
+            SUNSETTIA);
 
     private TeyvatItems() {}
 
@@ -43,6 +47,13 @@ public final class TeyvatItems {
         Identifier id = Identifier.of(TeyvatMod.MOD_ID, name);
         return Registry.register(Registries.ITEM, id,
                 new Item(new Item.Settings().registryKey(RegistryKey.of(RegistryKeys.ITEM, id))));
+    }
+
+    private static Item registerSunsettia() {
+        Identifier id = Identifier.of(TeyvatMod.MOD_ID, "sunnsettia");
+        return Registry.register(Registries.ITEM, id,
+                new SunsettiaItem(new Item.Settings()
+                        .registryKey(RegistryKey.of(RegistryKeys.ITEM, id))));
     }
 
     /** Dull Blade (Тупой меч): ★☆☆☆☆, Base ATK=23, стартовый меч. */

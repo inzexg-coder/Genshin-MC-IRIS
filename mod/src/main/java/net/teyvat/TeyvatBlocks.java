@@ -176,6 +176,9 @@ public final class TeyvatBlocks {
                     for (Block block : ALL_BLOCKS) {
                         entries.add(block);
                     }
+                    for (Block block : TeyvatWood.WOOD_BLOCKS) {
+                        entries.add(block);
+                    }
                     for (Item item : TeyvatItems.ALL) {
                         entries.add(item);
                     }

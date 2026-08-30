@@ -46,5 +46,20 @@
   "item.teyvat.hydro_slime_spawn_egg": "Hydro Slime Spawn Egg",
   "entity.teyvat.blue_horned_lizard": "Blue Horned Lizard",
   "item.teyvat.blue_horned_lizard_spawn_egg": "Blue Horned Lizard Spawn Egg",
-  "item.teyvat.lizard_tail": "Lizard Tail"
+  "item.teyvat.lizard_tail": "Lizard Tail",
+  "item.teyvat.sunnsettia": "Sunsettia",
+  "block.teyvat.sunnsettia_log": "Sunsettia Log",
+  "block.teyvat.sunnsettia_wood": "Sunsettia Wood",
+  "block.teyvat.stripped_sunnsettia_log": "Stripped Sunsettia Log",
+  "block.teyvat.stripped_sunnsettia_wood": "Stripped Sunsettia Wood",
+  "block.teyvat.sunnsettia_planks": "Sunsettia Planks",
+  "block.teyvat.sunnsettia_stairs": "Sunsettia Stairs",
+  "block.teyvat.sunnsettia_slab": "Sunsettia Slab",
+  "block.teyvat.sunnsettia_fence": "Sunsettia Fence",
+  "block.teyvat.sunnsettia_fence_gate": "Sunsettia Fence Gate",
+  "block.teyvat.sunnsettia_door": "Sunsettia Door",
+  "block.teyvat.sunnsettia_trapdoor": "Sunsettia Trapdoor",
+  "block.teyvat.sunnsettia_leaves": "Sunsettia Leaves",
+  "block.teyvat.sunnsettia_sapling": "Sunsettia Sapling",
+  "block.teyvat.sunnsettia_fruit": "Sunsettia Fruit"
 }

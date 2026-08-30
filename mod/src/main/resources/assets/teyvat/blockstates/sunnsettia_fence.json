@@ -1,0 +1,20 @@
+{
+  "variants": {
+    "east=false,north=false,south=false,west=false": {
+      "model": "teyvat:block/sunnsettia_fence_post",
+      "uvlock": true
+    },
+    "east=true,north=false,south=false,west=true": {
+      "model": "teyvat:block/sunnsettia_fence_side",
+      "uvlock": true
+    },
+    "east=false,north=true,south=true,west=false": {
+      "model": "teyvat:block/sunnsettia_fence_side",
+      "uvlock": true
+    },
+    "east=true,north=true,south=true,west=true": {
+      "model": "teyvat:block/sunnsettia_fence_side",
+      "uvlock": true
+    }
+  }
+}
