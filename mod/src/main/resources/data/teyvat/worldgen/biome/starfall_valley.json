@@ -23,7 +23,10 @@
       "minecraft:trees_plains",
       "minecraft:flower_plains",
       "minecraft:patch_grass_plain",
-      "teyvat:starfall_valley_trail"
+      "teyvat:starfall_valley_trail",
+      "teyvat:starfall_valley_bushes",
+      "minecraft:birch_bees",
+      "minecraft:forest_rock"
     ],
     []
   ],

@@ -28,6 +28,26 @@ public final class StarfallValleyTrailFeature extends Feature<DefaultFeatureConf
         Registry.register(Registries.FEATURE, ID, new StarfallValleyTrailFeature());
     }
 
+    /** Детерминированный псевдорандом 0..1 по координатам (стабилен между рестартами). */
+    private static double pseudoRandom(int x, int z, long seed) {
+        long hash = seed;
+        hash = hash * 31 + x;
+        hash = hash * 31 + z;
+        hash ^= hash >>> 13;
+        hash *= 0x5DEECE66DL;
+        hash ^= hash >>> 8;
+        return (hash & 0xFFFF) / 65536.0;
+    }
+
+    /** Камешек вдоль тропы: выбор породы (булыжник чаще, затем андезит/гранит/диорит). */
+    private static net.minecraft.block.BlockState pebbleBlockFor(int x, int z) {
+        double r = pseudoRandom(x, z, 4242L);
+        if (r < 0.35) return Blocks.COBBLESTONE.getDefaultState();
+        if (r < 0.60) return Blocks.ANDESITE.getDefaultState();
+        if (r < 0.80) return Blocks.GRANITE.getDefaultState();
+        return Blocks.DIORITE.getDefaultState();
+    }
+
     @Override
     public boolean generate(FeatureContext<DefaultFeatureConfig> context) {
         ChunkPos chunkPos = new ChunkPos(context.getOrigin());
@@ -55,6 +75,12 @@ public final class StarfallValleyTrailFeature extends Feature<DefaultFeatureConf
                 if (block == Blocks.GRASS_BLOCK || block == Blocks.SAND
                         || block == Blocks.SHORT_GRASS || block == Blocks.TALL_GRASS) {
                     setBlockState(world, surface, Blocks.DIRT_PATH.getDefaultState());
+                    // Камешки вдоль тропы: редкие «втопленные» фрагменты камня вместо
+                    // dirt_path — читается как каменистая дорога, не мешает ходьбе
+                    // (ровный блок, без бугорка). Детерминированно по позиции.
+                    if (pseudoRandom(x, z, 1337L) < 0.06) {
+                        setBlockState(world, surface, pebbleBlockFor(x, z));
+                    }
                     changed = true;
                 }
             }
