@@ -59,6 +59,7 @@ public final class ClimbController {
     static final class ClimbData {
         boolean climbing;
         boolean sliding;
+        boolean paused;
         int slideTicksLeft;
         float stamina;
         Direction wallDir;
@@ -115,20 +116,36 @@ public final class ClimbController {
     private static void tickClimbing(ServerPlayerEntity player, ClimbData d,
                                      boolean onWall, Direction wall, boolean jumpPressed) {
         if (!onWall || wall == null) {
-            // Отпустили Space, отошли от стены, сели/сел в воду — отпустить.
+            // Отошли от стены, сели/сел в воду — отпустить.
             release(player, d);
             return;
         }
-        // Прыжок от стены: повторное Space во время карабканья (фронт нажатия).
-        if (jumpPressed && !d.wasJumping && d.stamina >= CLIMB_JUMP_COST) {
-            d.stamina -= CLIMB_JUMP_COST;
-            Vec3d j = climbJumpVelocity(player);
-            player.setVelocity(j.x, j.y, j.z);
+        if (!jumpPressed) {
+            // Отпустили Space — зависаем на стене на текущей высоте.
+            // Стамина в паузе не тратится и не восстанавливается.
+            d.paused = true;
+            d.wasJumping = false;
+            Vec3d v = player.getVelocity();
+            player.setVelocity(v.x * 0.2, 0, v.z * 0.2);
             player.velocityModified = true;
-            release(player, d);
             return;
         }
-        d.wasJumping = jumpPressed;
+        if (d.paused) {
+            // Снова нажали Space после паузы.
+            d.paused = false;
+            // Если при этом движемся — рывок от стены в сторону движения
+            // (20 стамины), как в Genshin. Без движения — просто продолжаем подъём.
+            if (d.stamina >= CLIMB_JUMP_COST && hasMovementInput(player)) {
+                d.stamina -= CLIMB_JUMP_COST;
+                Vec3d j = climbJumpVelocity(player);
+                player.setVelocity(j.x, j.y, j.z);
+                player.velocityModified = true;
+                release(player, d);
+                return;
+            }
+            // Продолжаем подъём: следующий ход вниз уходит в активное карабканье.
+            d.wasJumping = true;
+        }
 
         // Стамина кончилась — плавный спуск.
         if (d.stamina <= 0f) {
@@ -139,6 +156,7 @@ public final class ClimbController {
         }
 
         // Подъём: тратим стамину и двигаем вверх. Горизонталь гасим (прилипание к стене).
+        d.wasJumping = jumpPressed;
         d.stamina = Math.max(0f, d.stamina - CLIMB_DRAIN_PER_TICK);
         Vec3d v = player.getVelocity();
         player.setVelocity(v.x * 0.2, CLIMB_SPEED, v.z * 0.2);
@@ -166,8 +184,15 @@ public final class ClimbController {
     private static void release(ServerPlayerEntity player, ClimbData d) {
         d.climbing = false;
         d.sliding = false;
+        d.paused = false;
         d.slideTicksLeft = 0;
         sync(player, d);
+    }
+
+    /** Зажато ли какое-то движение (для рывка от стены по направлению). */
+    private static boolean hasMovementInput(ServerPlayerEntity player) {
+        PlayerInput in = player.getPlayerInput();
+        return in != null && (in.forward() || in.backward() || in.left() || in.right());
     }
 
     private static void sync(ServerPlayerEntity player, ClimbData d) {

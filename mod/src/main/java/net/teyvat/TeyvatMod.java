@@ -396,6 +396,12 @@ public class TeyvatMod implements ModInitializer {
             if (attackAttr != null) {
                 attackAttr.setBaseValue(17.81);
             }
+            // Автоподъём на блок высотой 1 при ходьбе/беге (как в MCBE):
+            // сам шагаем через одиночные блоки, карабканье нужно только ≥2 блока.
+            var stepAttr = player.getAttributeInstance(EntityAttributes.STEP_HEIGHT);
+            if (stepAttr != null) {
+                stepAttr.setBaseValue(1.0);
+            }
             player.setHealth(player.getMaxHealth());
             String version = "?";
             try {
