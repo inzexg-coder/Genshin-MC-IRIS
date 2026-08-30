@@ -1,16 +1,6 @@
 {
   "replace": false,
   "values": [
-    "teyvat:sunnsettia_log",
-    "teyvat:sunnsettia_wood",
-    "teyvat:stripped_sunnsettia_log",
-    "teyvat:stripped_sunnsettia_wood",
-    "teyvat:sunnsettia_planks",
-    "teyvat:sunnsettia_stairs",
-    "teyvat:sunnsettia_slab",
-    "teyvat:sunnsettia_fence",
-    "teyvat:sunnsettia_fence_gate",
-    "teyvat:sunnsettia_door",
-    "teyvat:sunnsettia_trapdoor"
+    "teyvat:sunnsettia_log"
   ]
 }

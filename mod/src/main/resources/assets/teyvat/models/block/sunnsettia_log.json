@@ -1,7 +1,7 @@
 {
   "parent": "minecraft:block/cube_column",
   "textures": {
-    "end": "teyvat:block/sunnsettia_log",
+    "end": "teyvat:block/sunnsettia_log_top",
     "side": "teyvat:block/sunnsettia_log"
   }
 }

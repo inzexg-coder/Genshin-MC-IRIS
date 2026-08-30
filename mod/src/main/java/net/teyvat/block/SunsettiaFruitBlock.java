@@ -2,22 +2,29 @@ package net.teyvat.block;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
-import net.minecraft.block.Blocks;
 import net.minecraft.block.ShapeContext;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.ItemStack;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.util.shape.VoxelShape;
 import net.minecraft.util.shape.VoxelShapes;
 import net.minecraft.world.BlockView;
+import net.minecraft.world.World;
 import net.minecraft.world.WorldView;
 
+import net.teyvat.item.TeyvatItems;
 
 /**
- * Плод Закатника, растёт в кроне дерева (на листве/стволе).
- * При добыче выпадает 1-2 Закатника. Сам по себе не растёт и не сыпется.
+ * Плод Закатника, растёт в кроне дерева. Клик по плоду собирает его:
+ * выпадает 1-2 Закатника, блок исчезает. Как сбор ягод в Genshin.
  */
 public class SunsettiaFruitBlock extends Block {
-    private static final VoxelShape SHAPE = VoxelShapes.cuboid(0.25, 0.25, 0.25, 0.75, 0.75, 0.75);
+    private static final VoxelShape SHAPE = VoxelShapes.cuboid(0.25, 0.0, 0.25, 0.75, 0.75, 0.75);
 
     public SunsettiaFruitBlock(Settings settings) {
         super(settings);
@@ -28,18 +35,24 @@ public class SunsettiaFruitBlock extends Block {
         return SHAPE;
     }
 
-    /** Плод не падает: он держится в кроне, даже если опора исчезла. */
+    /** Клик собирает плод: дроп 1-2 Закатника и удаление блока. */
+    @Override
+    protected ActionResult onUse(BlockState state, World world, BlockPos pos,
+                                 PlayerEntity player, BlockHitResult hit) {
+        if (world.isClient()) {
+            return ActionResult.SUCCESS;
+        }
+        int count = 1 + world.random.nextInt(2);
+        dropStack(world, pos, new ItemStack(TeyvatItems.SUNSETTIA, count));
+        world.playSound(null, pos, SoundEvents.BLOCK_CHERRY_SAPLING_BREAK,
+                SoundCategory.BLOCKS, 1.0f, 1.0f);
+        world.removeBlock(pos, false);
+        return ActionResult.SUCCESS;
+    }
+
+    /** Плод висит в кроне, опору не проверяем (не сыпется). */
     @Override
     protected boolean canPlaceAt(BlockState state, WorldView world, BlockPos pos) {
-        BlockPos down = pos.down();
-        BlockState below = world.getBlockState(down);
-        if (below.isAir()) return false;
-        for (Direction dir : Direction.Type.HORIZONTAL) {
-            BlockState neighbor = world.getBlockState(pos.offset(dir));
-            if (!neighbor.isOf(Blocks.AIR)) {
-                return true;
-            }
-        }
-        return false;
+        return true;
     }
 }

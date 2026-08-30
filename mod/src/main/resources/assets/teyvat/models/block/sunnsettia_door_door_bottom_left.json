@@ -1,7 +1,0 @@
-{
-  "parent": "minecraft:block/door_bottom_left",
-  "textures": {
-    "top": "teyvat:item/sunnsettia_door",
-    "bottom": "teyvat:item/sunnsettia_door"
-  }
-}

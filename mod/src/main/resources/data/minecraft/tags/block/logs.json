@@ -1,9 +1,6 @@
 {
   "replace": false,
   "values": [
-    "teyvat:sunnsettia_log",
-    "teyvat:sunnsettia_wood",
-    "teyvat:stripped_sunnsettia_log",
-    "teyvat:stripped_sunnsettia_wood"
+    "teyvat:sunnsettia_log"
   ]
 }

@@ -2,7 +2,6 @@
   "replace": false,
   "values": [
     "teyvat:marble_fence",
-    "teyvat:marble_wall",
-    "teyvat:sunnsettia_fence"
+    "teyvat:marble_wall"
   ]
 }

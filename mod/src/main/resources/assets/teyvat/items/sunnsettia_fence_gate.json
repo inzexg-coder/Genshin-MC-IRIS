@@ -1,9 +1,0 @@
-{
-  "model": {
-    "type": "minecraft:model",
-    "model": "minecraft:block/template_fence_gate",
-    "textures": {
-      "texture": "teyvat:block/sunnsettia_planks"
-    }
-  }
-}

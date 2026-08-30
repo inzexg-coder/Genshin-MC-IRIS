@@ -1,6 +1,0 @@
-{
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "teyvat:item/sunnsettia_door"
-  }
-}

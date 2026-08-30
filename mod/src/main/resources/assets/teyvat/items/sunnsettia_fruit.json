@@ -1,6 +1,9 @@
 {
   "model": {
     "type": "minecraft:model",
-    "model": "teyvat:block/sunnsettia_fruit"
+    "model": "minecraft:item/generated",
+    "textures": {
+      "layer0": "teyvat:item/sunnsettia_fruit"
+    }
   }
 }
