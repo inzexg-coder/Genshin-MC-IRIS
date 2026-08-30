@@ -58,6 +58,7 @@ public final class StaminaController {
      *  Пока карабкается, стаминой владеет сервер — клиент её не тратит и не копит. */
     private static boolean climbing;
     private static boolean sliding;
+    private static boolean jumpingOff;
     private static int climbSyncCounter;
     /** События для квестов Паймон: побежал двойным W / сделал рывок по Ctrl.
      *  Съедаются клиентом раз за тик (см. consumeSprintEvent/consumeDashEvent). */
@@ -67,9 +68,10 @@ public final class StaminaController {
     private StaminaController() {}
 
     /** Сервер передал состояние карабканья и авторитетную стамину. */
-    public static void setServerClimbState(boolean climbing, boolean sliding, float stamina) {
+    public static void setServerClimbState(boolean climbing, boolean sliding, float stamina, boolean jumpingOff) {
         StaminaController.climbing = climbing;
         StaminaController.sliding = sliding;
+        StaminaController.jumpingOff = jumpingOff;
         if (climbing || sliding) {
             StaminaController.stamina = Math.max(0f, Math.min(MAX_STAMINA, stamina));
         }
@@ -78,6 +80,16 @@ public final class StaminaController {
     /** Карабкается ли игрок (для анимаций/UI). */
     public static boolean isClimbing() {
         return climbing;
+    }
+
+    /** Сползает ли игрок по стене (для анимаций). */
+    public static boolean isSliding() {
+        return sliding;
+    }
+
+    /** Рывок/отпрыгивание от стены прямо сейчас (для анимаций). */
+    public static boolean isJumpingOff() {
+        return jumpingOff;
     }
 
     /** Вызывается каждый клиентский тик. */

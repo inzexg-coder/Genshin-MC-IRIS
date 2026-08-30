@@ -326,7 +326,7 @@ public class TeyvatClient implements ClientModInitializer {
         // Сервер передаёт состояние карабканья и авторитетную стамину.
         ClientPlayNetworking.registerGlobalReceiver(ClimbSyncPayload.ID, (payload, context) -> {
             context.client().execute(() -> StaminaController.setServerClimbState(
-                    payload.climbing(), payload.sliding(), payload.stamina()));
+                    payload.climbing(), payload.sliding(), payload.stamina(), payload.jumpingOff()));
         });
     }
 }

@@ -1106,6 +1106,11 @@ public final class CombatController {
         if (!isLocalPlayer(state.id)) {
             return;
         }
+        // Карабканье и сползание: отдельная поза, приоритетнее бега/ударов.
+        if (StaminaController.isClimbing() || StaminaController.isSliding()) {
+            applyClimbPose(model, state);
+            return;
+        }
         if (charging) {
             applyChargePose(model, state);
         } else if (comboStep >= 0) {
@@ -1137,6 +1142,56 @@ public final class CombatController {
         model.head.yaw = 0f;
         model.head.pitch = 0f;
         model.head.roll = 0f;
+    }
+
+    /** Поза карабканья и сползания: руки тянутся вверх-вверх (хват за стену),
+     *  ноги слегка поджаты, корпус наклонён к стене; при сползании — руки
+     *  расслаблены, ноги прямее; при рывке от стены — руки толкают, корпус
+     *  отклоняется назад. */
+    private static void applyClimbPose(PlayerEntityModel model, PlayerEntityRenderState state) {
+        boolean sliding = StaminaController.isSliding();
+        boolean jumpingOff = StaminaController.isJumpingOff();
+        float t = state.age * 0.1f;
+        float swing = MathHelper.sin(t);
+        float breath = MathHelper.sin(state.age * 0.08f);
+        boolean moving = !sliding && !jumpingOff;
+        float alt = moving ? swing : 0f;
+
+        // Руки: вверх (хват), при сползании — в стороны, при рывке — вперёд (толчок).
+        float armPitchBase = sliding ? 0.35f : jumpingOff ? 0.6f : -1.4f;
+        float armPitchAlt  = moving ? alt * 0.06f : 0f;
+        float armSpread    = sliding ? 0.35f : jumpingOff ? 0.12f : 0.15f;
+        model.leftArm.pitch  = armPitchBase + armPitchAlt + breath * 0.012f;
+        model.leftArm.yaw    = armSpread;
+        model.leftArm.roll   = sliding ? 0.1f : moving ? alt * 0.03f : 0f;
+        model.rightArm.pitch = armPitchBase - armPitchAlt + breath * 0.012f;
+        model.rightArm.yaw   = -armSpread;
+        model.rightArm.roll  = sliding ? -0.1f : moving ? -alt * 0.03f : 0f;
+
+        // Ноги: поджаты при карабканье (переменно), прямее при сползании, согнуты при рывке.
+        float legBend = sliding ? 0.15f : jumpingOff ? 0.7f : 0.45f;
+        float legAlt  = moving ? alt * 0.18f : 0f;
+        model.leftLeg.pitch  = legBend + legAlt;
+        model.leftLeg.yaw    = 0f;
+        model.leftLeg.roll   = 0f;
+        model.rightLeg.pitch = legBend - legAlt;
+        model.rightLeg.yaw   = 0f;
+        model.rightLeg.roll  = 0f;
+
+        // Тело: наклонено к стене при карабканье, прямо при сползании, назад при рывке.
+        model.body.pitch = sliding ? 0.05f : jumpingOff ? -0.15f : 0.25f + breath * 0.012f;
+        model.body.yaw   = moving ? swing * 0.04f : 0f;
+        model.body.roll  = 0f;
+
+        // Голова смотрит в стену (вперёд), не трогаем yaw (knees always forward).
+        model.head.pitch = -0.2f + (jumpingOff ? 0.15f : 0f);
+        model.head.yaw   = 0f;
+        model.head.roll  = 0f;
+
+        // Корень: лёгкое покачивание при подъёме.
+        model.getRootPart().pitch = 0f;
+        model.getRootPart().yaw   = moving ? swing * 0.035f : 0f;
+        model.getRootPart().originY = moving ? MathHelper.sin(t * 1.5f) * 0.02f : 0f;
     }
 
     /** Поза заряда: клинок поднят вверх-вперёд обеими руками, готовность

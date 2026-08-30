@@ -161,18 +161,15 @@ public final class ClimbController {
             // Без движения — просто продолжаем подъём.
             if (d.stamina >= CLIMB_JUMP_COST && hasMovementInput(player)) {
                 d.stamina -= CLIMB_JUMP_COST;
-                if (isStrafeOnly(player)) {
-                    // Вбок: небольшой отрыв от стены и прилипание уже в стороне.
-                    Vec3d j = sidestepVelocity(player);
-                    d.sidestepTicks = SIDESTEP_TICKS;
-                    player.setVelocity(j.x, j.y, j.z);
-                    player.velocityModified = true;
-                    return;
-                }
-                Vec3d j = climbJumpVelocity(player);
+                // Любой рывок от стены (вбок/вперёд/назад) — короткий полёт:
+                // пока летим, не тратим стамину и не лезем; если рядом снова
+                // стена — прилипаем, иначе падаем (tickSidestep).
+                Vec3d j = isStrafeOnly(player)
+                        ? sidestepVelocity(player)
+                        : climbJumpVelocity(player);
+                d.sidestepTicks = SIDESTEP_TICKS;
                 player.setVelocity(j.x, j.y, j.z);
                 player.velocityModified = true;
-                release(player, d);
                 return;
             }
             // Продолжаем подъём: следующий ход вниз уходит в активное карабканье.
@@ -255,7 +252,7 @@ public final class ClimbController {
         if (player.networkHandler == null) {
             return;
         }
-        ServerPlayNetworking.send(player, new ClimbSyncPayload(d.climbing, d.sliding, d.stamina));
+        ServerPlayNetworking.send(player, new ClimbSyncPayload(d.climbing, d.sliding, d.stamina, d.sidestepTicks > 0));
     }
 
     /** Клиент передал свою текущую стамину (база для серверной траты). */

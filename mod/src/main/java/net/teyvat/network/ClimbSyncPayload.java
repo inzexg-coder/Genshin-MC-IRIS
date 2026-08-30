@@ -12,7 +12,7 @@ import net.teyvat.TeyvatMod;
  * сервере; клиент отражает её на дуге выносливости и приостанавливает
  * свою локальную (бег/рывок) во время карабканья.
  */
-public record ClimbSyncPayload(boolean climbing, boolean sliding, float stamina) implements CustomPayload {
+public record ClimbSyncPayload(boolean climbing, boolean sliding, float stamina, boolean jumpingOff) implements CustomPayload {
     public static final CustomPayload.Id<ClimbSyncPayload> ID =
             new CustomPayload.Id<>(Identifier.of(TeyvatMod.MOD_ID, "climb_sync"));
     public static final PacketCodec<RegistryByteBuf, ClimbSyncPayload> CODEC = PacketCodec.of(
@@ -20,8 +20,9 @@ public record ClimbSyncPayload(boolean climbing, boolean sliding, float stamina)
                 buf.writeBoolean(value.climbing());
                 buf.writeBoolean(value.sliding());
                 buf.writeFloat(value.stamina());
+                buf.writeBoolean(value.jumpingOff());
             },
-            buf -> new ClimbSyncPayload(buf.readBoolean(), buf.readBoolean(), buf.readFloat()));
+            buf -> new ClimbSyncPayload(buf.readBoolean(), buf.readBoolean(), buf.readFloat(), buf.readBoolean()));
 
     @Override
     public CustomPayload.Id<? extends CustomPayload> getId() {
