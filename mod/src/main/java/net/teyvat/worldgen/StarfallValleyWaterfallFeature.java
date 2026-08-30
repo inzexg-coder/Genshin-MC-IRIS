@@ -13,10 +13,11 @@ import net.minecraft.world.gen.feature.util.FeatureContext;
 import net.teyvat.TeyvatMod;
 
 /**
- * Водопад в Звездопадной Долине: каменная скала у тропы, вода стекает
- * в микро-озерцо. Самодостаточный: если естественного склона нет,
- * досыпает каменную возвышенность позади — поэтому генерируется
- * на любом сиде (рельеф долины почти не зависит от сида).
+ * Водопад в Звездопадной Долине.
+ * Сначала ищет естественный склон ≥4 блоков у тропы в чанке — водопад
+ * встраивается в холм. Если подходящего склона нет нигде в чанке —
+ * генерирует искусственную скалу, врезанную в склон холма (не поверхность),
+ * и микро-озерцо у подножия. Так водопад появляется гарантированно.
  */
 public final class StarfallValleyWaterfallFeature extends Feature<DefaultFeatureConfig> {
     public static final Identifier ID =
@@ -27,8 +28,12 @@ public final class StarfallValleyWaterfallFeature extends Feature<DefaultFeature
     private static final int LAKE_W = 5;
     private static final int LAKE_D = 3;
     private static final int LAKE_DEPTH = 2;
-    /** Позади скалы досыпаем землю/камень, чтобы вода вытекала "из холма". */
-    private static final int BACKFILL = 4;
+    /** Глубина скалы, врезанной в холм (по +Z от фронта). */
+    private static final int ROCK_D = 4;
+    /** Минимальный естественный склон для "натурального" водопада. */
+    private static final int NATURAL_SLOPE = 4;
+    /** Шаг сканирования точек в чанке. */
+    private static final int SCAN_STEP = 4;
 
     public StarfallValleyWaterfallFeature() {
         super(DefaultFeatureConfig.CODEC);
@@ -48,62 +53,104 @@ public final class StarfallValleyWaterfallFeature extends Feature<DefaultFeature
         int cMaxX = cMinX + 15;
         int cMaxZ = cMinZ + 15;
 
-        int x = origin.getX();
-        int z = origin.getZ();
+        // ── ШАГ 1: ищем естественный склон у тропы в чанке ──
+        int bestX = Integer.MIN_VALUE;
+        int bestZ = Integer.MIN_VALUE;
+        int bestSlope = 0;
+        for (int sx = cMinX; sx <= cMaxX; sx += SCAN_STEP) {
+            for (int sz = cMinZ; sz <= cMaxZ; sz += SCAN_STEP) {
+                double trailDist = TeyvatStarfallValley.trailDistancePublic(sx, sz);
+                if (trailDist < 6.0 || trailDist > 34.0) continue;
 
-        double trailDist = TeyvatStarfallValley.trailDistancePublic(x, z);
-        if (trailDist > 40.0 || trailDist < 3.0) return false;
+                int slope = slopeAt(world, sx, sz);
+                if (slope >= NATURAL_SLOPE && slope > bestSlope) {
+                    bestSlope = slope;
+                    bestX = sx;
+                    bestZ = sz;
+                }
+            }
+        }
+
+        // ── ШАГ 2: естественный склон найден — строим водопад в холме ──
+        if (bestX != Integer.MIN_VALUE) {
+            return buildWaterfall(world, bestX, bestZ, cMinX, cMinZ, cMaxX, cMaxZ, false);
+        }
+
+        // ── ШАГ 3: склона нет — искусственная скала, врезанная в холм ──
+        // Ищем самую высокую точку холма в чанке как кандидата для искусственной
+        // скалы: вода будет вытекать из врезанного каменного уступа.
+        int hillX = Integer.MIN_VALUE;
+        int hillZ = Integer.MIN_VALUE;
+        int hillY = -1;
+        for (int sx = cMinX; sx <= cMaxX; sx += SCAN_STEP) {
+            for (int sz = cMinZ; sz <= cMaxZ; sz += SCAN_STEP) {
+                double trailDist = TeyvatStarfallValley.trailDistancePublic(sx, sz);
+                if (trailDist < 6.0 || trailDist > 40.0) continue;
+                int topY = world.getTopY(Heightmap.Type.WORLD_SURFACE, sx, sz);
+                if (topY > hillY) {
+                    hillY = topY;
+                    hillX = sx;
+                    hillZ = sz;
+                }
+            }
+        }
+        if (hillX == Integer.MIN_VALUE) return false;
+
+        boolean ok = buildWaterfall(world, hillX, hillZ, cMinX, cMinZ, cMaxX, cMaxZ, true);
+        return ok;
+    }
+
+    /** Перепад высот в квадрате 9×9 с центром (x,z). */
+    private int slopeAt(net.minecraft.world.WorldAccess world, int x, int z) {
+        int min = Integer.MAX_VALUE;
+        int max = Integer.MIN_VALUE;
+        for (int dx = -4; dx <= 4; dx += 4) {
+            for (int dz = -4; dz <= 4; dz += 4) {
+                int y = world.getTopY(Heightmap.Type.WORLD_SURFACE, x + dx, z + dz);
+                if (y < min) min = y;
+                if (y > max) max = y;
+            }
+        }
+        return max - min;
+    }
+
+    /** Строит водопад: скала 3×5, вода из расщелины, стекающая вода,
+     *  микро-озерцо у подножия. artificial=true — скала врезается в холм,
+     *  досыпая камень позади до высоты скалы ("в холме, не на поверхности"). */
+    private boolean buildWaterfall(net.minecraft.world.WorldAccess world,
+                                          int x, int z, int cMinX, int cMinZ,
+                                          int cMaxX, int cMaxZ, boolean artificial) {
+        if (x - LAKE_W / 2 < cMinX || x + LAKE_W / 2 > cMaxX
+                || z - LAKE_D - 2 < cMinZ || z + ROCK_D + 1 > cMaxZ) return false;
 
         int yC = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z);
         if (yC <= world.getBottomY() + 8) return false;
 
-        // Мини-склон ≥2 блоков: помогает найти край холма, но не обязателен —
-        // фича самодостаточна и встанет и на ровный участок у тропы.
-        int yN = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z - 4);
-        int yS = world.getTopY(Heightmap.Type.WORLD_SURFACE, x, z + 4);
-        int yE = world.getTopY(Heightmap.Type.WORLD_SURFACE, x + 4, z);
-        int yW = world.getTopY(Heightmap.Type.WORLD_SURFACE, x - 4, z);
-        int minH = Math.min(yC, Math.min(Math.min(yN, yS), Math.min(yE, yW)));
-        int maxH = Math.max(yC, Math.max(Math.max(yN, yS), Math.max(yE, yW)));
-        int slope = maxH - minH;
-        // Нижняя точка как основание, но не глубже 64 (над морем).
-        int baseY = Math.max(minH, 66);
-
-        if (x - LAKE_W / 2 < cMinX || x + LAKE_W / 2 > cMaxX
-                || z - LAKE_D - 2 < cMinZ || z + ROCK_H + BACKFILL > cMaxZ) return false;
+        // Основание: чуть ниже поверхности в точке фронта, не глубже 66.
+        int baseY = Math.max(yC - 1, 66);
 
         boolean changed = false;
 
-        // ── СКАЛА: 3×5 каменная стена, фронт лицом к игроку (−Z) ──
+        // ── СКАЛА 3×5 (фронт к −Z), при artificial=врезаем глубже в холм ──
+        int depth = artificial ? ROCK_D : 1;
         for (int dx = 0; dx < ROCK_W; dx++) {
             for (int dy = 0; dy < ROCK_H; dy++) {
-                BlockPos p = new BlockPos(x + dx, baseY + dy, z);
-                setBlockState(world, p, Blocks.STONE.getDefaultState());
-                changed = true;
-            }
-        }
-
-        // ── ЗАСЫПКА ПОЗАДИ: земля/камень, чтобы скала сливалась с холмом ──
-        for (int dx = 0; dx < ROCK_W; dx++) {
-            for (int dz = 1; dz <= BACKFILL; dz++) {
-                int fillTop = world.getTopY(Heightmap.Type.WORLD_SURFACE, x + dx, z + dz);
-                int fillLow = Math.min(baseY + ROCK_H - 1, fillTop);
-                for (int dy = baseY; dy <= fillLow; dy++) {
-                    BlockPos p = new BlockPos(x + dx, dy, z + dz);
+                for (int dz = 0; dz < depth; dz++) {
+                    BlockPos p = new BlockPos(x + dx, baseY + dy, z + dz);
                     setBlockState(world, p, Blocks.STONE.getDefaultState());
                     changed = true;
                 }
             }
         }
 
-        // ── ВОДА ИЗ ВЕРХА СКАЛЫ (из расщелины) ──
+        // ── ВОДА ИЗ ВЕРХА СКАЛЫ (расщелина, ряд baseY+4) ──
         for (int dx = 0; dx < ROCK_W; dx++) {
             BlockPos p = new BlockPos(x + dx, baseY + 4, z);
             setBlockState(world, p, Blocks.WATER.getDefaultState());
             changed = true;
         }
 
-        // ── СТЕКАЮЩАЯ ВОДА по лицу скалы порциями от расщелины до низа ──
+        // ── СТЕКАЮЩАЯ ВОДА по лицу скалы ──
         for (int dx = 0; dx < ROCK_W; dx++) {
             for (int dy = 1; dy <= 4; dy++) {
                 BlockPos p = new BlockPos(x + dx, baseY + 4 - dy, z - 1);
