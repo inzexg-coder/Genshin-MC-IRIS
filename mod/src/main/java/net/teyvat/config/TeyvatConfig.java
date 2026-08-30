@@ -34,6 +34,9 @@ public final class TeyvatConfig {
         public float yaw = -1.0f;
     }
 
+    /** Версия конфига: при повышении мигрирауются значения в load(). */
+    public int config_version = 2;
+
     public Spawn spawn = new Spawn();
     /** Телепортировать новых игроков (без кровати) на пляж при входе. */
     public boolean teleport_new_players = true;
@@ -162,7 +165,7 @@ public final class TeyvatConfig {
     /** Ограничения мира (временные, для тестов). */
     public static class World {
         /** Запретить игрокам ломать блоки вообще. */
-        public boolean no_block_breaking = true;
+        public boolean no_block_breaking = false;
         /** Запретить игрокам атаковать мирных мобов. */
         public boolean no_attack_peaceful = true;
         /** Спавнить только мирных мобов (без враждебных и нейтральных). */
@@ -231,6 +234,13 @@ public final class TeyvatConfig {
             } catch (Exception ignored) {
                 // повреждённый конфиг — используем значения по умолчанию
             }
+
+        }
+        // Версия 2: пользователь вернул возможность ломать блоки — снимаем
+        // тестовое ограничение независимо от сохранённого значения.
+        if (cfg.config_version < 2) {
+            cfg.world.no_block_breaking = false;
+            cfg.config_version = 2;
         }
         try {
             Files.createDirectories(path.getParent());

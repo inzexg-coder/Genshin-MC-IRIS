@@ -16,8 +16,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 /**
  * Экран достижений майнкрафта не открывается (кнопка в меню паузы просто не работает),
- * а ЛКМ-атака заменена комбо путешественника: свинг идёт по любому прицелу
- * (враг, воздух, блок). Ванильная добыча блоков остаётся только в креативе.
+ * а ЛКМ-атака заменена комбо путешественника: свинг идёт по врагу и воздуху.
+ * Ванильная добыча блоков (ЛКМ по блоку) работает во всех режимах. F — подбор.
  */
 @Mixin(MinecraftClient.class)
 public abstract class MinecraftClientMixin {
@@ -28,33 +28,18 @@ public abstract class MinecraftClientMixin {
         }
     }
 
-    /** ЛКМ всегда уходит в боевку путешественника — по врагу, по воздуху и даже
-     *  по блоку (свинг анимируется и двигает героя). Тап — мгновенный удар
-     *  комбо; удержание после удара — заряд 3 сек (спин по отпусканию или
-     *  автозапуск), см. CombatController.onAttackPress. Исключение: в креативе
-     *  по блоку остаётся ванильная добыча. */
+    /** ЛКМ по блоку — ванильная добыча/ломка блоков во всех режимах; по врагу
+     *  или воздуху — комбо путешественника (тап — мгновенный удар, удержание —
+     *  заряд 3 сек, см. CombatController.onAttackPress). */
     @Inject(method = "doAttack", at = @At("HEAD"), cancellable = true)
     private void teyvat$swordComboAttack(CallbackInfoReturnable<Boolean> cir) {
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player != null && client.player.getAbilities().creativeMode
-                && client.crosshairTarget != null
+        if (client.player != null && client.crosshairTarget != null
                 && client.crosshairTarget.getType() == HitResult.Type.BLOCK) {
             return;
         }
         if (CombatController.onAttackPress()) {
             cir.setReturnValue(true);
-        }
-    }
-
-    /** В выживании ЛКМ по блоку не запускает ванильное ломание (только свинг комбо):
-     *  на карте блоки не ломаются (world.no_block_breaking), трещины не нужны. */
-    @Inject(method = "handleBlockBreaking", at = @At("HEAD"), cancellable = true)
-    private void teyvat$noBlockBreakingInSurvival(boolean slowDown, CallbackInfo ci) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player != null && !client.player.getAbilities().creativeMode
-                && client.crosshairTarget != null
-                && client.crosshairTarget.getType() == HitResult.Type.BLOCK) {
-            ci.cancel();
         }
     }
 

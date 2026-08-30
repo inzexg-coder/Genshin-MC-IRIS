@@ -1,5 +1,6 @@
 package net.teyvat.worldgen;
 
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
 import net.minecraft.util.Identifier;
@@ -48,6 +49,13 @@ public final class SunsettiaTreeFeature extends Feature<DefaultFeatureConfig> {
         if (groundY <= world.getBottomY() + 8) return false;
 
         BlockPos root = new BlockPos(x, groundY, z);
+        // Дерево должно стоять на настоящей земле (трава/дерн), а не на кроне
+        // другого дерева: иначе саженцы Закатника лезут поверх деревьев.
+        var surface = world.getBlockState(root);
+        var below = world.getBlockState(root.down());
+        if (!surface.isIn(BlockTags.DIRT) && !below.isIn(BlockTags.DIRT)) {
+            return false;
+        }
         // рисуем дерево (общий пласер)
         return SunsettiaTreePlacer.grow(world, root, random);
     }
