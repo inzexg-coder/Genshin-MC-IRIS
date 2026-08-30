@@ -23,7 +23,8 @@ import net.teyvat.item.TeyvatItems;
  * ломается ударом меча (ЛКМ): выпадает 1-2 Закатника, блок исчезает.
  */
 public class SunsettiaFruitBlock extends Block {
-    private static final VoxelShape SHAPE = VoxelShapes.cuboid(0.25, 0.0, 0.25, 0.75, 0.75, 0.75);
+    // Хитбокс под уменьшенную модельку: кубик 0.5x0.5x0.5 по центру блока.
+    private static final VoxelShape SHAPE = VoxelShapes.cuboid(0.25, 0.25, 0.25, 0.75, 0.75, 0.75);
 
     public SunsettiaFruitBlock(Settings settings) {
         super(settings);
@@ -52,7 +53,8 @@ public class SunsettiaFruitBlock extends Block {
         }
     }
 
-    private static void collect(World world, BlockPos pos) {
+    /** Собрать плод (удар или клик): дроп 1-2 Закатника, удаление блока, отращивание. */
+    public static void collect(World world, BlockPos pos) {
         int count = 1 + world.random.nextInt(2);
         dropStack(world, pos, new ItemStack(TeyvatItems.SUNSETTIA, count));
         world.playSound(null, pos, SoundEvents.BLOCK_CHERRY_SAPLING_BREAK,

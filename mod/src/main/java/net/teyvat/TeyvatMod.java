@@ -39,6 +39,7 @@ import net.teyvat.client.paimon.PaimonEntity;
 import net.teyvat.entity.HydroSlimeEntity;
 import net.teyvat.entity.BlueHornedLizardEntity;
 import net.teyvat.entity.HydroSlimeProjectileEntity;
+import net.teyvat.block.SunsettiaFruitBlock;
 import net.teyvat.item.TeyvatItems;
 import net.teyvat.particle.TeyvatParticles;
 import net.teyvat.command.TeyvatCommand;
@@ -247,6 +248,16 @@ public class TeyvatMod implements ModInitializer {
         // блокируем ванильные атаки по блокам/мобам, клики-использования и useItem.
         AttackBlockCallback.EVENT.register((player, world, hand, pos, dir) ->
                 blockedByClimb(player) ? ActionResult.FAIL : ActionResult.PASS);
+        // Удар по плоду Закатника (ЛКМ) мгновенно ломает его: дроп 1-2 Закатника.
+        AttackBlockCallback.EVENT.register((player, world, hand, pos, dir) -> {
+            if (world.getBlockState(pos).isOf(TeyvatWood.SUNSETTIA_FRUIT)) {
+                SunsettiaFruitBlock.collect(world, pos);
+                return ActionResult.SUCCESS;
+            }
+            return ActionResult.PASS;
+        });
+
+
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) ->
                 blockedByClimb(player) ? ActionResult.FAIL : ActionResult.PASS);
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) ->
