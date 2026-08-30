@@ -43,6 +43,12 @@ public final class ClimbController {
     private static final double BACK_JUMP_SPEED = 0.22;
     /** Вертикаль при отталкивании назад (лёгкий прыжок, не падение). */
     private static final double BACK_JUMP_UP = 0.3;
+    /** Длительность бокового рывка вдоль стены, тиков. */
+    private static final int SIDESTEP_TICKS = 5;
+    /** Скорость бокового рывка вдоль стены, блоков/тик. */
+    private static final double SIDESTEP_SPEED = 0.35;
+    /** Вертикаль бокового рывка (лёгкая дуга, не подскок). */
+    private static final double SIDESTEP_UP = 0.25;
     /** Скорость подъёма, блоков/тик (чуть медленнее бега). */
     private static final double CLIMB_SPEED = 0.38;
     /** Скорость плавного спуска при пустой стамине, блоков/тик. */
@@ -64,6 +70,7 @@ public final class ClimbController {
         boolean climbing;
         boolean sliding;
         boolean paused;
+        int sidestepTicks;
         int slideTicksLeft;
         float stamina;
         Direction wallDir;
@@ -97,7 +104,11 @@ public final class ClimbController {
         boolean canClimb = onWall && jumpPressed && isStartableWall(world, feet, wall);
 
         if (d.climbing) {
-            tickClimbing(player, d, onWall, wall, jumpPressed);
+            if (d.sidestepTicks > 0) {
+                tickSidestep(player, d, onWall, jumpPressed);
+            } else {
+                tickClimbing(player, d, onWall, wall, jumpPressed);
+            }
         } else if (d.sliding) {
             tickSliding(player, d, onWall);
         } else if (canClimb && d.stamina > 0f) {
@@ -129,18 +140,26 @@ public final class ClimbController {
             // Стамина в паузе не тратится и не восстанавливается.
             d.paused = true;
             d.wasJumping = false;
-            Vec3d v = player.getVelocity();
-            player.setVelocity(v.x * 0.2, 0, v.z * 0.2);
+            // Никакого бокового смещения в паузе — висим на месте.
+            player.setVelocity(0, 0, 0);
             player.velocityModified = true;
             return;
         }
         if (d.paused) {
             // Снова нажали Space после паузы.
             d.paused = false;
-            // Если при этом движемся — рывок от стены в сторону движения
-            // (20 стамины), как в Genshin. Без движения — просто продолжаем подъём.
+            // Если при этом движемся — рывок от стены (20 стамины), как в Genshin.
+            // Без движения — просто продолжаем подъём.
             if (d.stamina >= CLIMB_JUMP_COST && hasMovementInput(player)) {
                 d.stamina -= CLIMB_JUMP_COST;
+                if (isStrafeOnly(player)) {
+                    // Вбок: небольшой отрыв от стены и прилипание уже в стороне.
+                    Vec3d j = sidestepVelocity(player, d);
+                    d.sidestepTicks = SIDESTEP_TICKS;
+                    player.setVelocity(j.x, j.y, j.z);
+                    player.velocityModified = true;
+                    return;
+                }
                 Vec3d j = climbJumpVelocity(player);
                 player.setVelocity(j.x, j.y, j.z);
                 player.velocityModified = true;
@@ -159,12 +178,35 @@ public final class ClimbController {
             return;
         }
 
-        // Подъём: тратим стамину и двигаем вверх. Горизонталь гасим (прилипание к стене).
+        // Подъём: тратим стамину и двигаем строго вверх. Горизонталь обнуляем —
+        // вдоль стены двигаться нельзя (только рывок вбок, см. sidestep).
         d.wasJumping = jumpPressed;
         d.stamina = Math.max(0f, d.stamina - CLIMB_DRAIN_PER_TICK);
-        Vec3d v = player.getVelocity();
-        player.setVelocity(v.x * 0.2, CLIMB_SPEED, v.z * 0.2);
+        player.setVelocity(0, CLIMB_SPEED, 0);
         player.velocityModified = true;
+    }
+
+    /** Боковой рывок вдоль стены: короткий полёт, затем прилипание в стороне. */
+    private static void tickSidestep(ServerPlayerEntity player, ClimbData d,
+                                     boolean onWall, boolean jumpPressed) {
+        if (--d.sidestepTicks <= 0) {
+            d.sidestepTicks = 0;
+            if (onWall && d.stamina > 0f) {
+                // Прилипаем обратно к стене и продолжаем карабкаться.
+                d.paused = false;
+                d.wasJumping = jumpPressed;
+                if (d.wallDir != null) {
+                    // Лёгкий толчок вплотную к стене (коллизия доведёт).
+                    Vec3d v = player.getVelocity();
+                    double ax = d.wallDir.getOffsetX();
+                    double az = d.wallDir.getOffsetZ();
+                    player.setVelocity(v.x + ax * 0.25, v.y, v.z + az * 0.25);
+                    player.velocityModified = true;
+                }
+            } else {
+                release(player, d);
+            }
+        }
     }
 
     private static void tickSliding(ServerPlayerEntity player, ClimbData d, boolean onWall) {
@@ -179,8 +221,8 @@ public final class ClimbController {
             release(player, d);
             return;
         }
-        Vec3d v = player.getVelocity();
-        player.setVelocity(v.x * 0.2, SLIDE_SPEED, v.z * 0.2);
+        // Сползаем строго вниз вдоль стены, без бокового смещения.
+        player.setVelocity(0, SLIDE_SPEED, 0);
         player.velocityModified = true;
     }
 
@@ -218,10 +260,9 @@ public final class ClimbController {
     }
 
     /** Направление прыжка от стены, как в Genshin: по движению игрока.
-     *  - Без движения — подскок вверх с места.
      *  - Вперёд — короткий прыжок в сторону движения с невысоким подъёмом.
-     *  - Вбок — лёгкий горизонтальный срыв вдоль стены.
-     *  - Назад — небольшое отталкивание от стены (спрыгивание). */
+     *  - Назад — небольшое отталкивание от стены (спрыгивание).
+     *  - Вбок не попадает сюда: для этого есть sidestep (рывок вдоль стены). */
     private static Vec3d climbJumpVelocity(ServerPlayerEntity player) {
         PlayerInput in = player.getPlayerInput();
         if (in == null) {
@@ -245,11 +286,43 @@ public final class ClimbController {
             // Назад — лишь чуть оттолкнуться от стены (спрыгивание).
             return new Vec3d(dx * BACK_JUMP_SPEED, BACK_JUMP_UP, dz * BACK_JUMP_SPEED);
         }
-        if (strafe != 0) {
-            // Вбок — лёгкий горизонтальный срыв вдоль стены.
-            return new Vec3d(dx * BACK_JUMP_SPEED, 0, dz * BACK_JUMP_SPEED);
-        }
         return new Vec3d(dx * CLIMB_JUMP_SPEED, CLIMB_JUMP_UP, dz * CLIMB_JUMP_SPEED);
+    }
+
+    /** Только влево/вправо без вперёд/назад (боковой рывок вдоль стены). */
+    private static boolean isStrafeOnly(ServerPlayerEntity player) {
+        PlayerInput in = player.getPlayerInput();
+        return in != null && !in.forward() && !in.backward() && (in.left() || in.right());
+    }
+
+    /** Скорость бокового рывка: вдоль стены + малый отрыв от неё.
+     *  Потом игрок снова прилипает к стене, уже дальше по стороне. */
+    private static Vec3d sidestepVelocity(ServerPlayerEntity player, ClimbData d) {
+        PlayerInput in = player.getPlayerInput();
+        double strafe = 0;
+        if (in != null) {
+            strafe = (in.right() ? 1 : 0) - (in.left() ? 1 : 0);
+        }
+        double yaw = Math.toRadians(player.getYaw());
+        double sx = -Math.cos(yaw) * strafe;
+        double sz = -Math.sin(yaw) * strafe;
+        // Направление вдоль стены (~90%) + малый отрыв в сторону от стены (~10%),
+        // чтобы прыжок выглядел как отлипание, но игрок не улетал от стены.
+        double ax = 0;
+        double az = 0;
+        if (d.wallDir != null) {
+            ax = -d.wallDir.getOffsetX();
+            az = -d.wallDir.getOffsetZ();
+        }
+        double hx = sx * 0.9 + ax * 0.1;
+        double hz = sz * 0.9 + az * 0.1;
+        double len = Math.hypot(hx, hz);
+        if (len < 1e-6) {
+            return new Vec3d(sx * SIDESTEP_SPEED, SIDESTEP_UP, sz * SIDESTEP_SPEED);
+        }
+        hx /= len;
+        hz /= len;
+        return new Vec3d(hx * SIDESTEP_SPEED, SIDESTEP_UP, hz * SIDESTEP_SPEED);
     }
 
     /** Карабкается или сползает ли игрок прямо сейчас (для блокировки атак). */
