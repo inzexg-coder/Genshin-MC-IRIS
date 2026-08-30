@@ -1036,7 +1036,7 @@ public final class CombatController {
             return;
         }
         // Super Armor: во время активного кадра обычной атаки не прерываемся
-        // (как в Genshin —普通攻击 имеет суперброню на тике урона)
+        // (как в Genshin — обычная атака имеет суперброню на тике урона)
         if (comboStep >= 0 && comboStep < SwordCombo.HIT_COUNT
                 && hitTicks >= SwordCombo.DAMAGE_TICKS[comboStep] - COMBO_SUPER_ARMOR_TICKS
                 && hitTicks <= SwordCombo.DAMAGE_TICKS[comboStep] + COMBO_SUPER_ARMOR_TICKS) {
@@ -1144,54 +1144,145 @@ public final class CombatController {
         model.head.roll = 0f;
     }
 
-    /** Поза карабканья и сползания: руки тянутся вверх-вверх (хват за стену),
-     *  ноги слегка поджаты, корпус наклонён к стене; при сползании — руки
-     *  расслаблены, ноги прямее; при рывке от стены — руки толкают, корпус
-     *  отклоняется назад. */
+    /** Поза карабканья: зависит от направления движения (вверх/вбок/пауза).
+     *  При сползании — руки расслаблены в стороны. При рывке от стены —
+     *  руки отталкивают, корпус отклоняется назад. */
     private static void applyClimbPose(PlayerEntityModel model, PlayerEntityRenderState state) {
-        boolean sliding = StaminaController.isSliding();
+        boolean sliding   = StaminaController.isSliding();
         boolean jumpingOff = StaminaController.isJumpingOff();
-        float t = state.age * 0.1f;
-        float swing = MathHelper.sin(t);
-        float breath = MathHelper.sin(state.age * 0.08f);
-        boolean moving = !sliding && !jumpingOff;
-        float alt = moving ? swing : 0f;
 
-        // Руки: вверх (хват), при сползании — в стороны, при рывке — вперёд (толчок).
-        float armPitchBase = sliding ? 0.35f : jumpingOff ? 0.6f : -1.4f;
-        float armPitchAlt  = moving ? alt * 0.06f : 0f;
-        float armSpread    = sliding ? 0.35f : jumpingOff ? 0.12f : 0.15f;
-        model.leftArm.pitch  = armPitchBase + armPitchAlt + breath * 0.012f;
-        model.leftArm.yaw    = armSpread;
-        model.leftArm.roll   = sliding ? 0.1f : moving ? alt * 0.03f : 0f;
-        model.rightArm.pitch = armPitchBase - armPitchAlt + breath * 0.012f;
-        model.rightArm.yaw   = -armSpread;
-        model.rightArm.roll  = sliding ? -0.1f : moving ? -alt * 0.03f : 0f;
+        // Ввод: +up = вверх по стене (W), ±side = вбок (A/D).
+        float forward = 0f, strafe = 0f;
+        if (!sliding) {
+            var inp = MinecraftClient.getInstance().player;
+            if (inp != null) {
+                forward = (inp.input.playerInput.forward() ? 1f : 0f)
+                        - (inp.input.playerInput.backward() ? 1f : 0f);
+                strafe  = (inp.input.playerInput.right()    ? 1f : 0f)
+                        - (inp.input.playerInput.left()     ? 1f : 0f);
+            }
+        }
+        float climbUp   = MathHelper.clamp(forward, 0f, 1f); // вверх = 0..1
+        float climbSide = MathHelper.clamp(strafe,  -1f, 1f); // вбок   = -1..+1
+        float absSide   = MathHelper.abs(climbSide);
+        int   sideSign  = climbSide >= 0 ? 1 : -1;
+        boolean hasMove = climbUp > 0.01f || absSide > 0.01f;
 
-        // Ноги: поджаты при карабканье (переменно), прямее при сползании, согнуты при рывке.
-        float legBend = sliding ? 0.15f : jumpingOff ? 0.7f : 0.45f;
-        float legAlt  = moving ? alt * 0.18f : 0f;
-        model.leftLeg.pitch  = legBend + legAlt;
-        model.leftLeg.yaw    = 0f;
-        model.leftLeg.roll   = 0f;
-        model.rightLeg.pitch = legBend - legAlt;
-        model.rightLeg.yaw   = 0f;
-        model.rightLeg.roll  = 0f;
+        float t  = state.age * 0.1f;
+        float ph = state.age * 0.6f;               // медленный цикл шевеления
+        float reach   = MathHelper.sin(ph);        // -1..+1 — чередование рук
+        float legPush = MathHelper.sin(ph);        // то же для ног
+        float breath  = MathHelper.sin(state.age * 0.08f);
+        float bob     = MathHelper.sin(ph * 1.5f);
 
-        // Тело: наклонено к стене при карабканье, прямо при сползании, назад при рывке.
-        model.body.pitch = sliding ? 0.05f : jumpingOff ? -0.15f : 0.25f + breath * 0.012f;
-        model.body.yaw   = moving ? swing * 0.04f : 0f;
-        model.body.roll  = 0f;
+        if (jumpingOff) {
+            /* ──────── Отрыв от стены: руки толкают от стены, корпус назад ──────── */
+            model.leftArm.pitch  = 0.5f + breath * 0.01f;
+            model.leftArm.yaw    = 0.15f;
+            model.leftArm.roll   = 0f;
+            model.rightArm.pitch = 0.5f + breath * 0.01f;
+            model.rightArm.yaw   = -0.15f;
+            model.rightArm.roll  = 0f;
 
-        // Голова смотрит в стену (вперёд), не трогаем yaw (knees always forward).
-        model.head.pitch = -0.2f + (jumpingOff ? 0.15f : 0f);
-        model.head.yaw   = 0f;
-        model.head.roll  = 0f;
+            model.leftLeg.pitch  = 0.65f;
+            model.leftLeg.yaw    = 0f;
+            model.leftLeg.roll   = 0f;
+            model.rightLeg.pitch = 0.65f;
+            model.rightLeg.yaw   = 0f;
+            model.rightLeg.roll  = 0f;
 
-        // Корень: лёгкое покачивание при подъёме.
-        model.getRootPart().pitch = 0f;
-        model.getRootPart().yaw   = moving ? swing * 0.035f : 0f;
-        model.getRootPart().originY = moving ? MathHelper.sin(t * 1.5f) * 0.02f : 0f;
+            model.body.pitch = -0.12f;       // корпус назад
+            model.body.yaw   = 0f;
+            model.body.roll  = 0f;
+
+            model.head.pitch = 0.1f;         // голова поднимается
+            model.head.yaw   = 0f;
+            model.head.roll  = 0f;
+
+            model.getRootPart().pitch = 0f;
+            model.getRootPart().yaw   = 0f;
+            model.getRootPart().originY = 0f;
+
+        } else if (sliding) {
+            /* ──────── Сползание: руки расслаблены в стороны, ноги прямее ──────── */
+            model.leftArm.pitch  = 0.3f + breath * 0.01f;
+            model.leftArm.yaw    = 0.35f;
+            model.leftArm.roll   = 0.1f;
+            model.rightArm.pitch = 0.3f + breath * 0.01f;
+            model.rightArm.yaw   = -0.35f;
+            model.rightArm.roll  = -0.1f;
+
+            model.leftLeg.pitch  = 0.2f;
+            model.leftLeg.yaw    = 0f;
+            model.leftLeg.roll   = 0f;
+            model.rightLeg.pitch = 0.2f;
+            model.rightLeg.yaw   = 0f;
+            model.rightLeg.roll  = 0f;
+
+            model.body.pitch = 0.05f;
+            model.body.yaw   = 0f;
+            model.body.roll  = 0f;
+
+            model.head.pitch = 0.05f;
+            model.head.yaw   = 0f;
+            model.head.roll  = 0f;
+
+            model.getRootPart().pitch = 0f;
+            model.getRootPart().yaw   = 0f;
+            model.getRootPart().originY = 0f;
+
+        } else {
+            /* ──────── Карабканье: зависит от направления движения ──────── */
+
+            // Наклон корпуса к стене + наклон в сторону движения (roll вбок, yaw поворот).
+            float bodyLeanSide = climbSide * 0.35f;   // roll в сторону движения
+            float bodyYaw      = climbSide * 0.25f;   // поворот торса
+            float armYawSide   = climbSide * 0.45f;   // руки тянутся к стороне хвата
+
+            // Руки: чередуются вверх (reach), при боковом ходе — ведущая рука тянется
+            // в сторону движения, опорная остаётся ниже и ближе к стене.
+            float baseArmPitch = -1.35f;               // обе руки вверх (хват)
+            float upReach      = climbUp * reach * 0.2f;
+            float sideReach    = absSide * 0.12f * sideSign;
+            float leadYaw      = absSide * 0.3f * sideSign;
+
+            model.leftArm.pitch  = baseArmPitch + upReach + breath * 0.01f;
+            model.leftArm.yaw    = 0.2f  + armYawSide - leadYaw;
+            model.leftArm.roll   = -climbSide * 0.25f + reach * 0.04f;
+            model.rightArm.pitch = baseArmPitch - upReach + breath * 0.01f;
+            model.rightArm.yaw   = -0.2f + armYawSide + leadYaw;
+            model.rightArm.roll  = climbSide * 0.25f - reach * 0.04f;
+
+            // Ноги: чередуются (legPush); при боковом ходе — поджимаются в
+            // сторону движения (sideRoll) и чуть разводятся (sideYaw).
+            float legBase      = 0.55f;               // базовый сгиб (карабкаемся)
+            float legUp        = climbUp * legPush * 0.22f;
+            float legSideRoll  = climbSide * 0.2f;
+            float legSideYaw   = absSide * 0.12f * sideSign;
+
+            model.leftLeg.pitch  = legBase + legUp + breath * 0.008f;
+            model.leftLeg.yaw    = legSideYaw;
+            model.leftLeg.roll   = legSideRoll;
+            model.rightLeg.pitch = legBase - legUp + breath * 0.008f;
+            model.rightLeg.yaw   = -legSideYaw;
+            model.rightLeg.roll  = -legSideRoll;
+
+            model.body.pitch = 0.28f + breath * 0.01f;
+            model.body.yaw   = bodyYaw;
+            model.body.roll  = bodyLeanSide;
+
+            // Голова: смотрит в стену и чуть в сторону движения.
+            model.head.pitch = -0.22f;
+            model.head.yaw   = climbSide * 0.18f;
+            model.head.roll  = 0f;
+
+            // Корень: покачивание при движении, bob вверх-вниз.
+            float rootSway = hasMove ? reach * 0.035f : 0f;
+            float rootBob  = hasMove ? bob * 0.03f    : 0f;
+            model.getRootPart().pitch  = 0f;
+            model.getRootPart().yaw    = rootSway + climbSide * 0.12f;
+            model.getRootPart().originY = rootBob;
+        }
     }
 
     /** Поза заряда: клинок поднят вверх-вперёд обеими руками, готовность
