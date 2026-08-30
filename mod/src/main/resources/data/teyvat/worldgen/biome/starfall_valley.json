@@ -20,14 +20,13 @@
     [],
     [],
     [
-      "minecraft:trees_plains",
+      "teyvat:trees_starfall_valley",
       "minecraft:flower_plains",
       "minecraft:patch_grass_plain",
       "teyvat:starfall_valley_trail",
       "teyvat:starfall_valley_bushes",
       "minecraft:trees_birch_and_oak_leaf_litter",
-      "minecraft:forest_rock",
-      "teyvat:sunnsettia_tree"
+      "minecraft:forest_rock"
     ],
     []
   ],

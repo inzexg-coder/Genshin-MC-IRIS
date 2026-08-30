@@ -1,8 +1,9 @@
 package net.teyvat.worldgen;
 
-import net.minecraft.registry.tag.BlockTags;
+import net.minecraft.block.BlockState;
 import net.minecraft.registry.Registries;
 import net.minecraft.registry.Registry;
+import net.minecraft.registry.tag.BlockTags;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
@@ -14,18 +15,29 @@ import net.teyvat.TeyvatMod;
 import net.teyvat.block.SunsettiaTreePlacer;
 
 /**
- * Дерево Закатника для генерации мира. Ставится на верхней поверхности
- * и рисует среднее дерево с плодами. Работает только в границах чанка.
+ * Дерево Закатника для генерации мира. Несколько стилей как у дубов:
+ * sunnsettia_tree (компактное), sunnsettia_tree_large (широкое),
+ * sunnsettia_tree_tall (высокое). Работает только в границах чанка
+ * и только на настоящей земле с чистым местом под ствол.
  */
 public final class SunsettiaTreeFeature extends Feature<DefaultFeatureConfig> {
-    public static final Identifier ID = Identifier.of(TeyvatMod.MOD_ID, "sunnsettia_tree");
+    private final SunsettiaTreePlacer.Style style;
 
-    public SunsettiaTreeFeature() {
+    public SunsettiaTreeFeature(SunsettiaTreePlacer.Style style) {
         super(DefaultFeatureConfig.CODEC);
+        this.style = style;
     }
 
     public static void register() {
-        Registry.register(Registries.FEATURE, ID, new SunsettiaTreeFeature());
+        Registry.register(Registries.FEATURE,
+                Identifier.of(TeyvatMod.MOD_ID, "sunnsettia_tree"),
+                new SunsettiaTreeFeature(SunsettiaTreePlacer.Style.COMPACT));
+        Registry.register(Registries.FEATURE,
+                Identifier.of(TeyvatMod.MOD_ID, "sunnsettia_tree_large"),
+                new SunsettiaTreeFeature(SunsettiaTreePlacer.Style.LARGE));
+        Registry.register(Registries.FEATURE,
+                Identifier.of(TeyvatMod.MOD_ID, "sunnsettia_tree_tall"),
+                new SunsettiaTreeFeature(SunsettiaTreePlacer.Style.TALL));
     }
 
     @Override
@@ -50,13 +62,21 @@ public final class SunsettiaTreeFeature extends Feature<DefaultFeatureConfig> {
 
         BlockPos root = new BlockPos(x, groundY, z);
         // Дерево должно стоять на настоящей земле (трава/дерн), а не на кроне
-        // другого дерева: иначе саженцы Закатника лезут поверх деревьев.
+        // другого дерева.
         var surface = world.getBlockState(root);
         var below = world.getBlockState(root.down());
         if (!surface.isIn(BlockTags.DIRT) && !below.isIn(BlockTags.DIRT)) {
             return false;
         }
-        // рисуем дерево (общий пласер)
-        return SunsettiaTreePlacer.grow(world, root, random);
+        // Стволу нужно чистое место вверх: не растим внутри чужой кроны.
+        for (int dy = 1; dy <= 12; dy++) {
+            BlockState s = world.getBlockState(root.up(dy));
+            if (!s.isAir() && !s.getBlock().getDefaultState().isReplaceable()) {
+                return false;
+            }
+        }
+
+        // рисуем дерево (общий пласер со стилем)
+        return SunsettiaTreePlacer.grow(world, root, random, style);
     }
 }
