@@ -43,14 +43,16 @@ public final class ClimbController {
     private static final double BACK_JUMP_SPEED = 0.22;
     /** Вертикаль при отталкивании назад (лёгкий прыжок, не падение). */
     private static final double BACK_JUMP_UP = 0.3;
-    /** Длительность бокового рывка вдоль стены, тиков. */
-    private static final int SIDESTEP_TICKS = 5;
-    /** Скорость бокового рывка вдоль стены, блоков/тик. */
-    private static final double SIDESTEP_SPEED = 0.35;
-    /** Вертикаль бокового рывка (лёгкая дуга, не подскок). */
-    private static final double SIDESTEP_UP = 0.25;
+    /** Длительность бокового прыжка вдоль стены, тиков (дуга обычного прыжка). */
+    private static final int SIDESTEP_TICKS = 8;
+    /** Горизонталь бокового прыжка, блоков/тик. */
+    private static final double SIDESTEP_SPEED = 0.32;
+    /** Вертикаль бокового прыжка — как у обычного прыжка. */
+    private static final double SIDESTEP_UP = 0.45;
     /** Скорость подъёма, блоков/тик (чуть медленнее бега). */
     private static final double CLIMB_SPEED = 0.38;
+    /** Скорость ползания по стене вбок/по диагонали, блоков/тик. */
+    private static final double CLIMB_CRAWL_SPEED = 0.18;
     /** Скорость плавного спуска при пустой стамине, блоков/тик. */
     private static final double SLIDE_SPEED = -0.18;
     /** Длительность плавного спуска после срыва, тиков. */
@@ -99,9 +101,11 @@ public final class ClimbController {
                 && !player.getAbilities().flying
                 && !player.isTouchingWater()
                 && !player.isSubmergedInWater();
-        // Старт карабканья — только стена высотой >= 2 блоков. Один блок
-        // игрок перешагивает обычным бегом (ванильный авто-прыжок).
-        boolean canClimb = onWall && jumpPressed && isStartableWall(world, feet, wall);
+        // Старт карабканья — только стена высотой >= 2 блоков и только лицом к стене
+        // (спиной к стене цепляться нельзя). Один блок игрок перешагивает бегом.
+        boolean canClimb = onWall && jumpPressed
+                && facingWall(player, wall)
+                && isStartableWall(world, feet, wall);
 
         if (d.climbing) {
             if (d.sidestepTicks > 0) {
@@ -135,6 +139,11 @@ public final class ClimbController {
             release(player, d);
             return;
         }
+        if (!facingWall(player, wall)) {
+            // Повернулись спиной к стене — ползать так нельзя, срываемся.
+            release(player, d);
+            return;
+        }
         if (!jumpPressed) {
             // Отпустили Space — зависаем на стене на текущей высоте.
             // Стамина в паузе не тратится и не восстанавливается.
@@ -154,7 +163,7 @@ public final class ClimbController {
                 d.stamina -= CLIMB_JUMP_COST;
                 if (isStrafeOnly(player)) {
                     // Вбок: небольшой отрыв от стены и прилипание уже в стороне.
-                    Vec3d j = sidestepVelocity(player, d);
+                    Vec3d j = sidestepVelocity(player);
                     d.sidestepTicks = SIDESTEP_TICKS;
                     player.setVelocity(j.x, j.y, j.z);
                     player.velocityModified = true;
@@ -178,15 +187,16 @@ public final class ClimbController {
             return;
         }
 
-        // Подъём: тратим стамину и двигаем строго вверх. Горизонталь обнуляем —
-        // вдоль стены двигаться нельзя (только рывок вбок, см. sidestep).
+        // Подъём: тратим стамину, ползём вверх и одновременно в сторону по вводу
+        // (W/A/S/D — в любую сторону вдоль стены, лицом к стене).
         d.wasJumping = jumpPressed;
         d.stamina = Math.max(0f, d.stamina - CLIMB_DRAIN_PER_TICK);
-        player.setVelocity(0, CLIMB_SPEED, 0);
+        Vec3d crawl = climbCrawlDirection(player);
+        player.setVelocity(crawl.x * CLIMB_CRAWL_SPEED, CLIMB_SPEED, crawl.z * CLIMB_CRAWL_SPEED);
         player.velocityModified = true;
     }
 
-    /** Боковой рывок вдоль стены: короткий полёт, затем прилипание в стороне. */
+    /** Боковой прыжок вдоль стены: короткий полёт, затем прилипание в стороне. */
     private static void tickSidestep(ServerPlayerEntity player, ClimbData d,
                                      boolean onWall, boolean jumpPressed) {
         if (--d.sidestepTicks <= 0) {
@@ -295,9 +305,9 @@ public final class ClimbController {
         return in != null && !in.forward() && !in.backward() && (in.left() || in.right());
     }
 
-    /** Скорость бокового рывка: вдоль стены + малый отрыв от неё.
-     *  Потом игрок снова прилипает к стене, уже дальше по стороне. */
-    private static Vec3d sidestepVelocity(ServerPlayerEntity player, ClimbData d) {
+    /** Скорость бокового прыжка: в сторону, как обычный прыжок (вбок + вверх).
+     *  В полёте игрок не тратит стамину, а при касании стены снова прилипает. */
+    private static Vec3d sidestepVelocity(ServerPlayerEntity player) {
         PlayerInput in = player.getPlayerInput();
         double strafe = 0;
         if (in != null) {
@@ -306,23 +316,39 @@ public final class ClimbController {
         double yaw = Math.toRadians(player.getYaw());
         double sx = -Math.cos(yaw) * strafe;
         double sz = -Math.sin(yaw) * strafe;
-        // Направление вдоль стены (~90%) + малый отрыв в сторону от стены (~10%),
-        // чтобы прыжок выглядел как отлипание, но игрок не улетал от стены.
-        double ax = 0;
-        double az = 0;
-        if (d.wallDir != null) {
-            ax = -d.wallDir.getOffsetX();
-            az = -d.wallDir.getOffsetZ();
-        }
-        double hx = sx * 0.9 + ax * 0.1;
-        double hz = sz * 0.9 + az * 0.1;
-        double len = Math.hypot(hx, hz);
+        double len = Math.hypot(sx, sz);
         if (len < 1e-6) {
-            return new Vec3d(sx * SIDESTEP_SPEED, SIDESTEP_UP, sz * SIDESTEP_SPEED);
+            return new Vec3d(0, SIDESTEP_UP, 0);
         }
-        hx /= len;
-        hz /= len;
-        return new Vec3d(hx * SIDESTEP_SPEED, SIDESTEP_UP, hz * SIDESTEP_SPEED);
+        return new Vec3d(sx / len * SIDESTEP_SPEED, SIDESTEP_UP, sz / len * SIDESTEP_SPEED);
+    }
+
+    /** Направление ползания по стене по вводу (W/A/S/D относительно камеры). */
+    private static Vec3d climbCrawlDirection(ServerPlayerEntity player) {
+        PlayerInput in = player.getPlayerInput();
+        if (in == null) {
+            return Vec3d.ZERO;
+        }
+        double forward = (in.forward() ? 1 : 0) - (in.backward() ? 1 : 0);
+        double strafe = (in.right() ? 1 : 0) - (in.left() ? 1 : 0);
+        double yaw = Math.toRadians(player.getYaw());
+        double dx = -Math.sin(yaw) * forward - Math.cos(yaw) * strafe;
+        double dz = Math.cos(yaw) * forward - Math.sin(yaw) * strafe;
+        double len = Math.hypot(dx, dz);
+        if (len < 1e-6) {
+            return Vec3d.ZERO;
+        }
+        return new Vec3d(dx / len, 0, dz / len);
+    }
+
+    /** Смотрит ли игрок на стену (ползать спиной к стене нельзя). */
+    private static boolean facingWall(ServerPlayerEntity player, Direction wall) {
+        if (wall == null) {
+            return true;
+        }
+        Vec3d look = player.getRotationVec(1.0f);
+        double toward = look.x * wall.getOffsetX() + look.z * wall.getOffsetZ();
+        return toward > -0.2;
     }
 
     /** Карабкается или сползает ли игрок прямо сейчас (для блокировки атак). */
