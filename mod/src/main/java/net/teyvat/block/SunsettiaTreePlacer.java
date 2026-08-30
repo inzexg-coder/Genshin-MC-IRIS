@@ -8,10 +8,15 @@ import net.minecraft.util.math.random.Random;
 import net.minecraft.world.StructureWorldAccess;
 import net.teyvat.TeyvatWood;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
 /**
- * Рисует дерево Закатника в стиле обычного дуба: ствол 4-6,
- * округлая крона в 4 слоя, плоды свисают с краёв кроны.
- * Используется и генерацией мира, и ростом саженца.
+ * Рисует дерево Закатника с той же случайностью, что и обычный дуб:
+ * высота ствола 4-6, крона-блоб с переменным радиусом (2-3), редкие
+ * пропуски угловых листьев, 1-2 плода, свисающих со случайных сторон
+ * кроны. Используется и генерацией мира, и ростом саженца.
  */
 public final class SunsettiaTreePlacer {
     private SunsettiaTreePlacer() {}
@@ -23,7 +28,7 @@ public final class SunsettiaTreePlacer {
     public static boolean grow(StructureWorldAccess world, BlockPos base, Random random) {
         if (world == null || base == null) return false;
 
-        int trunkHeight = 4 + random.nextInt(3); // 4..6
+        int trunkHeight = 4 + random.nextInt(3); // 4..6, как у дуба
         BlockPos root = base;
         boolean changed = false;
         BlockState log = TeyvatWood.SUNSETTIA_LOG.getDefaultState();
@@ -45,15 +50,23 @@ public final class SunsettiaTreePlacer {
 
         BlockPos top = root.up(trunkHeight - 1);
 
-        // Крона как у дуба: слой +1 — макушка (r=1), 0 и -1 — ширина (r=2),
-        // -2 — нижняя юбка (r=1). Округлость за счёт отсечения углов.
-        int[][] layers = {{1, 1}, {0, 2}, {-1, 2}, {-2, 1}};
+        // Крона как у ванильного дуба: блоб с переменной шириной (2 или 3),
+        // слои +1/-2 чуть уже, иногда крона редкая (пропущены углы).
+        int mid = random.nextInt(2) == 0 ? 2 : 3;
+        int[][] layers = {
+                {1, Math.max(1, mid - 1)},
+                {0, mid},
+                {-1, mid},
+                {-2, Math.max(1, mid - 1)}
+        };
         for (int[] layer : layers) {
             int dy = layer[0];
             int r = layer[1];
             for (int dx = -r; dx <= r; dx++) {
                 for (int dz = -r; dz <= r; dz++) {
                     if (dx * dx + dz * dz > r * r) continue;
+                    // как у дуба: угловые листья иногда не ставятся
+                    if (dx != 0 && dz != 0 && random.nextFloat() < 0.15f) continue;
                     BlockPos p = top.up(dy).add(dx, 0, dz);
                     if (world.isAir(p) || world.getBlockState(p).getBlock().getDefaultState().isReplaceable()) {
                         world.setBlockState(p, leaves, Block.NOTIFY_ALL);
@@ -63,22 +76,19 @@ public final class SunsettiaTreePlacer {
             }
         }
 
-        // Плоды: свисают с краёв кроны по сторонам света (2-4 шт).
-        for (Direction dir : Direction.Type.HORIZONTAL) {
-            if (random.nextFloat() < 0.75f) {
-                BlockPos p = top.up(-2).add(dir.getOffsetX() * 2, 0, dir.getOffsetZ() * 2);
-                if (world.isAir(p)) {
-                    world.setBlockState(p, fruit, Block.NOTIFY_ALL);
-                    changed = true;
-                }
-            }
-        }
-
-        // Ещё один плод под самой макушкой, свисает вглубь кроны — редко.
-        if (random.nextFloat() < 0.3f) {
-            BlockPos p = top.up(-2);
+        // Плоды: ровно 1-2 на дерево, свисают со случайных сторон кроны.
+        int fruitCount = 1 + random.nextInt(2);
+        List<Direction> dirs = new ArrayList<>(List.of(
+                Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST));
+        Collections.shuffle(dirs, new java.util.Random(random.nextLong()));
+        int placed = 0;
+        for (Direction dir : dirs) {
+            if (placed >= fruitCount) break;
+            // на шаг наружу и на ярус ниже самой широкой части кроны
+            BlockPos p = top.up(-1).offset(dir, mid + 1);
             if (world.isAir(p)) {
                 world.setBlockState(p, fruit, Block.NOTIFY_ALL);
+                placed++;
                 changed = true;
             }
         }
