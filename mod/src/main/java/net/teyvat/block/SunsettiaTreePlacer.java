@@ -76,8 +76,9 @@ public final class SunsettiaTreePlacer {
             }
         }
 
-        // Плоды: ровно 1-2 на дерево, свисают со случайных сторон кроны.
-        int fruitCount = 1 + random.nextInt(2);
+        // Плоды: 0-2 на дерево (мин 0, макс 2), свисают со случайных сторон
+        // кроны; сорванные отрастают со временем через листву.
+        int fruitCount = random.nextInt(3);
         List<Direction> dirs = new ArrayList<>(List.of(
                 Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST));
         Collections.shuffle(dirs, new java.util.Random(random.nextLong()));

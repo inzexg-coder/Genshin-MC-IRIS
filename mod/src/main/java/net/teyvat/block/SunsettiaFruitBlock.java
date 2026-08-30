@@ -58,6 +58,8 @@ public class SunsettiaFruitBlock extends Block {
         world.playSound(null, pos, SoundEvents.BLOCK_CHERRY_SAPLING_BREAK,
                 SoundCategory.BLOCKS, 1.0f, 1.0f);
         world.removeBlock(pos, false);
+        // плод скоро отрастёт снова (1-3 минуты)
+        SunsettiaLeavesBlock.scheduleRegrow(world, pos);
     }
 
     /** Плод висит в кроне, опору не проверяем (не сыпется). */

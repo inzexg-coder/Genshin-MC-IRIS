@@ -14,6 +14,7 @@ import net.minecraft.item.BlockItem;
 import net.minecraft.item.Item;
 import net.minecraft.util.Identifier;
 
+import net.teyvat.block.SunsettiaLeavesBlock;
 import net.teyvat.block.SunsettiaSaplingBlock;
 import net.teyvat.block.SunsettiaFruitBlock;
 
@@ -39,12 +40,13 @@ public final class TeyvatWood {
                     .sounds(BlockSoundGroup.WOOD)));
 
     public static final Block SUNSETTIA_LEAVES = register("sunnsettia_leaves",
-            new Block(AbstractBlock.Settings.create()
+            new SunsettiaLeavesBlock(AbstractBlock.Settings.create()
                     .registryKey(RegistryKey.of(RegistryKeys.BLOCK, Identifier.of(TeyvatMod.MOD_ID, "sunnsettia_leaves")))
                     .mapColor(MapColor.PALE_GREEN)
                     .strength(0.2f)
                     .sounds(BlockSoundGroup.GRASS)
                     .nonOpaque()
+                    .ticksRandomly()
                     .allowsSpawning((state, world, pos, type) -> false)
                     .suffocates((state, world, pos) -> false)
                     .blockVision((state, world, pos) -> false)));
