@@ -78,7 +78,7 @@ public final class StarfallValleyTrailFeature extends Feature<DefaultFeatureConf
                     // Камешки вдоль тропы: редкие «втопленные» фрагменты камня вместо
                     // dirt_path — читается как каменистая дорога, не мешает ходьбе
                     // (ровный блок, без бугорка). Детерминированно по позиции.
-                    if (pseudoRandom(x, z, 1337L) < 0.06) {
+                    if (pseudoRandom(x, z, 1337L) < 0.035) {
                         setBlockState(world, surface, pebbleBlockFor(x, z));
                     }
                     changed = true;
