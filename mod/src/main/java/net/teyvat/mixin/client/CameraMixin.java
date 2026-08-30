@@ -5,7 +5,6 @@ import net.minecraft.client.render.Camera;
 import net.minecraft.entity.Entity;
 import net.minecraft.world.BlockView;
 import net.teyvat.client.CameraController;
-import net.minecraft.client.option.Perspective;
 import net.teyvat.client.StaminaController;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -20,11 +19,9 @@ public abstract class CameraMixin {
     private void teyvat$customCamera(BlockView area, Entity entity,
                                      boolean thirdPerson, boolean behindView, float tickDelta,
                                      CallbackInfo ci) {
-        // Force third person back — no first person in Genshin style
-        MinecraftClient client = MinecraftClient.getInstance();
-        if (client.options != null && client.options.getPerspective().isFirstPerson()) {
-            client.options.setPerspective(Perspective.THIRD_PERSON_BACK);
-        }
+        // Кастомная камера Genshin (только если включена в конфиге). Игрок может
+        // свободно переключаться на вид от первого лица (F5) — принудительно не
+        // форсируем третий вид.
         CameraController.apply((Camera) (Object) this, area, entity, thirdPerson, behindView, tickDelta);
         // В первом лице наклон рывка тоже работает: камера плавно опускается вниз.
         if (!thirdPerson && !behindView) {

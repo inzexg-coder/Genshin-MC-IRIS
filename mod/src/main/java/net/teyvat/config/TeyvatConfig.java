@@ -35,7 +35,7 @@ public final class TeyvatConfig {
     }
 
     /** Версия конфига: при повышении мигрирауются значения в load(). */
-    public int config_version = 2;
+    public int config_version = 3;
 
     public Spawn spawn = new Spawn();
     /** Телепортировать новых игроков (без кровати) на пляж при входе. */
@@ -72,7 +72,7 @@ public final class TeyvatConfig {
     /** Настройки Teyvat Camera. */
     public static class Camera {
         /** Включить кастомную камеру в 3-м лице (вид сзади). */
-        public boolean enabled = true;
+        public boolean enabled = false;
         /** Базовая дистанция камеры от героя (блоки). */
         public float distance = 4.0f;
         public float min_distance = 1.5f;
@@ -241,6 +241,11 @@ public final class TeyvatConfig {
         if (cfg.config_version < 2) {
             cfg.world.no_block_breaking = false;
             cfg.config_version = 2;
+        }
+        // Версия 3: возвращён вид от первого лица — кастомная камера отключена.
+        if (cfg.config_version < 3) {
+            cfg.camera.enabled = false;
+            cfg.config_version = 3;
         }
         try {
             Files.createDirectories(path.getParent());
