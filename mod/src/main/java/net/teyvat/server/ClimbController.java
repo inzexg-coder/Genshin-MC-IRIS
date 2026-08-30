@@ -35,12 +35,16 @@ public final class ClimbController {
     public static final float CLIMB_DRAIN_PER_TICK = 8f / 20f;
     /** Стоимость прыжка от стены. */
     public static final float CLIMB_JUMP_COST = 20f;
-    /** Вертикаль прыжка от стены (вверх или вперёд-вверх). */
-    private static final double CLIMB_JUMP_UP = 0.85;
-    /** Горизонталь прыжка от стены — по направлению движения. */
-    private static final double CLIMB_JUMP_SPEED = 0.55;
-    /** Скорость подъёма, блоков/тик (~0.45 — быстрее бега, но без рывка). */
-    private static final double CLIMB_SPEED = 0.45;
+    /** Вертикаль прыжка от стены (вперёд-вверх, невысокий подскок). */
+    private static final double CLIMB_JUMP_UP = 0.5;
+    /** Горизонталь прыжка от стены вперёд — короткий бросок. */
+    private static final double CLIMB_JUMP_SPEED = 0.32;
+    /** Отталкивание назад при спрыгивании: лишь чуть отойти от стены. */
+    private static final double BACK_JUMP_SPEED = 0.22;
+    /** Вертикаль при отталкивании назад (лёгкий прыжок, не падение). */
+    private static final double BACK_JUMP_UP = 0.3;
+    /** Скорость подъёма, блоков/тик (чуть медленнее бега). */
+    private static final double CLIMB_SPEED = 0.38;
     /** Скорость плавного спуска при пустой стамине, блоков/тик. */
     private static final double SLIDE_SPEED = -0.18;
     /** Длительность плавного спуска после срыва, тиков. */
@@ -215,9 +219,9 @@ public final class ClimbController {
 
     /** Направление прыжка от стены, как в Genshin: по движению игрока.
      *  - Без движения — подскок вверх с места.
-     *  - Вперёд/вбок — прыжок в сторону движения с подъёмом.
-     *  - Диагональ вниз (назад+вбок) — чисто горизонтальный прыжок от стены.
-     *  - Только назад — полный отрыв от поверхности (прыжок от стены вниз). */
+     *  - Вперёд — короткий прыжок в сторону движения с невысоким подъёмом.
+     *  - Вбок — лёгкий горизонтальный срыв вдоль стены.
+     *  - Назад — небольшое отталкивание от стены (спрыгивание). */
     private static Vec3d climbJumpVelocity(ServerPlayerEntity player) {
         PlayerInput in = player.getPlayerInput();
         if (in == null) {
@@ -237,11 +241,13 @@ public final class ClimbController {
         }
         dx /= len;
         dz /= len;
-        if (forward < 0 && strafe != 0) {
-            return new Vec3d(dx * CLIMB_JUMP_SPEED * 1.2, 0, dz * CLIMB_JUMP_SPEED * 1.2);
-        }
         if (forward < 0) {
-            return new Vec3d(dx * CLIMB_JUMP_SPEED * 1.6, 0.45, dz * CLIMB_JUMP_SPEED * 1.6);
+            // Назад — лишь чуть оттолкнуться от стены (спрыгивание).
+            return new Vec3d(dx * BACK_JUMP_SPEED, BACK_JUMP_UP, dz * BACK_JUMP_SPEED);
+        }
+        if (strafe != 0) {
+            // Вбок — лёгкий горизонтальный срыв вдоль стены.
+            return new Vec3d(dx * BACK_JUMP_SPEED, 0, dz * BACK_JUMP_SPEED);
         }
         return new Vec3d(dx * CLIMB_JUMP_SPEED, CLIMB_JUMP_UP, dz * CLIMB_JUMP_SPEED);
     }
