@@ -1,19 +1,21 @@
 package net.teyvat.item;
 
-import net.minecraft.component.type.FoodComponent;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.component.type.FoodComponent;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.Hand;
 import net.minecraft.world.World;
 
 /**
- * Закатник — плод дерева закатника, восстанавливает 300 HP.
- * Никакого кастомного use() — ConsumableComponent.handleEat() из FoodComponent
- * сам вызывает setCurrentHand и запускает анимацию.
- * finishUsing() применяет лечение 300 HP + звук отрыжки.
+ * Закатник — мгновенное поедание, восстанавливает 300 HP.
+ * ПКМ → сразу лечение + отрыжка, без анимации поедания.
+ * (Ванильная анимация поедания через ConsumableComponent не работает
+ *  из-за сброса таймера при повторных вызовах use() на клиенте.)
  */
 public class SunsettiaItem extends Item {
     private static final int HEAL_AMOUNT = 300;
@@ -23,18 +25,23 @@ public class SunsettiaItem extends Item {
     }
 
     @Override
+    public ActionResult use(World world, PlayerEntity player, Hand hand) {
+        if (world.isClient()) {
+            return ActionResult.SUCCESS;
+        }
+        // Сервер: лечение + звук +消耗 предмет
+        player.heal(HEAL_AMOUNT);
+        player.swingHand(hand);
+        world.playSound(null, player.getX(), player.getY(), player.getZ(),
+                SoundEvents.ENTITY_PLAYER_BURP, SoundCategory.PLAYERS, 0.5f, 1.0f);
+        if (!player.getAbilities().creativeMode) {
+            player.getStackInHand(hand).decrement(1);
+        }
+        return ActionResult.SUCCESS;
+    }
+
+    @Override
     public ItemStack finishUsing(ItemStack stack, World world, LivingEntity user) {
-        // Лечение 300 HP + звук отрыжки (только на сервере)
-        if (!world.isClient() && user != null) {
-            user.heal(HEAL_AMOUNT);
-            world.playSound(null, user.getX(), user.getY(), user.getZ(),
-                    SoundEvents.ENTITY_PLAYER_BURP, SoundCategory.PLAYERS, 0.5f, 1.0f);
-        }
-        // В творческом не消耗
-        if (user instanceof PlayerEntity p && p.getAbilities().creativeMode) {
-            return stack;
-        }
-        stack.decrement(1);
         return stack;
     }
 }
