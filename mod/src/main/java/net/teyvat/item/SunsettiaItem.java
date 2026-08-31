@@ -11,9 +11,6 @@ import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
 import net.minecraft.world.World;
 
-/**
- * Закатник — плод Тейвата. Съедобен, восстанавливает 300 HP.
- */
 public class SunsettiaItem extends Item {
     private static final int HEAL_AMOUNT = 300;
 
@@ -23,22 +20,23 @@ public class SunsettiaItem extends Item {
 
     @Override
     public ActionResult use(World world, PlayerEntity player, Hand hand) {
-        // Сначала даём ванили попробовать (ConsumableComponent.consume)
-        ActionResult result = super.use(world, player, hand);
-        // Если ваниль не обработала — пробуем сами
-        if (result != ActionResult.CONSUME && player.canConsume(true)) {
+        if (player.canConsume(true)) {
             player.setCurrentHand(hand);
             return ActionResult.CONSUME;
         }
-        return result;
+        return ActionResult.PASS;
     }
 
     @Override
     public ItemStack finishUsing(ItemStack stack, World world, LivingEntity user) {
-        ItemStack result = super.finishUsing(stack, world, user);
         if (!world.isClient() && user != null) {
             user.heal(HEAL_AMOUNT);
+            world.playSound(null, user.getX(), user.getY(), user.getZ(),
+                    SoundEvents.ENTITY_PLAYER_BURP, SoundCategory.PLAYERS, 0.5f, 1.0f);
         }
-        return result;
+        if (!(user instanceof PlayerEntity p) || !p.getAbilities().creativeMode) {
+            stack.decrement(1);
+        }
+        return stack;
     }
 }
