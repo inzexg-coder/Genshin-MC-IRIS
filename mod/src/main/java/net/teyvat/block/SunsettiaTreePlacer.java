@@ -13,20 +13,16 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Рисует дерево Закатника. У дерева несколько стилей (как у дубов есть
- * обычный и fancy): компактное среднее, широкое большое и высокое узкое.
- * Внутри стиля тоже есть случайность — высота, густота кроны, пропуски
- * угловых листьев, 0-2 плода. Используется генерацией мира и саженцем.
+ * Рисует дерево Закатника. 6 стилей (как у дубов обычный/fancy):
+ * COMPACT, LARGE, TALL, SPRAWL, TOWER, BABY. Внутри стиля случайность.
  */
 public final class SunsettiaTreePlacer {
     private SunsettiaTreePlacer() {}
 
-    /** Стиль дерева, по аналогии с вариантами дуба. */
     public enum Style {
-        COMPACT, LARGE, TALL
+        COMPACT, LARGE, TALL, SPRAWL, TOWER, BABY
     }
 
-    /** Для саженца: случайный стиль. */
     public static boolean grow(StructureWorldAccess world, BlockPos base, Random random) {
         Style style = Style.values()[random.nextInt(Style.values().length)];
         return grow(world, base, random, style);
@@ -35,10 +31,10 @@ public final class SunsettiaTreePlacer {
     public static boolean grow(StructureWorldAccess world, BlockPos base, Random random, Style style) {
         if (world == null || base == null) return false;
 
-        int trunkMin, trunkMax;
-        int mid;
-        int[][] layers;
+        int trunkMin, trunkMax, mid, layersCount;
         float cornerSkip;
+        int[][] layers;
+
         switch (style) {
             case LARGE -> {
                 trunkMin = 5; trunkMax = 7; mid = 3;
@@ -50,7 +46,22 @@ public final class SunsettiaTreePlacer {
                 layers = new int[][]{{2, 1}, {1, 1}, {0, 2}, {-1, 2}, {-2, 1}};
                 cornerSkip = 0.2f;
             }
-            default -> {
+            case SPRAWL -> {
+                trunkMin = 3; trunkMax = 5; mid = 3;
+                layers = new int[][]{{1, 2}, {0, 3}, {-1, 2}};
+                cornerSkip = 0.25f;
+            }
+            case TOWER -> {
+                trunkMin = 8; trunkMax = 10; mid = 1;
+                layers = new int[][]{{3, 1}, {2, 1}, {1, 2}, {0, 2}, {-1, 1}};
+                cornerSkip = 0.15f;
+            }
+            case BABY -> {
+                trunkMin = 3; trunkMax = 4; mid = 1;
+                layers = new int[][]{{1, 1}, {0, 1}, {-1, 1}};
+                cornerSkip = 0.1f;
+            }
+            default -> { // COMPACT
                 trunkMin = 4; trunkMax = 6; mid = 2;
                 layers = new int[][]{{1, 1}, {0, 2}, {-1, 2}, {-2, 1}};
                 cornerSkip = 0.15f;
@@ -64,7 +75,6 @@ public final class SunsettiaTreePlacer {
         BlockState leaves = TeyvatWood.SUNSETTIA_LEAVES.getDefaultState();
         BlockState fruit = TeyvatWood.SUNSETTIA_FRUIT.getDefaultState();
 
-        // Ствол: первый блок у земли (может заменить траву), дальше вверх.
         for (int i = 0; i < trunkHeight + 1; i++) {
             BlockPos p = root.up(i);
             if (i == 0 || world.isAir(p) || world.getBlockState(p).getBlock().getDefaultState().isReplaceable()) {
@@ -79,7 +89,6 @@ public final class SunsettiaTreePlacer {
 
         BlockPos top = root.up(trunkHeight - 1);
 
-        // Крона-блоб: слои по стилю, угловые листья иногда пропускаются.
         for (int[] layer : layers) {
             int dy = layer[0];
             int r = layer[1];
@@ -96,8 +105,6 @@ public final class SunsettiaTreePlacer {
             }
         }
 
-        // Плоды: 0-2 на дерево, свисают со случайных сторон кроны; сорванные
-        // отрастают со временем через листву.
         int fruitCount = random.nextInt(3);
         List<Direction> dirs = new ArrayList<>(List.of(
                 Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST));

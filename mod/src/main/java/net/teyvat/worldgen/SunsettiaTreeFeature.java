@@ -29,15 +29,11 @@ public final class SunsettiaTreeFeature extends Feature<DefaultFeatureConfig> {
     }
 
     public static void register() {
-        Registry.register(Registries.FEATURE,
-                Identifier.of(TeyvatMod.MOD_ID, "sunnsettia_tree"),
-                new SunsettiaTreeFeature(SunsettiaTreePlacer.Style.COMPACT));
-        Registry.register(Registries.FEATURE,
-                Identifier.of(TeyvatMod.MOD_ID, "sunnsettia_tree_large"),
-                new SunsettiaTreeFeature(SunsettiaTreePlacer.Style.LARGE));
-        Registry.register(Registries.FEATURE,
-                Identifier.of(TeyvatMod.MOD_ID, "sunnsettia_tree_tall"),
-                new SunsettiaTreeFeature(SunsettiaTreePlacer.Style.TALL));
+        for (SunsettiaTreePlacer.Style style : SunsettiaTreePlacer.Style.values()) {
+            Registry.register(Registries.FEATURE,
+                    Identifier.of(TeyvatMod.MOD_ID, "sunnsettia_tree_" + style.name().toLowerCase()),
+                    new SunsettiaTreeFeature(style));
+        }
     }
 
     @Override
