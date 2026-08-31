@@ -1,8 +1,10 @@
 package net.teyvat.block;
 
+import net.minecraft.block.AbstractBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.ShapeContext;
+import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.particle.ParticleTypes;
@@ -21,15 +23,19 @@ import net.minecraft.world.WorldView;
 import net.teyvat.item.TeyvatItems;
 
 /**
- * Плод Закатника, растёт в кроне дерева. Собирается кликом (ПКМ) или
- * ломается ударом меча (ЛКМ): выпадает 1-2 Закатника, блок исчезает.
+ * Плод Закатника, растёт в кроне дерева.
+ *
+ * <ul>
+ *   <li>ПКМ — мгновенный сбор: частицы, звук, дроп 1-2 Закатника.</li>
+ *   <li>ЛКМ — ванильная добыча с анимацией трещин (hardness 1.0f);
+ *       при полном разрушении дроп идут через лут-таблицу,
+ *       а {@link #afterBreak} планирует отращивание.</li>
+ * </ul>
  */
 public class SunsettiaFruitBlock extends Block {
-    // Хитбокс почти во весь блок, чтобы в плод легко попасть и ПКМ и ЛКМ
-    // (сама моделька маленькая — текстура меньше листвы).
     private static final VoxelShape SHAPE = VoxelShapes.cuboid(0.125, 0.125, 0.125, 0.875, 0.875, 0.875);
 
-    public SunsettiaFruitBlock(Settings settings) {
+    public SunsettiaFruitBlock(AbstractBlock.Settings settings) {
         super(settings);
     }
 
@@ -38,52 +44,73 @@ public class SunsettiaFruitBlock extends Block {
         return SHAPE;
     }
 
-    /** Клик (ПКМ) срывает плод: анимация руки, частицы, дроп 1-2 Закатника. */
+    /* ── ПКМ: мгновенный сбор ────────────────────────────────────── */
+
     @Override
     protected ActionResult onUse(BlockState state, World world, BlockPos pos,
                                  PlayerEntity player, BlockHitResult hit) {
         Hand hand = player.getActiveHand();
         player.swingHand(hand);
         if (world.isClient()) {
-            spawnPickParticles(world, pos);
+            spawnBreakParticles(world, pos);
         } else {
             collect(world, pos);
         }
         return ActionResult.SUCCESS;
     }
 
-    /** Удар мечом (ЛКМ) тоже срывает плод — дроп 1-2 Закатника. */
+    /* ── ЛКМ: ванильная добыча с анимацией ──────────────────────── */
+
+    /**
+     * Вызывается сервером когда игрок начинает ломать блок (START_DESTROY).
+     * Мы НЕ ломаем мгновенно — даём ванильной системе показать анимацию
+     * трещин (hardness 1.0f ≈ 1.5 сек с рукой).
+     */
     @Override
     protected void onBlockBreakStart(BlockState state, World world, BlockPos pos, PlayerEntity player) {
         if (world.isClient()) {
-            spawnPickParticles(world, pos);
-        } else {
-            collect(world, pos);
+            spawnBreakParticles(world, pos);
         }
     }
 
-    /** Небольшая россыпь частиц при срыве плода (клиент). */
-    public static void spawnPickParticles(World world, BlockPos pos) {
-        for (int i = 0; i < 6; i++) {
-            world.addParticleClient(ParticleTypes.HAPPY_VILLAGER,
-                    pos.getX() + 0.5 + (world.random.nextFloat() - 0.5) * 0.4,
-                    pos.getY() + 0.5 + (world.random.nextFloat() - 0.5) * 0.4,
-                    pos.getZ() + 0.5 + (world.random.nextFloat() - 0.5) * 0.4,
-                    (world.random.nextFloat() - 0.5) * 0.1,
-                    0.15,
-                    (world.random.nextFloat() - 0.5) * 0.1);
+    /**
+     * После полного разрушения блока (ЛКМ) — планируем отращивание плода.
+     * Дроп через лут-таблицу.
+     */
+    @Override
+    public void afterBreak(World world, PlayerEntity player, BlockPos pos,
+                           BlockState state, BlockEntity blockEntity, ItemStack tool) {
+        super.afterBreak(world, player, pos, state, blockEntity, tool);
+        if (!world.isClient()) {
+            SunsettiaLeavesBlock.scheduleRegrow(world, pos);
         }
     }
 
-    /** Собрать плод (удар или клик): дроп 1-2 Закатника, удаление блока, отращивание. */
+    /* ── Общее ───────────────────────────────────────────────────── */
+
+    /** Собрать плод (ПКМ): дроп 1-2 Закатника, удаление блока, отращивание. */
     public static void collect(World world, BlockPos pos) {
         int count = 1 + world.random.nextInt(2);
         dropStack(world, pos, new ItemStack(TeyvatItems.SUNSETTIA, count));
         world.playSound(null, pos, SoundEvents.BLOCK_CHERRY_SAPLING_BREAK,
                 SoundCategory.BLOCKS, 1.0f, 1.0f);
         world.removeBlock(pos, false);
-        // плод скоро отрастёт снова (1-3 минуты)
         SunsettiaLeavesBlock.scheduleRegrow(world, pos);
+    }
+
+    /** Частицы при разрушении плода на дереве (клиент). */
+    public static void spawnBreakParticles(World world, BlockPos pos) {
+        for (int i = 0; i < 10; i++) {
+            world.addParticleClient(ParticleTypes.HAPPY_VILLAGER,
+                    pos.getX() + 0.5 + (world.random.nextFloat() - 0.5) * 0.6,
+                    pos.getY() + 0.5 + (world.random.nextFloat() - 0.5) * 0.6,
+                    pos.getZ() + 0.5 + (world.random.nextFloat() - 0.5) * 0.6,
+                    (world.random.nextFloat() - 0.5) * 0.15,
+                    0.2,
+                    (world.random.nextFloat() - 0.5) * 0.15);
+        }
+        world.playSound(null, pos.getX() + 0.5, pos.getY() + 0.5, pos.getZ() + 0.5,
+                SoundEvents.BLOCK_CHERRY_SAPLING_BREAK, SoundCategory.BLOCKS, 1.0f, 1.0f);
     }
 
     /** Плод висит в кроне, опору не проверяем (не сыпется). */

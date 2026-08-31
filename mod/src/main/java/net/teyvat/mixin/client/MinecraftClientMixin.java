@@ -1,16 +1,11 @@
 package net.teyvat.mixin.client;
 
-import net.minecraft.block.Block;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.advancement.AdvancementsScreen;
 import net.minecraft.client.option.KeyBinding;
-import net.minecraft.registry.Registries;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.hit.BlockHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.teyvat.client.CombatController;
-import net.teyvat.client.PickupController;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -32,13 +27,9 @@ public abstract class MinecraftClientMixin {
         }
     }
 
-    /** Плод Закатника внутри кроны. */
-    private static final Block SUNSETTIA_FRUIT =
-            Registries.BLOCK.get(Identifier.of("teyvat", "sunnsettia_fruit"));
-
-    /** ЛКМ по блоку — ванильная добыча/ломка блоков во всех режимах; прицельно
-     *  по плоду Закатника — мгновенно ломаем его (шлём START_DESTROY, сервер
-     *  даёт 1-2 Закатника). По врагу или воздуху — комбо путешественника. */
+    /** ЛКМ по блоку — ванильная добыча/ломка блоков во всех режимах
+     *  (включая плод Закатника, у которого идёт анимация трещин).
+     *  По врагу или воздуху — комбо путешественника. */
     @Inject(method = "doAttack", at = @At("HEAD"), cancellable = true)
     private void teyvat$swordComboAttack(CallbackInfoReturnable<Boolean> cir) {
         MinecraftClient client = MinecraftClient.getInstance();
@@ -46,15 +37,7 @@ public abstract class MinecraftClientMixin {
             return;
         }
         if (client.crosshairTarget.getType() == HitResult.Type.BLOCK) {
-            BlockHitResult hit = (BlockHitResult) client.crosshairTarget;
-            if (client.world != null
-                    && client.world.getBlockState(hit.getBlockPos()).isOf(SUNSETTIA_FRUIT)) {
-                // Удар по плоду: гарантированно отправляем START_DESTROY на сервер.
-                client.interactionManager.attackBlock(hit.getBlockPos(), hit.getSide());
-                cir.setReturnValue(true);
-                return;
-            }
-            return; // обычный блок — ванильная добыча
+            return; // обычный блок — ванильная добыча (с анимацией трещин)
         }
         if (CombatController.onAttackPress()) {
             cir.setReturnValue(true);

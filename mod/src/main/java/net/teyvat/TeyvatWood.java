@@ -61,14 +61,19 @@ public final class TeyvatWood {
                     .sounds(BlockSoundGroup.GRASS)
                     .nonOpaque()));
 
-    public static final Block SUNSETTIA_FRUIT = register("sunnsettia_fruit",
-            new SunsettiaFruitBlock(AbstractBlock.Settings.create()
-                    .registryKey(RegistryKey.of(RegistryKeys.BLOCK, Identifier.of(TeyvatMod.MOD_ID, "sunnsettia_fruit")))
-                    .mapColor(MapColor.ORANGE)
-                    .strength(0.2f)
-                    .sounds(BlockSoundGroup.GRASS)
-                    .nonOpaque()
-                    .noCollision()));
+    /** Плод — блок-декорация в кроне. НЕ регистрирует BlockItem (нет в инвентаре). */
+    public static final Block SUNSETTIA_FRUIT;
+    static {
+        Identifier fruitId = Identifier.of(TeyvatMod.MOD_ID, "sunnsettia_fruit");
+        SUNSETTIA_FRUIT = Registry.register(Registries.BLOCK, fruitId,
+                new SunsettiaFruitBlock(AbstractBlock.Settings.create()
+                        .registryKey(RegistryKey.of(RegistryKeys.BLOCK, fruitId))
+                        .mapColor(MapColor.ORANGE)
+                        .strength(1.0f)
+                        .sounds(BlockSoundGroup.GRASS)
+                        .nonOpaque()
+                        .noCollision()));
+    }
 
     private static <B extends Block> B register(String name, B block) {
         Identifier id = Identifier.of(TeyvatMod.MOD_ID, name);

@@ -248,34 +248,14 @@ public class TeyvatMod implements ModInitializer {
         // блокируем ванильные атаки по блокам/мобам, клики-использования и useItem.
         AttackBlockCallback.EVENT.register((player, world, hand, pos, dir) ->
                 blockedByClimb(player) ? ActionResult.FAIL : ActionResult.PASS);
-        // Удар по плоду Закатника (ЛКМ) мгновенно ломает его: дроп 1-2 Закатника.
-        AttackBlockCallback.EVENT.register((player, world, hand, pos, dir) -> {
-            if (world.getBlockState(pos).isOf(TeyvatWood.SUNSETTIA_FRUIT)) {
-                SunsettiaFruitBlock.collect(world, pos);
-                return ActionResult.SUCCESS;
-            }
-            return ActionResult.PASS;
-        });
+
 
 
         AttackEntityCallback.EVENT.register((player, world, hand, entity, hitResult) ->
                 blockedByClimb(player) ? ActionResult.FAIL : ActionResult.PASS);
         UseBlockCallback.EVENT.register((player, world, hand, hitResult) ->
                 blockedByClimb(player) ? ActionResult.FAIL : ActionResult.PASS);
-        // ПКМ по плоду Закатника — срыв: анимация руки, частицы, дроп 1-2 Закатника.
-        UseBlockCallback.EVENT.register((player, world, hand, hitResult) -> {
-            if (!world.getBlockState(hitResult.getBlockPos()).isOf(TeyvatWood.SUNSETTIA_FRUIT)) {
-                return ActionResult.PASS;
-            }
-            if (world.isClient()) {
-                player.swingHand(hand);
-                SunsettiaFruitBlock.spawnPickParticles(world, hitResult.getBlockPos());
-            } else {
-                player.swingHand(hand);
-                SunsettiaFruitBlock.collect(world, hitResult.getBlockPos());
-            }
-            return ActionResult.SUCCESS;
-        });
+
 
 
         UseEntityCallback.EVENT.register((player, world, hand, entity, hitResult) ->
