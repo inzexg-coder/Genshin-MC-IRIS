@@ -98,7 +98,7 @@ public final class TeyvatConfig {
         public String free_look_mode = "hold";
         /** Первое лицо: рисовать собственное тело и все анимации персонажа
          *  («глазами модельки»). Выключи, чтобы вернуть ванильный пустой вид. */
-        public boolean first_person_body = true;
+        public boolean first_person_body = false;
     }
 
     /** Настройки здоровья как в Genshin. */
@@ -246,6 +246,11 @@ public final class TeyvatConfig {
         if (cfg.config_version < 3) {
             cfg.camera.enabled = false;
             cfg.config_version = 3;
+        }
+        // Версия 4: отключено 1-е лицо (вид от глаз модельки)
+        if (cfg.config_version < 4) {
+            cfg.camera.first_person_body = false;
+            cfg.config_version = 4;
         }
         try {
             Files.createDirectories(path.getParent());
