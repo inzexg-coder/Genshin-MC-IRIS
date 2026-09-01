@@ -5,6 +5,7 @@ import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.advancement.AdvancementsScreen;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.util.hit.HitResult;
+import net.teyvat.client.CameraController;
 import net.teyvat.client.CombatController;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -27,6 +28,16 @@ public abstract class MinecraftClientMixin {
         }
     }
 
+
+    /** Синхронизация направления взгляда игрока с камерой ДО обновления
+     *  crosshairTarget, иначе ЛКМ/ПКМ не работают в 3-м лице. */
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void teyvat$syncRotationBeforeInput(CallbackInfo ci) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.player != null) {
+            CameraController.syncPlayerRotation(client.player);
+        }
+    }
     /** ЛКМ по блоку — ванильная добыча/ломка блоков во всех режимах
      *  (включая плод Закатника, у которого идёт анимация трещин).
      *  По врагу или воздуху — комбо путешественника. */
