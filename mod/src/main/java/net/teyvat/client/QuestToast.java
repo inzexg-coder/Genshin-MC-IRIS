@@ -160,7 +160,7 @@ public class QuestToast implements Toast {
 
     @Override
     public SoundEvent getSoundEvent() {
-        return SoundEvents.UI_TOAST_CHALLENGE_COMPLETE;
+        return newQuest ? null : SoundEvents.UI_TOAST_CHALLENGE_COMPLETE;
     }
 
     @Override

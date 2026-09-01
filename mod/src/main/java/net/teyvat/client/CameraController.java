@@ -145,7 +145,7 @@ public final class CameraController {
     public static void apply(Camera camera, BlockView area, Entity entity, boolean thirdPerson,
                              boolean behindView, float tickDelta) {
         TeyvatConfig.Camera cfg = TeyvatConfig.get().camera;
-        if (!cfg.enabled || !thirdPerson || behindView) {
+        if (!thirdPerson || behindView) {
             return;
         }
         MinecraftClient client = MinecraftClient.getInstance();
