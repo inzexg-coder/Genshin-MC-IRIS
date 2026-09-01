@@ -283,6 +283,13 @@ public final class CameraController {
 
         ((CameraAccessor) camera).teyvatSetRotation(camYaw, camPitch);
         ((CameraAccessor) camera).teyvatSetPos(camX, camY, camZ);
+        
+        // Синхронизация взгляда игрока с направлением камеры.
+        // Без этого crosshairTarget (ЛКМ/ПКМ) летит не туда в 3-м лице.
+        if (entity instanceof net.minecraft.entity.player.PlayerEntity player) {
+            player.setYaw(camYaw);
+            player.setPitch(camPitch);
+        }
     }
 
     /** Свободная камера: герой плавно поворачивается к направлению движения относительно камеры. */
