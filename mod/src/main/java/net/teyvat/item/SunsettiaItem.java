@@ -39,7 +39,7 @@ public class SunsettiaItem extends Item {
         if (!world.isClient()) {
             EATING_TIMERS.put(id, EAT_DURATION_TICKS);
             world.playSound(null, player.getX(), player.getY(), player.getZ(),
-                    SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.PLAYERS,
+                    SoundEvents.ENTITY_GENERIC_EAT.value(), SoundCategory.PLAYERS,
                     1.0f, 0.9f + world.random.nextFloat() * 0.1f);
         }
         player.setCurrentHand(hand);
@@ -69,7 +69,7 @@ public class SunsettiaItem extends Item {
             // Звук поедания каждые 4 тика
             if (left % 4 == 0) {
                 player.getEntityWorld().playSound(null, player.getX(), player.getY(), player.getZ(),
-                        SoundEvents.ENTITY_GENERIC_EAT, SoundCategory.PLAYERS,
+                        SoundEvents.ENTITY_GENERIC_EAT.value(), SoundCategory.PLAYERS,
                         1.0f, 0.9f + player.getEntityWorld().random.nextFloat() * 0.1f);
             }
         }
