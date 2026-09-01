@@ -203,17 +203,17 @@ public final class HealthOverlay {
         // Тёмно-синяя подложка.
         context.fill(-halfW, -halfH, halfW, halfH, withAlpha(0xFF070B14, alpha));
 
-        // Зелёная заливка疗法 — на пустом месте (от prevFill до текущего fill), затухает 4 сек.
-        if (healAlpha > 0f && healVisualAmount > 0f && fill > prevFill) {
-            context.fill(-halfW + prevFill, -halfH, -halfW + fill, halfH, withAlpha(0xFF00CC00, alpha * healAlpha));
-        }
-
         if (fill > 0) {
             // Заполнение HP.
             context.fill(-halfW, -halfH, -halfW + fill, 0, withAlpha(0xE61B2338, alpha));
             context.fill(-halfW, 0, -halfW + fill, halfH, withAlpha(0xE614202E, alpha));
             // Блик.
             context.fill(-halfW, -halfH, -halfW + fill, -halfH + 1, withAlpha(0x50A8C4E8, alpha));
+        }
+
+        // Зелёная заливка疗法 — ПОСЛЕ HP, поверх пустого места, затухает 4 сек.
+        if (healAlpha > 0f && healVisualAmount > 0f && fill > prevFill) {
+            context.fill(-halfW + prevFill, -halfH, -halfW + fill, halfH, withAlpha(0xFF00CC00, alpha * healAlpha));
         }
 
         // Витиеватая золотая рамка: штрихи по верху и низу, сплошные бока.
