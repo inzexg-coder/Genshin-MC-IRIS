@@ -69,8 +69,8 @@ public final class HealthOverlay {
     /** Эффект лечения: зелёная заливка + "+x" над полоской. */
     private static float lastHealth = -1f;
     private static float healVisualAmount = 0f;
+    private static int prevFill = 0;
     private static long healVisualStartTick = 0;
-    private static float healVisualMaxHP = 20f;
     /** Длительность зелёной заливки (в тиках, 20 тиков = 1 сек). */
     private static final long HEAL_VISUAL_TICKS = 80;
 
@@ -182,21 +182,19 @@ public final class HealthOverlay {
         int halfH = BAR_H / 2;
         int fill = (int) (barW * Math.max(0f, Math.min(1f, health / maxHealth)));
 
-        // --- Эффект лечения ---
+        // --- Эффект лечения: зелёная заливка 4 сек ---
         if (lastHealth >= 0f && health > lastHealth) {
             healVisualAmount = health - lastHealth;
             healVisualStartTick = now;
-            healVisualMaxHP = maxHealth;
+            prevFill = fill;  // remember fill BEFORE healing
         }
         lastHealth = health;
 
         float healAlpha = 0f;
-        int healTargetEnd = 0;
         if (healVisualAmount > 0f) {
             long elapsed = now - healVisualStartTick;
             if (elapsed < HEAL_VISUAL_TICKS) {
                 healAlpha = 1f - (float) elapsed / HEAL_VISUAL_TICKS;
-                healTargetEnd = (int) (barW * Math.min(1f, (health) / healVisualMaxHP));
             } else {
                 healVisualAmount = 0f;
             }
@@ -205,13 +203,9 @@ public final class HealthOverlay {
         // Тёмно-синяя подложка.
         context.fill(-halfW, -halfH, halfW, halfH, withAlpha(0xFF070B14, alpha));
 
-        // Зелёная заливка疗法 (под текущим HP, показывает «куда заполнится»).
-        if (healAlpha > 0f && healTargetEnd > fill) {
-            int gAlpha = (int) (255 * healAlpha);
-            int gTop = (gAlpha << 24) | 0x0040D040;
-            int gBot = (gAlpha << 24) | 0x0030B030;
-            context.fill(-halfW, -halfH, -halfW + healTargetEnd, 0, withAlpha(gTop, alpha));
-            context.fill(-halfW, 0, -halfW + healTargetEnd, halfH, withAlpha(gBot, alpha));
+        // Зелёная заливка疗法 — на пустом месте (от prevFill до текущего fill), затухает 4 сек.
+        if (healAlpha > 0f && healVisualAmount > 0f && fill > prevFill) {
+            context.fill(-halfW + prevFill, -halfH, -halfW + fill, halfH, withAlpha(0xFF00CC00, alpha * healAlpha));
         }
 
         if (fill > 0) {

@@ -50,7 +50,19 @@ public final class TeyvatCommand {
                         .executes(TeyvatCommand::starfallValleyDebug))
                 .then(CommandManager.literal("debugbiome")
                         .executes(TeyvatCommand::debugBiome))
-                .then(progression()));
+                .then(progression())
+                .then(CommandManager.literal("testheal")
+                        .executes(TeyvatCommand::testHeal)));
+    }
+
+    /** /teyvat testheal — исцелить на 5 HP на клиенте для тестирования зелёной заливки. */
+    private static int testHeal(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
+        var player = ctx.getSource().getPlayer();
+        if (player != null) {
+            player.heal(5f);
+            ctx.getSource().sendFeedback(() -> net.minecraft.text.Text.literal("§a+5 HP (тест лечения)"), false);
+        }
+        return 1;
     }
 
     /** /teyvat selftest — бросить камень у ног и проверить, поднимется ли он сам. */

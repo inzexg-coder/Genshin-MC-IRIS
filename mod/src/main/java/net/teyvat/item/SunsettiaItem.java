@@ -31,9 +31,7 @@ public class SunsettiaItem extends Item {
 
     @Override
     public ItemStack finishUsing(ItemStack stack, World world, LivingEntity user) {
-        if (!world.isClient()) {
-            user.heal(HEAL_AMOUNT);
-        }
+        user.heal(HEAL_AMOUNT);
         return super.finishUsing(stack, world, user);
     }
 }
