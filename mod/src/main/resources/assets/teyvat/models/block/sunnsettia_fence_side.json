@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:block/fence_side",
   "textures": {
-    "wall": "teyvat:block/sunnsettia_planks"
+    "texture": "teyvat:block/sunnsettia_planks"
   }
 }

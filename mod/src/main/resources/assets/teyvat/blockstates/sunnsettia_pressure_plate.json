@@ -1,1 +1,10 @@
-{"variants": {"": {"model": "teyvat:block/sunnsettia_pressure_plate"}}}
+{
+  "variants": {
+    "powered=false": {
+      "model": "teyvat:block/sunnsettia_pressure_plate_up"
+    },
+    "powered=true": {
+      "model": "teyvat:block/sunnsettia_pressure_plate_down"
+    }
+  }
+}

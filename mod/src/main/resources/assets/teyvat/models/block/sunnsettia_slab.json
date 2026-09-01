@@ -1,5 +1,5 @@
 {
-  "parent": "minecraft:block/slab_bottom",
+  "parent": "minecraft:block/slab",
   "textures": {
     "bottom": "teyvat:block/sunnsettia_planks",
     "top": "teyvat:block/sunnsettia_planks",
