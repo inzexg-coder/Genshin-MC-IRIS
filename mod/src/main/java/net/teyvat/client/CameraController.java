@@ -292,15 +292,6 @@ public final class CameraController {
         }
     }
 
-    /** Синхронизация yaw/pitch игрока с направлением камеры.
-     *  Вызывается из CombatController.tick() ДО обновления crosshairTarget,
-     *  чтобы луч ЛКМ/ПКМ летел туда, куда смотрит камера. */
-    public static void syncPlayerRotation(net.minecraft.entity.player.PlayerEntity player) {
-        if (player == null) return;
-        player.setYaw(orbitYaw);
-        player.setPitch(orbitPitch);
-    }
-
     /** Свободная камера: герой плавно поворачивается к направлению движения относительно камеры. */
     private static void rotatePlayerToMovement(net.minecraft.client.network.ClientPlayerEntity player) {
         Vec2f movement = player.input.getMovementInput();

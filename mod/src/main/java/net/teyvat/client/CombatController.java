@@ -228,9 +228,6 @@ public final class CombatController {
         if (client.player == null || client.world == null || client.isPaused()) {
             return;
         }
-        // Синхронизация направления взгляда игрока с камерой ДО обновления
-        // crosshairTarget, иначе ЛКМ/ПКМ не работают в 3-м лице.
-        net.teyvat.client.CameraController.syncPlayerRotation(client.player);
         tickCount++;
         if (comboStep >= 0 && !client.player.isOnGround()) {
             // В воздухе удары не работают (как в Genshin): прыжок прерывает комбо,
