@@ -1,3 +1,6 @@
 {
-  "parent": "teyvat:block/sunnsettia_hanging_sign"
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "teyvat:item/sunnsettia_hanging_sign"
+  }
 }

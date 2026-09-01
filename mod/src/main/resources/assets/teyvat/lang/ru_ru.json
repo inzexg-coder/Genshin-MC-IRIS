@@ -62,5 +62,19 @@
   "block.teyvat.sunnsettia_log": "Бревно Закатника",
   "block.teyvat.sunnsettia_leaves": "Закатниковая листва",
   "block.teyvat.sunnsettia_sapling": "Саженец Закатника",
-  "block.teyvat.sunnsettia_fruit": "Плод Закатника"
+  "block.teyvat.sunnsettia_fruit": "Плод Закатника",
+  "block.teyvat.sunnsettia_wood": "Древесина Закатника",
+  "block.teyvat.stripped_sunnsettia_log": "Обтёсанное бревно Закатника",
+  "block.teyvat.stripped_sunnsettia_wood": "Обтёсанная древесина Закатника",
+  "block.teyvat.sunnsettia_planks": "Доски Закатника",
+  "block.teyvat.sunnsettia_slab": "Плита Закатника",
+  "block.teyvat.sunnsettia_stairs": "Ступени Закатника",
+  "block.teyvat.sunnsettia_button": "Кнопка Закатника",
+  "block.teyvat.sunnsettia_pressure_plate": "Нажимная плита Закатника",
+  "block.teyvat.sunnsettia_fence": "Забор Закатника",
+  "block.teyvat.sunnsettia_fence_gate": "Калитка Закатника",
+  "block.teyvat.sunnsettia_door": "Дверь Закатника",
+  "block.teyvat.sunnsettia_trapdoor": "Люк Закатника",
+  "item.teyvat.sunnsettia_sign": "Табличка Закатника",
+  "item.teyvat.sunnsettia_hanging_sign": "Подвесная табличка Закатника"
 }
