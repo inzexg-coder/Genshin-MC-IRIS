@@ -66,6 +66,13 @@ public final class HealthOverlay {
     /** Числа урона: id сущности → очередь чисел (снизу вверх, по времени). */
     private static final Map<Integer, ArrayDeque<DamageNumber>> DAMAGE_NUMBERS = new HashMap<>();
 
+    /** Эффект лечения: зелёная заливка + "+x" над полоской. */
+    private static float lastHealth = -1f;
+    private static float healVisualAmount = 0f;
+    private static long healVisualStartTick = 0;
+    /** Длительность зелёной заливки (в тиках, 20 тиков = 1 сек). */
+    private static final long HEAL_VISUAL_TICKS = 80;
+
     private HealthOverlay() {}
 
     /** Запись всплывающего числа урона. */
@@ -174,6 +181,25 @@ public final class HealthOverlay {
         int halfH = BAR_H / 2;
         int fill = (int) (barW * Math.max(0f, Math.min(1f, health / maxHealth)));
 
+        // --- Эффект лечения: зелёная заливка на пустом месте ---
+        if (lastHealth >= 0f && health > lastHealth) {
+            healVisualAmount = health - lastHealth;
+            healVisualStartTick = now;
+        }
+        lastHealth = health;
+
+        float healAlpha = 0f;
+        int healFill = 0;
+        if (healVisualAmount > 0f) {
+            long elapsed = now - healVisualStartTick;
+            if (elapsed < HEAL_VISUAL_TICKS) {
+                healAlpha = 1f - (float) elapsed / HEAL_VISUAL_TICKS;
+                healFill = (int) (barW * Math.min(1f, healVisualAmount / maxHealth));
+            } else {
+                healVisualAmount = 0f;
+            }
+        }
+
         // Тёмно-синяя подложка (глубже цвета панели заметок).
         context.fill(-halfW, -halfH, halfW, halfH, withAlpha(0xFF070B14, alpha));
         if (fill > 0) {
@@ -182,6 +208,14 @@ public final class HealthOverlay {
             context.fill(-halfW, 0, -halfW + fill, halfH, withAlpha(0xE614202E, alpha));
             // Тонкий стальной блик по верхнему краю заполнения.
             context.fill(-halfW, -halfH, -halfW + fill, -halfH + 1, withAlpha(0x50A8C4E8, alpha));
+        }
+        // Зелёная заливка лечения на пустом месте (плавное затухание 4 сек).
+        if (healAlpha > 0f && healFill > 0) {
+            int healStart = fill;
+            int healEnd = Math.min(fill + healFill, barW);
+            int ga = (int) (200 * healAlpha);
+            context.fill(-halfW + healStart, -halfH, -halfW + healEnd, 0, withAlpha((ga << 24) | 0x0040C040, alpha));
+            context.fill(-halfW + healStart, 0, -halfW + healEnd, halfH, withAlpha((ga << 24) | 0x0030A030, alpha));
         }
 
         // Витиеватая золотая рамка: штрихи по верху и низу, сплошные бока.
@@ -204,6 +238,13 @@ public final class HealthOverlay {
         TextRenderer tr = client.textRenderer;
         String text = Math.round(health) + "/" + Math.round(maxHealth);
         context.drawText(tr, text, halfW + 10, -4, withAlpha(0xFFE8C86A, alpha), true);
+        // "+x" зелёным при лечении (плавное затухание 4 сек).
+        if (healAlpha > 0f) {
+            int gCol = (int) (255 * healAlpha);
+            int healColor = (gCol << 24) | 0x0050E050;
+            String healText = "+" + Math.round(healVisualAmount);
+            context.drawText(tr, healText, halfW + 10, -14, withAlpha(healColor, alpha), true);
+        }
         m.popMatrix();
     }
 
