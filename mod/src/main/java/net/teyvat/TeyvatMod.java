@@ -51,7 +51,6 @@ import net.teyvat.network.MobLevelSyncPayload;
 import net.teyvat.network.AdminNotesRequestPayload;
 import net.teyvat.network.NotesOpenPayload;
 import net.teyvat.server.BeachBoundary;
-import net.teyvat.item.SunsettiaItem;
 import net.teyvat.server.BeachGuard;
 import net.teyvat.server.ItemPickup;
 import net.teyvat.server.PickupSelfTest;
@@ -528,12 +527,7 @@ public class TeyvatMod implements ModInitializer {
                 ClimbController.tick(player);
             }
         });
-        // Таймер поедания закатника: тикает обратный отсчёт и применяет лечение.
-        ServerTickEvents.END_SERVER_TICK.register(server -> {
-            for (ServerPlayerEntity player : server.getPlayerManager().getPlayerList()) {
-                SunsettiaItem.serverTick(player);
-            }
-        });
+
     }
 
     /** Атаки/использование заблокированы, пока игрок карабкается (только на сервере). */
