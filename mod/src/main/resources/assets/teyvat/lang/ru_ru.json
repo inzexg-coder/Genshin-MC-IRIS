@@ -76,5 +76,7 @@
   "block.teyvat.sunnsettia_door": "Дверь Закатника",
   "block.teyvat.sunnsettia_trapdoor": "Люк Закатника",
   "item.teyvat.sunnsettia_sign": "Табличка Закатника",
-  "item.teyvat.sunnsettia_hanging_sign": "Подвесная табличка Закатника"
+  "item.teyvat.sunnsettia_hanging_sign": "Подвесная табличка Закатника",
+  "block.teyvat.mint": "Мята",
+  "item.teyvat.mint": "Мята"
 }

@@ -65,5 +65,7 @@
   "block.teyvat.sunnsettia_door": "Sunsettia Door",
   "block.teyvat.sunnsettia_trapdoor": "Sunsettia Trapdoor",
   "item.teyvat.sunnsettia_sign": "Sunsettia Sign",
-  "item.teyvat.sunnsettia_hanging_sign": "Sunsettia Hanging Sign"
+  "item.teyvat.sunnsettia_hanging_sign": "Sunsettia Hanging Sign",
+  "block.teyvat.mint": "Mint",
+  "item.teyvat.mint": "Mint"
 }

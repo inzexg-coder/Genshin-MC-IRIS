@@ -31,6 +31,7 @@ import net.minecraft.util.Identifier;
 import net.teyvat.block.MarbleArchBlock;
 import net.teyvat.item.TeyvatItems;
 import net.teyvat.block.MarbleSideStairsBlock;
+import net.teyvat.block.MintBlock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -152,6 +153,15 @@ public final class TeyvatBlocks {
     private static Block lamp(String name) {
         return register(name, new Block(settings(name).luminance(state -> 13)));
     }
+
+    /** Мята — декоративный цветок. Растёт на траве, ломается мгновенно. */
+    public static final Block MINT = register("mint", new MintBlock(Block.Settings.create()
+            .registryKey(RegistryKey.of(RegistryKeys.BLOCK, Identifier.of(TeyvatMod.MOD_ID, "mint")))
+            .mapColor(MapColor.GREEN)
+            .breakInstantly()
+            .noCollision()
+            .nonOpaque()
+            .sounds(BlockSoundGroup.GRASS)));
 
     private static <B extends Block> B register(String name, B block) {
         Identifier id = Identifier.of(TeyvatMod.MOD_ID, name);
