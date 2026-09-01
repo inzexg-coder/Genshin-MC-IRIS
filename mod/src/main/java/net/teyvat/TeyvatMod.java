@@ -145,6 +145,7 @@ public class TeyvatMod implements ModInitializer {
         HydroSlimeEntity.register();
         HydroSlimeProjectileEntity.register();
         BlueHornedLizardEntity.register();
+        TeyvatSounds.register();
         TeyvatParticles.register();
         TeyvatItems.register();
         FabricDefaultAttributeRegistry.register(HydroSlimeEntity.TYPE, HydroSlimeEntity.createAttributes());
