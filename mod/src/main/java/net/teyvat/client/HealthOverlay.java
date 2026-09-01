@@ -213,9 +213,8 @@ public final class HealthOverlay {
         if (healAlpha > 0f && healFill > 0) {
             int healStart = fill;
             int healEnd = Math.min(fill + healFill, barW);
-            int ga = (int) (200 * healAlpha);
-            context.fill(-halfW + healStart, -halfH, -halfW + healEnd, 0, withAlpha((ga << 24) | 0x0040C040, alpha));
-            context.fill(-halfW + healStart, 0, -halfW + healEnd, halfH, withAlpha((ga << 24) | 0x0030A030, alpha));
+            context.fill(-halfW + healStart, -halfH, -halfW + healEnd, 0, withAlpha(0xFF40C040, alpha * healAlpha));
+            context.fill(-halfW + healStart, 0, -halfW + healEnd, halfH, withAlpha(0xFF30A030, alpha * healAlpha));
         }
 
         // Витиеватая золотая рамка: штрихи по верху и низу, сплошные бока.
@@ -240,8 +239,7 @@ public final class HealthOverlay {
         context.drawText(tr, text, halfW + 10, -4, withAlpha(0xFFE8C86A, alpha), true);
         // "+x" зелёным при лечении (плавное затухание 4 сек).
         if (healAlpha > 0f) {
-            int gCol = (int) (255 * healAlpha);
-            int healColor = (gCol << 24) | 0x0050E050;
+            int healColor = withAlpha(0xFF50E050, alpha * healAlpha);
             String healText = "+" + Math.round(healVisualAmount);
             context.drawText(tr, healText, halfW + 10, -14, withAlpha(healColor, alpha), true);
         }
