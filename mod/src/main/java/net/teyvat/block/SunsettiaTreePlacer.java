@@ -105,6 +105,13 @@ public final class SunsettiaTreePlacer {
             }
         }
 
+        // Плоды растут на нижнем уровне листвы (минимальный dy среди слоёв)
+        int bottomDy = Integer.MAX_VALUE;
+        for (int[] layer : layers) {
+            bottomDy = Math.min(bottomDy, layer[0]);
+        }
+        BlockPos canopyBottom = top.up(bottomDy);
+
         int fruitCount = random.nextInt(3);
         List<Direction> dirs = new ArrayList<>(List.of(
                 Direction.NORTH, Direction.SOUTH, Direction.EAST, Direction.WEST));
@@ -112,7 +119,8 @@ public final class SunsettiaTreePlacer {
         int placed = 0;
         for (Direction dir : dirs) {
             if (placed >= fruitCount) break;
-            BlockPos p = top.up(-1).offset(dir, mid + 1);
+            // Плод свисает под нижней листвой, offset = радиус нижнего слоя + 1
+            BlockPos p = canopyBottom.offset(dir, mid);
             if (world.isAir(p)) {
                 world.setBlockState(p, fruit, Block.NOTIFY_ALL);
                 placed++;
