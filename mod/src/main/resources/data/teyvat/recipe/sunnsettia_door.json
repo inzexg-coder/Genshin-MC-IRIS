@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "redstone",
+  "pattern": [
+    "##",
+    "##",
+    "##"
+  ],
+  "key": {
+    "#": "teyvat:sunnsettia_planks"
+  },
+  "result": {
+    "id": "teyvat:sunnsettia_door",
+    "count": 3
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "variants": {
+    "facing=left,half=upper,hinge=false,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_top"
+    },
+    "facing=left,half=lower,hinge=false,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor"
+    },
+    "facing=right,half=upper,hinge=false,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_top"
+    },
+    "facing=right,half=lower,hinge=false,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor"
+    },
+    "facing=left,half=upper,hinge=true,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_top"
+    },
+    "facing=left,half=lower,hinge=true,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor"
+    },
+    "facing=right,half=upper,hinge=true,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_top"
+    },
+    "facing=right,half=lower,hinge=true,open=false,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor"
+    },
+    "facing=left,half=upper,hinge=false,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_top"
+    },
+    "facing=left,half=lower,hinge=false,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor"
+    },
+    "facing=right,half=upper,hinge=false,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_top"
+    },
+    "facing=right,half=lower,hinge=false,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor"
+    },
+    "facing=left,half=upper,hinge=true,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_top"
+    },
+    "facing=left,half=lower,hinge=true,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor"
+    },
+    "facing=right,half=upper,hinge=true,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_top"
+    },
+    "facing=right,half=lower,hinge=true,open=true,powered=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor"
+    }
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "parent": "minecraft:block/cube_column",
+  "textures": {
+    "end": "teyvat:block/stripped_sunnsettia_log_top",
+    "side": "teyvat:block/stripped_sunnsettia_log"
+  }
+}

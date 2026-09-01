@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "redstone",
+  "ingredients": [
+    "teyvat:sunnsettia_planks"
+  ],
+  "result": {
+    "id": "teyvat:sunnsettia_button",
+    "count": 1
+  }
+}

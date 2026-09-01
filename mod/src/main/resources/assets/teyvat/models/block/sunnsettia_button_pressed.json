@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/button_pressed",
+  "textures": {
+    "texture": "teyvat:block/sunnsettia_planks"
+  }
+}

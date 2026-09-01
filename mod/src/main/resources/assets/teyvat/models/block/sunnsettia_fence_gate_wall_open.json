@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/fence_gate_wall_open",
+  "textures": {
+    "texture": "teyvat:block/sunnsettia_planks"
+  }
+}

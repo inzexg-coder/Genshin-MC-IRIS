@@ -1,0 +1,11 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "misc",
+  "ingredients": [
+    "teyvat:sunnsettia_log"
+  ],
+  "result": {
+    "id": "teyvat:stripped_sunnsettia_log",
+    "count": 1
+  }
+}

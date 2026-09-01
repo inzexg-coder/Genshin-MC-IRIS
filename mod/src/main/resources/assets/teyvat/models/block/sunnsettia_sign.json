@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/sign",
+  "textures": {
+    "texture": "teyvat:item/sunnsettia_sign"
+  }
+}

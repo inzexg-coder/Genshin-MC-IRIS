@@ -1,0 +1,16 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "#S#",
+    "#S#"
+  ],
+  "key": {
+    "#": "teyvat:sunnsettia_planks",
+    "S": "minecraft:stick"
+  },
+  "result": {
+    "id": "teyvat:sunnsettia_fence",
+    "count": 3
+  }
+}

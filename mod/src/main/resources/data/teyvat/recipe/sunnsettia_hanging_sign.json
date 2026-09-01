@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "C C",
+    "###",
+    "###"
+  ],
+  "key": {
+    "#": "teyvat:stripped_sunnsettia_log",
+    "C": "minecraft:chain"
+  },
+  "result": {
+    "id": "teyvat:sunnsettia_hanging_sign",
+    "count": 6
+  }
+}

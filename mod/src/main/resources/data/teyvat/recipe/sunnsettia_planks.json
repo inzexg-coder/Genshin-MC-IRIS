@@ -1,0 +1,22 @@
+{
+  "type": "minecraft:crafting_shapeless",
+  "category": "building",
+  "ingredients": [
+    {
+      "item": "teyvat:sunnsettia_log"
+    },
+    {
+      "item": "teyvat:stripped_sunnsettia_log"
+    },
+    {
+      "item": "teyvat:sunnsettia_wood"
+    },
+    {
+      "item": "teyvat:stripped_sunnsettia_wood"
+    }
+  ],
+  "result": {
+    "id": "teyvat:sunnsettia_planks",
+    "count": 4
+  }
+}

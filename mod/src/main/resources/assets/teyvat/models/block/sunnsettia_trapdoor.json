@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:block/trapdoor",
+  "textures": {
+    "texture": "teyvat:block/sunnsettia_trapdoor"
+  }
+}
