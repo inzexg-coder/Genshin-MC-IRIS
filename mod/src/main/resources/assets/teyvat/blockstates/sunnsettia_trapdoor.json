@@ -1,58 +1,56 @@
 {
   "variants": {
-    "facing=east,half=bottom,open=False": {
-      "model": "teyvat:block/sunnsettia_trapdoor"
+    "facing=east,half=bottom,open=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_bottom"
     },
-    "facing=east,half=bottom,open=True": {
+    "facing=east,half=bottom,open=true": {
       "model": "teyvat:block/sunnsettia_trapdoor_open",
       "y": 90
     },
-    "facing=east,half=top,open=False": {
+    "facing=east,half=top,open=false": {
       "model": "teyvat:block/sunnsettia_trapdoor_top"
     },
-    "facing=east,half=top,open=True": {
+    "facing=east,half=top,open=true": {
       "model": "teyvat:block/sunnsettia_trapdoor_open",
       "y": 90
     },
-    "facing=north,half=bottom,open=False": {
-      "model": "teyvat:block/sunnsettia_trapdoor"
+    "facing=north,half=bottom,open=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_bottom"
     },
-    "facing=north,half=bottom,open=True": {
-      "model": "teyvat:block/sunnsettia_trapdoor_open",
-      "y": 0
+    "facing=north,half=bottom,open=true": {
+      "model": "teyvat:block/sunnsettia_trapdoor_open"
     },
-    "facing=north,half=top,open=False": {
+    "facing=north,half=top,open=false": {
       "model": "teyvat:block/sunnsettia_trapdoor_top"
     },
-    "facing=north,half=top,open=True": {
-      "model": "teyvat:block/sunnsettia_trapdoor_open",
-      "y": 0
+    "facing=north,half=top,open=true": {
+      "model": "teyvat:block/sunnsettia_trapdoor_open"
     },
-    "facing=south,half=bottom,open=False": {
-      "model": "teyvat:block/sunnsettia_trapdoor"
+    "facing=south,half=bottom,open=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_bottom"
     },
-    "facing=south,half=bottom,open=True": {
+    "facing=south,half=bottom,open=true": {
       "model": "teyvat:block/sunnsettia_trapdoor_open",
       "y": 180
     },
-    "facing=south,half=top,open=False": {
+    "facing=south,half=top,open=false": {
       "model": "teyvat:block/sunnsettia_trapdoor_top"
     },
-    "facing=south,half=top,open=True": {
+    "facing=south,half=top,open=true": {
       "model": "teyvat:block/sunnsettia_trapdoor_open",
       "y": 180
     },
-    "facing=west,half=bottom,open=False": {
-      "model": "teyvat:block/sunnsettia_trapdoor"
+    "facing=west,half=bottom,open=false": {
+      "model": "teyvat:block/sunnsettia_trapdoor_bottom"
     },
-    "facing=west,half=bottom,open=True": {
+    "facing=west,half=bottom,open=true": {
       "model": "teyvat:block/sunnsettia_trapdoor_open",
       "y": 270
     },
-    "facing=west,half=top,open=False": {
+    "facing=west,half=top,open=false": {
       "model": "teyvat:block/sunnsettia_trapdoor_top"
     },
-    "facing=west,half=top,open=True": {
+    "facing=west,half=top,open=true": {
       "model": "teyvat:block/sunnsettia_trapdoor_open",
       "y": 270
     }

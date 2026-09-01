@@ -1,8 +1,0 @@
-{
-  "parent": "minecraft:block/outer_stairs_top",
-  "textures": {
-    "bottom": "teyvat:block/sunnsettia_planks",
-    "top": "teyvat:block/sunnsettia_planks",
-    "side": "teyvat:block/sunnsettia_planks"
-  }
-}

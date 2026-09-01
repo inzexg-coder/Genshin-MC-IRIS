@@ -1,204 +1,208 @@
 {
   "variants": {
-    "east=true,half=bottom,north=false,shape=inner_left,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_left",
-      "y": 90,
-      "x": 0
+    "facing=east,half=bottom,shape=inner_left": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "uvlock": true,
+      "y": 270
     },
-    "east=true,half=bottom,north=false,shape=inner_right,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_right",
-      "y": 90,
-      "x": 0
+    "facing=east,half=bottom,shape=inner_right": {
+      "model": "teyvat:block/sunnsettia_stairs_inner"
     },
-    "east=true,half=bottom,north=false,shape=outer_left,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_left",
-      "y": 90,
-      "x": 0
+    "facing=east,half=bottom,shape=outer_left": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "uvlock": true,
+      "y": 270
     },
-    "east=true,half=bottom,north=false,shape=outer_right,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_right",
-      "y": 90,
-      "x": 0
+    "facing=east,half=bottom,shape=outer_right": {
+      "model": "teyvat:block/sunnsettia_stairs_outer"
     },
-    "east=true,half=bottom,north=false,shape=straight,south=false,waterlogged=false,west=false": {
+    "facing=east,half=bottom,shape=straight": {
       "model": "teyvat:block/sunnsettia_stairs",
-      "y": 90,
-      "x": 0
+      "uvlock": true,
+      "y": 270
     },
-    "east=true,half=top,north=false,shape=inner_left,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_left_top",
-      "y": 90,
-      "x": 180
+    "facing=east,half=top,shape=inner_left": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "x": 180,
+      "uvlock": true,
+      "y": 270
     },
-    "east=true,half=top,north=false,shape=inner_right,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_right_top",
-      "y": 90,
-      "x": 180
+    "facing=east,half=top,shape=inner_right": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "x": 180,
+      "uvlock": true,
+      "y": 0
     },
-    "east=true,half=top,north=false,shape=outer_left,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_left_top",
-      "y": 90,
-      "x": 180
+    "facing=east,half=top,shape=outer_left": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "x": 180,
+      "uvlock": true,
+      "y": 270
     },
-    "east=true,half=top,north=false,shape=outer_right,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_right_top",
-      "y": 90,
-      "x": 180
+    "facing=east,half=top,shape=outer_right": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "x": 180,
+      "uvlock": true,
+      "y": 0
     },
-    "east=true,half=top,north=false,shape=straight,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_top",
-      "y": 90,
-      "x": 180
-    },
-    "east=false,half=bottom,north=true,shape=inner_left,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_left",
-      "y": 180,
-      "x": 0
-    },
-    "east=false,half=bottom,north=true,shape=inner_right,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_right",
-      "y": 180,
-      "x": 0
-    },
-    "east=false,half=bottom,north=true,shape=outer_left,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_left",
-      "y": 180,
-      "x": 0
-    },
-    "east=false,half=bottom,north=true,shape=outer_right,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_right",
-      "y": 180,
-      "x": 0
-    },
-    "east=false,half=bottom,north=true,shape=straight,south=false,waterlogged=false,west=false": {
+    "facing=east,half=top,shape=straight": {
       "model": "teyvat:block/sunnsettia_stairs",
-      "y": 180,
-      "x": 0
+      "x": 180,
+      "uvlock": true,
+      "y": 270
     },
-    "east=false,half=top,north=true,shape=inner_left,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_left_top",
-      "y": 180,
-      "x": 180
+    "facing=north,half=bottom,shape=inner_left": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "uvlock": true,
+      "y": 180
     },
-    "east=false,half=top,north=true,shape=inner_right,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_right_top",
-      "y": 180,
-      "x": 180
+    "facing=north,half=bottom,shape=inner_right": {
+      "model": "teyvat:block/sunnsettia_stairs_inner"
     },
-    "east=false,half=top,north=true,shape=outer_left,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_left_top",
-      "y": 180,
-      "x": 180
+    "facing=north,half=bottom,shape=outer_left": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "uvlock": true,
+      "y": 180
     },
-    "east=false,half=top,north=true,shape=outer_right,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_right_top",
-      "y": 180,
-      "x": 180
+    "facing=north,half=bottom,shape=outer_right": {
+      "model": "teyvat:block/sunnsettia_stairs_outer"
     },
-    "east=false,half=top,north=true,shape=straight,south=false,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_top",
-      "y": 180,
-      "x": 180
-    },
-    "east=false,half=bottom,north=false,shape=inner_left,south=true,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_left",
-      "y": 0,
-      "x": 0
-    },
-    "east=false,half=bottom,north=false,shape=inner_right,south=true,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_right",
-      "y": 0,
-      "x": 0
-    },
-    "east=false,half=bottom,north=false,shape=outer_left,south=true,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_left",
-      "y": 0,
-      "x": 0
-    },
-    "east=false,half=bottom,north=false,shape=outer_right,south=true,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_right",
-      "y": 0,
-      "x": 0
-    },
-    "east=false,half=bottom,north=false,shape=straight,south=true,waterlogged=false,west=false": {
+    "facing=north,half=bottom,shape=straight": {
       "model": "teyvat:block/sunnsettia_stairs",
-      "y": 0,
-      "x": 0
+      "uvlock": true,
+      "y": 180
     },
-    "east=false,half=top,north=false,shape=inner_left,south=true,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_left_top",
-      "y": 0,
-      "x": 180
+    "facing=north,half=top,shape=inner_left": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "x": 180,
+      "uvlock": true,
+      "y": 180
     },
-    "east=false,half=top,north=false,shape=inner_right,south=true,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_right_top",
-      "y": 0,
-      "x": 180
+    "facing=north,half=top,shape=inner_right": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "x": 180,
+      "uvlock": true,
+      "y": 270
     },
-    "east=false,half=top,north=false,shape=outer_left,south=true,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_left_top",
-      "y": 0,
-      "x": 180
+    "facing=north,half=top,shape=outer_left": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "x": 180,
+      "uvlock": true,
+      "y": 180
     },
-    "east=false,half=top,north=false,shape=outer_right,south=true,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_right_top",
-      "y": 0,
-      "x": 180
+    "facing=north,half=top,shape=outer_right": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "x": 180,
+      "uvlock": true,
+      "y": 270
     },
-    "east=false,half=top,north=false,shape=straight,south=true,waterlogged=false,west=false": {
-      "model": "teyvat:block/sunnsettia_stairs_top",
-      "y": 0,
-      "x": 180
-    },
-    "east=false,half=bottom,north=false,shape=inner_left,south=false,waterlogged=false,west=true": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_left",
-      "y": 270,
-      "x": 0
-    },
-    "east=false,half=bottom,north=false,shape=inner_right,south=false,waterlogged=false,west=true": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_right",
-      "y": 270,
-      "x": 0
-    },
-    "east=false,half=bottom,north=false,shape=outer_left,south=false,waterlogged=false,west=true": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_left",
-      "y": 270,
-      "x": 0
-    },
-    "east=false,half=bottom,north=false,shape=outer_right,south=false,waterlogged=false,west=true": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_right",
-      "y": 270,
-      "x": 0
-    },
-    "east=false,half=bottom,north=false,shape=straight,south=false,waterlogged=false,west=true": {
+    "facing=north,half=top,shape=straight": {
       "model": "teyvat:block/sunnsettia_stairs",
-      "y": 270,
-      "x": 0
+      "x": 180,
+      "uvlock": true,
+      "y": 180
     },
-    "east=false,half=top,north=false,shape=inner_left,south=false,waterlogged=false,west=true": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_left_top",
-      "y": 270,
-      "x": 180
+    "facing=south,half=bottom,shape=inner_left": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "uvlock": true,
+      "y": 0
     },
-    "east=false,half=top,north=false,shape=inner_right,south=false,waterlogged=false,west=true": {
-      "model": "teyvat:block/sunnsettia_stairs_inner_right_top",
-      "y": 270,
-      "x": 180
+    "facing=south,half=bottom,shape=inner_right": {
+      "model": "teyvat:block/sunnsettia_stairs_inner"
     },
-    "east=false,half=top,north=false,shape=outer_left,south=false,waterlogged=false,west=true": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_left_top",
-      "y": 270,
-      "x": 180
+    "facing=south,half=bottom,shape=outer_left": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "uvlock": true,
+      "y": 0
     },
-    "east=false,half=top,north=false,shape=outer_right,south=false,waterlogged=false,west=true": {
-      "model": "teyvat:block/sunnsettia_stairs_outer_right_top",
-      "y": 270,
-      "x": 180
+    "facing=south,half=bottom,shape=outer_right": {
+      "model": "teyvat:block/sunnsettia_stairs_outer"
     },
-    "east=false,half=top,north=false,shape=straight,south=false,waterlogged=false,west=true": {
-      "model": "teyvat:block/sunnsettia_stairs_top",
-      "y": 270,
-      "x": 180
+    "facing=south,half=bottom,shape=straight": {
+      "model": "teyvat:block/sunnsettia_stairs",
+      "uvlock": true,
+      "y": 0
+    },
+    "facing=south,half=top,shape=inner_left": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "x": 180,
+      "uvlock": true,
+      "y": 0
+    },
+    "facing=south,half=top,shape=inner_right": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "x": 180,
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=south,half=top,shape=outer_left": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "x": 180,
+      "uvlock": true,
+      "y": 0
+    },
+    "facing=south,half=top,shape=outer_right": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "x": 180,
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=south,half=top,shape=straight": {
+      "model": "teyvat:block/sunnsettia_stairs",
+      "x": 180,
+      "uvlock": true,
+      "y": 0
+    },
+    "facing=west,half=bottom,shape=inner_left": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=west,half=bottom,shape=inner_right": {
+      "model": "teyvat:block/sunnsettia_stairs_inner"
+    },
+    "facing=west,half=bottom,shape=outer_left": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=west,half=bottom,shape=outer_right": {
+      "model": "teyvat:block/sunnsettia_stairs_outer"
+    },
+    "facing=west,half=bottom,shape=straight": {
+      "model": "teyvat:block/sunnsettia_stairs",
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=west,half=top,shape=inner_left": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "x": 180,
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=west,half=top,shape=inner_right": {
+      "model": "teyvat:block/sunnsettia_stairs_inner",
+      "x": 180,
+      "uvlock": true,
+      "y": 180
+    },
+    "facing=west,half=top,shape=outer_left": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "x": 180,
+      "uvlock": true,
+      "y": 90
+    },
+    "facing=west,half=top,shape=outer_right": {
+      "model": "teyvat:block/sunnsettia_stairs_outer",
+      "x": 180,
+      "uvlock": true,
+      "y": 180
+    },
+    "facing=west,half=top,shape=straight": {
+      "model": "teyvat:block/sunnsettia_stairs",
+      "x": 180,
+      "uvlock": true,
+      "y": 90
     }
   }
 }
