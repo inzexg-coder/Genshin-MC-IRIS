@@ -186,7 +186,7 @@ public final class HealthOverlay {
         if (lastHealth >= 0f && health > lastHealth) {
             healVisualAmount = health - lastHealth;
             healVisualStartTick = now;
-            prevFill = fill;  // remember fill BEFORE healing
+            prevFill = (int) (barW * Math.max(0f, Math.min(1f, lastHealth / maxHealth)));
         }
         lastHealth = health;
 
