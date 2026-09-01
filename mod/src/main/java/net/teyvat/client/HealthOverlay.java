@@ -70,6 +70,7 @@ public final class HealthOverlay {
     private static float lastHealth = -1f;
     private static float healVisualAmount = 0f;
     private static long healVisualStartTick = 0;
+    private static float healVisualMaxHP = 20f;
     /** Длительность зелёной заливки (в тиках, 20 тиков = 1 сек). */
     private static final long HEAL_VISUAL_TICKS = 80;
 
@@ -181,40 +182,44 @@ public final class HealthOverlay {
         int halfH = BAR_H / 2;
         int fill = (int) (barW * Math.max(0f, Math.min(1f, health / maxHealth)));
 
-        // --- Эффект лечения: зелёная заливка на пустом месте ---
+        // --- Эффект лечения ---
         if (lastHealth >= 0f && health > lastHealth) {
             healVisualAmount = health - lastHealth;
             healVisualStartTick = now;
+            healVisualMaxHP = maxHealth;
         }
         lastHealth = health;
 
         float healAlpha = 0f;
-        int healFill = 0;
+        int healTargetEnd = 0;
         if (healVisualAmount > 0f) {
             long elapsed = now - healVisualStartTick;
             if (elapsed < HEAL_VISUAL_TICKS) {
                 healAlpha = 1f - (float) elapsed / HEAL_VISUAL_TICKS;
-                healFill = (int) (barW * Math.min(1f, healVisualAmount / maxHealth));
+                healTargetEnd = (int) (barW * Math.min(1f, (health) / healVisualMaxHP));
             } else {
                 healVisualAmount = 0f;
             }
         }
 
-        // Тёмно-синяя подложка (глубже цвета панели заметок).
+        // Тёмно-синяя подложка.
         context.fill(-halfW, -halfH, halfW, halfH, withAlpha(0xFF070B14, alpha));
+
+        // Зелёная заливка疗法 (под текущим HP, показывает «куда заполнится»).
+        if (healAlpha > 0f && healTargetEnd > fill) {
+            int gAlpha = (int) (255 * healAlpha);
+            int gTop = (gAlpha << 24) | 0x0040D040;
+            int gBot = (gAlpha << 24) | 0x0030B030;
+            context.fill(-halfW, -halfH, -halfW + healTargetEnd, 0, withAlpha(gTop, alpha));
+            context.fill(-halfW, 0, -halfW + healTargetEnd, halfH, withAlpha(gBot, alpha));
+        }
+
         if (fill > 0) {
-            // Заполнение в цвете заметок: чуть светлее сверху, темнее снизу.
+            // Заполнение HP.
             context.fill(-halfW, -halfH, -halfW + fill, 0, withAlpha(0xE61B2338, alpha));
             context.fill(-halfW, 0, -halfW + fill, halfH, withAlpha(0xE614202E, alpha));
-            // Тонкий стальной блик по верхнему краю заполнения.
+            // Блик.
             context.fill(-halfW, -halfH, -halfW + fill, -halfH + 1, withAlpha(0x50A8C4E8, alpha));
-        }
-        // Зелёная заливка лечения на пустом месте (плавное затухание 4 сек).
-        if (healAlpha > 0f && healFill > 0) {
-            int healStart = fill;
-            int healEnd = Math.min(fill + healFill, barW);
-            context.fill(-halfW + healStart, -halfH, -halfW + healEnd, 0, withAlpha(0xFF40C040, alpha * healAlpha));
-            context.fill(-halfW + healStart, 0, -halfW + healEnd, halfH, withAlpha(0xFF30A030, alpha * healAlpha));
         }
 
         // Витиеватая золотая рамка: штрихи по верху и низу, сплошные бока.
@@ -238,9 +243,10 @@ public final class HealthOverlay {
         String text = Math.round(health) + "/" + Math.round(maxHealth);
         context.drawText(tr, text, halfW + 10, -4, withAlpha(0xFFE8C86A, alpha), true);
         // "+x" зелёным при лечении (плавное затухание 4 сек).
-        if (healAlpha > 0f) {
-            int healColor = withAlpha(0xFF50E050, alpha * healAlpha);
+        if (healAlpha > 0f && healVisualAmount > 0f) {
             String healText = "+" + Math.round(healVisualAmount);
+            int gA = (int) (255 * healAlpha);
+            int healColor = (gA << 24) | 0x0040FF40;
             context.drawText(tr, healText, halfW + 10, -14, withAlpha(healColor, alpha), true);
         }
         m.popMatrix();
